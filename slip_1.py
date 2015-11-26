@@ -5,6 +5,7 @@ import collections
 
 
 def sp_eval( env, expr ):
+    # bytes==string, string==identifier
     if isinstance(expr, (bytes,float,int)):
         return expr
     elif isinstance(expr, str):

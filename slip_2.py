@@ -2,6 +2,7 @@
 # basic evaluation, lambda, apply etc
 
 import collections
+import re
 
 
 def sp_eval( env, expr ):
@@ -75,6 +76,7 @@ def b_print(env, args):
     print(" ".join(str(sp_eval(env,a)) for a in args[1:]))
     return None
 
+
 def s_read2(txt):
     txt = txt.lstrip()
     if txt[0] == "(":
@@ -88,9 +90,11 @@ def s_read2(txt):
         item, txt = txt[1:].split('"',1)
         item = item.encode("ascii")
     elif txt[0].isalpha():
-        item, txt = txt.split(None,1)
+        item = re.match("[a-zA-Z]+",txt).group()
+        txt = txt[len(item):]
     elif txt[0].isdigit():
-        item, txt = txt.split(None,1)
+        item = re.match("[0-9]+",txt).group()
+        txt = txt[len(item):]
         item = int(item)
     else:
         raise RuntimeError(txt)
@@ -111,7 +115,7 @@ def main():
     for k,v in globals().items():
         if k.startswith("b_"):
             env[k[2:]].append(v)
-    prog = s_read(open("slip_2.slip").read().replace('(',' ( ').replace(')',' ) '))
+    prog = s_read(open("slip_2.slip").read())
     print(prog)
     print(sp_eval(env, prog))
 
