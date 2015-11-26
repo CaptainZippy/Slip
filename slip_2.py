@@ -71,19 +71,48 @@ def b_lambda(env, args):
     return Lambda(args[1],args[2])
 
 
+def b_print(env, args):
+    print(" ".join(str(sp_eval(env,a)) for a in args[1:]))
+    return None
+
+def s_read2(txt):
+    txt = txt.lstrip()
+    if txt[0] == "(":
+        txt = txt[1:].lstrip()
+        item = []
+        while txt[0]!=")":
+            it, txt = s_read2(txt)
+            item.append(it)
+        txt = txt[1:]
+    elif txt[0] == '"':
+        item, txt = txt[1:].split('"',1)
+        item = item.encode("ascii")
+    elif txt[0].isalpha():
+        item, txt = txt.split(None,1)
+    elif txt[0].isdigit():
+        item, txt = txt.split(None,1)
+        item = int(item)
+    else:
+        raise RuntimeError(txt)
+        assert 0
+    assert item
+    return item, txt.lstrip()
+
+
+def s_read(txt):
+    ret = ["begin"]
+    while txt:
+        item, txt = s_read2(txt)
+        ret.append(item)
+    return ret
+
 def main():
-    prog = ["begin",
-        ["define", "x", 10],
-        ["define", "y", 20],
-        [["lambda", ["x", "z"], ["mul", "x", ["plus", "x", "z"]]], 13, 17],
-        ["define", "test", ["lambda", ["a", "b", "c"],
-            ["plus", ["mul","a","a"], ["mul","b","b"], "c"]]],
-        ["test", 11,21,31],
-    ]
     env = collections.defaultdict(list)
     for k,v in globals().items():
         if k.startswith("b_"):
             env[k[2:]].append(v)
+    prog = s_read(open("slip_2.slip").read().replace('(',' ( ').replace(')',' ) '))
+    print(prog)
     print(sp_eval(env, prog))
 
 

@@ -1,0 +1,3 @@
+(print "hello")
+(define foo (lambda (a b) (plus a b)))
+(print (foo 7 13))
