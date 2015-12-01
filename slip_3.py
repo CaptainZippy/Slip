@@ -1,7 +1,7 @@
 
 # replace dynamic scoping with lexical
 
-import collections
+
 import re
 
 
@@ -9,6 +9,7 @@ class Symtab:
     def __init__(self, parent=None):
         self.keys = {}
         self.parent = parent
+
     def get(self, key):
         tab = self
         while tab:
@@ -17,14 +18,16 @@ class Symtab:
                 return v
             tab = tab.parent
         raise KeyError(key)
+
     def set(self, key, val):
-        assert self.keys.get(key)==None
+        assert self.keys.get(key) is None
         self.keys[key] = val
+
     def pop(self, key):
         self.keys.pop(key)
 
 
-def sp_eval( env, expr ):
+def sp_eval(env, expr):
     if isinstance(expr, (bytes,float,int)):
         return expr
     elif isinstance(expr, str):
@@ -62,7 +65,7 @@ def b_begin(env, args):
 
 def b_define(env, args):
     assert(len(args)==3 and type(args[1])==str)
-    env.set(args[1], sp_eval(env,args[2]) )
+    env.set(args[1], sp_eval(env,args[2]))
 
 
 def b_plus(env, args):
