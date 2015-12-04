@@ -182,7 +182,6 @@ def main():
         if k.startswith("b_"):
             env.set(k[2:], v)
     prog = s_read(open("slip_4.slip").read())
-    #pprint.pprint(env.keys)
     pprint.pprint(prog)
     print(b_eval(env, prog))
 
