@@ -1,0 +1,36 @@
+;(print "hello")
+;(begin (define c 100)) ; begin introduces a new scope
+;(define c 100) ; this is in the global scope
+;(define foo (lambda (a b) (plus a b c)))
+(func foo (a b c)
+  (cond (c (foo (plus a 1) (plus a b) (sub c 1)))
+        (1 (plus a b ))))
+
+(print "foo" (foo 3 33 2))
+
+(func fib-recursive (n) (cond
+   (n (mul n (fib-recursive (sub n 1))))
+   (1 1)))
+(print (fib-recursive 15))
+
+(func fib-iter (n)
+  (begin
+    (func fib-aux (n acc)
+      (if n (fib-aux (sub n 1) (mul n acc)) acc))
+    (fib-aux n 1)))
+(print (fib-iter 15))
+
+
+(define fib-iter2 (lambda (n)
+  (begin
+    (func fib-aux (n acc)
+      (if n (fib-aux (sub n 1) (mul n acc)) acc))
+    (fib-aux n 1))))
+(print (fib-iter2 15))
+
+; (begin (print (foo 3 33)))
+; (begin (define c 100) (print (foo 3 33)))
+;(define pp
+;   (vau (x) e (print (eval x e))))
+;(print)
+; (print (eval foo foo))
