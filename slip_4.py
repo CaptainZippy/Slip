@@ -6,10 +6,14 @@ import re
 import pprint
 
 
-class Symtab:
-    def __init__(self, parent=None):
+class Env:
+    def __init__(self, parent, keys=None, vals=None):
         self.keys = {}
         self.parent = parent
+        if keys or vals:
+            assert(len(keys)==len(vals))
+            for n,v in zip(keys, vals):
+                self.set(n, b_eval(parent,v))
 
     def get(self, key):
         tab = self
@@ -23,36 +27,14 @@ class Symtab:
     def set(self, key, val):
         assert self.keys.get(key) is None
         self.keys[key] = val
-
-    def pop(self, key):
-        self.keys.pop(key)
+        return val
 
 
-class Operative:
-    pass
-
-
-class Applicative:
-    pass
-
-
-class Lambda:
-    def __init__(self, args, body):
-        self.args, self.body = args, body
-
-    def __call__(self, env, *args):
-        assert(len(self.args)==len(args))
-        #print("LAM", list(zip(self.args, args)))
-        lenv = Symtab(env)
-        for n,v in zip(self.args, args):
-            lenv.set(n, b_eval(env,v))
-        return b_eval(lenv, self.body)
-
-
-class Builtin:
-    def __init__(self, f):
-        self.func = f
-
+def b_wrap(env, expr):
+    func = b_eval(env, expr)
+    def closure(e, *args):
+        return func( e, *[b_eval(e, a) for a in args] )
+    return closure
 
 def b_eval(env, expr):
     #print("EVAL", expr)
@@ -66,22 +48,39 @@ def b_eval(env, expr):
     else:
         assert(0)
 
+def b_comp1(env, denv, expr):
+    return b_eval(denv, expr)
 
 def b_begin(env, *args):
     r = None
-    lenv = Symtab(env)
+    lenv = Env(env)
     for e in args:
         r = b_eval(lenv, e)
     return r
 
 
 def b_define(env, sym, val):
-    env.set(sym, b_eval(env,val))
+    return env.set(sym, b_eval(env,val))
 
 
-def b_vau(env, args):
-    assert(len(args)==3 and type(args[1])==str)
-    env.set(args[1], b_eval(env,args[2]))
+def b_lambda(lex_env, vars, body):
+    def closure(call_env, *args):
+        e = Env(lex_env, vars, [b_eval(call_env,a) for a in args])
+        return b_eval(e, body)
+    return closure
+
+
+b_func = b_lambda
+#def b_func(env, name, args, body):
+#;    return env.set(name, b_lambda(env, args, body))
+
+
+def b_vau(lex_env, vars, sym, body):
+    def closure(call_env, *args):
+        e = Env(lex_env, vars, args)
+        e.set(sym, call_env)
+        return b_eval(e, body)
+    return closure
 
 
 def b_plus(env, *args):
@@ -105,12 +104,6 @@ def b_mul(env, *args):
     return acc
 
 
-def b_func(env, name, args, body):
-    l = Lambda(args,body)
-    env.set(name, l)
-    return l
-
-
 def b_cond(env, *cases):
     for c,b in cases:
         if b_eval(env, c):
@@ -123,10 +116,6 @@ def b_if(env, test, yes, no):
         return b_eval(env, yes)
     else:
         return b_eval(env, no)
-
-
-def b_lambda(env, args, body):
-    return Lambda(args, body)
 
 
 def b_print(env, *args):
@@ -177,7 +166,7 @@ def s_read(txt):
 
 
 def main():
-    env = Symtab()
+    env = Env(None)
     for k,v in globals().items():
         if k.startswith("b_"):
             env.set(k[2:], v)
