@@ -5,6 +5,9 @@
 import re
 import pprint
 
+def p(*args):
+    for a in args:
+        pprint.pprint(a)
 
 class Env:
     def __init__(self, parent, keys=None, vals=None):
@@ -13,7 +16,10 @@ class Env:
         if keys or vals:
             assert(len(keys)==len(vals))
             for n,v in zip(keys, vals):
-                self.set(n, b_eval(parent,v))
+                self.set(n, v)
+
+    def __repr__(self):
+        return repr(self.keys) + repr(self.parent) if self.parent else ""
 
     def get(self, key):
         tab = self
@@ -30,11 +36,16 @@ class Env:
         return val
 
 
+class Wrap:
+    def __init__(self, func):
+        self.func = func
+    def __call__(self, call_env, *args):
+        return self.func( call_env, *[b_eval(call_env, a) for a in args] )
+
+
 def b_wrap(env, expr):
-    func = b_eval(env, expr)
-    def closure(e, *args):
-        return func( e, *[b_eval(e, a) for a in args] )
-    return closure
+    return Wrap(b_eval(env, expr))
+
 
 def b_eval(env, expr):
     #print("EVAL", expr)
@@ -46,16 +57,19 @@ def b_eval(env, expr):
         func = b_eval(env, expr[0])
         return func(env, *expr[1:])
     else:
+        print(type(expr))
         assert(0)
+
 
 def b_comp1(env, denv, expr):
     return b_eval(denv, expr)
 
+
 def b_begin(env, *args):
     r = None
     lenv = Env(env)
-    for e in args:
-        r = b_eval(lenv, e)
+    for a in args:
+        r = b_eval(lenv, a)
     return r
 
 
@@ -63,24 +77,42 @@ def b_define(env, sym, val):
     return env.set(sym, b_eval(env,val))
 
 
+class Lambda:
+    def __init__(self, lex_env, vars, body):
+        self.lex_env = lex_env
+        self.vars = vars
+        self.body = body
+    def __call__(self, call_env, *args):
+        e = Env(self.lex_env, self.vars, [b_eval(call_env,a) for a in args])
+        return b_eval(e, self.body)
+
+
 def b_lambda(lex_env, vars, body):
-    def closure(call_env, *args):
-        e = Env(lex_env, vars, [b_eval(call_env,a) for a in args])
-        return b_eval(e, body)
-    return closure
+    return Lambda(lex_env, vars, body)
 
 
-b_func = b_lambda
-#def b_func(env, name, args, body):
-#;    return env.set(name, b_lambda(env, args, body))
+def b_func(env, name, vars, *body):
+    return b_define(env, name, ["lambda", vars, ["begin", *body]])
+
+
+class Vau:
+    def __init__(self, lex_env, vars, sym, body):
+        self.lex_env = lex_env
+        self.vars = vars
+        self.sym = sym
+        self.body = body
+    def __call__(self, call_env, *args):
+        e = Env(self.lex_env, self.vars, args)
+        e.set(self.sym, call_env)
+        return b_eval(e, self.body)
 
 
 def b_vau(lex_env, vars, sym, body):
-    def closure(call_env, *args):
-        e = Env(lex_env, vars, args)
-        e.set(sym, call_env)
-        return b_eval(e, body)
-    return closure
+    return Vau(lex_env, vars, sym, body)
+
+
+def b_macro(env, name, vars, sym, body):
+    return b_define(env, name, ["vau", vars, sym, body])
 
 
 def b_plus(env, *args):
@@ -134,7 +166,10 @@ def s_read2(txt):
         txt = txt[1:].lstrip()
         item = []
         while txt[0]!=")":
-            it, txt = s_read2(txt)
+            try:
+                it, txt = s_read2(txt)
+            except EOFError:
+                raise RuntimeError("Mismatched brace")
             item.append(it)
         txt = txt[1:]
     elif txt[0] == '"':
@@ -169,6 +204,7 @@ def main():
     env = Env(None)
     for k,v in globals().items():
         if k.startswith("b_"):
+            p(k)
             env.set(k[2:], v)
     prog = s_read(open("slip_4.slip").read())
     pprint.pprint(prog)
