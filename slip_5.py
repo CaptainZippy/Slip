@@ -155,59 +155,76 @@ def b_print(env, *args):
     return None
 
 
-def s_read2(txt):
-    txt = txt.lstrip()
-    item = None
-    while txt.startswith(";"):
-        txt = txt.split("\n",1)[1].lstrip()
-    if not txt:
-        raise EOFError()
-    elif txt[0] == "(":
-        txt = txt[1:].lstrip()
-        item = []
-        while txt[0]!=")":
-            try:
-                it, txt = s_read2(txt)
-            except EOFError:
-                raise RuntimeError("Mismatched brace")
-            item.append(it)
-        txt = txt[1:]
-    elif txt[0] == '"':
-        item, txt = txt[1:].split('"',1)
-        item = item.encode("utf8")
-    elif txt[0].isalpha():
-        item = re.match("[$a-zA-Z_\-\?!0-9]+",txt).group()
-        txt = txt[len(item):]
-    elif txt[0].isdigit():
-        item = re.match("[0-9]+",txt).group()
-        txt = txt[len(item):]
-        item = int(item)
-    else:
-        raise RuntimeError(txt)
-        assert 0
-    assert item is not None
-    return item, txt.lstrip()
-
-
-def s_read(txt):
+def s_read(txt, inputname="<input>"):
+    def lineof(txt, pos):
+        return txt.count("\n", 0, pos)+1
+    def context(txt, pos):
+        return txt[pos:min(len(txt),pos+30)].replace("\n","\\n")
+    class ParseError(RuntimeError):
+        def __init__(self, msg):
+            RuntimeError.__init__(self,"%s:%s:%s near '%s'" % (inputname, msg, lineof(txt,pos), context(txt,pos)))
     ret = ["begin"]
-    while txt:
-        try:
-            item, txt = s_read2(txt)
-        except EOFError:
+    stack = [ ret ]
+    reg = re.compile(r"""
+        (?P<white>\s+) |
+        (?P<comment>;[^\n]+) |
+        (?P<open>\() |
+        (?P<close>\)) |
+        (?P<ident>[$a-zA-Z_][a-zA-Z0-9-]*) |
+        (?P<qstring>"[^"]*") |
+        (?P<num>[0-9][a-zA-Z0-9_-]*)
+        """, re.VERBOSE)
+    def white(m):
+        pass
+    def comment(m):
+        pass
+    def open(m):
+        l = []
+        stack[-1].append(l)
+        stack.append(l)
+    def close(m):
+        stack.pop()
+        if len(stack)==0:
+            raise ParseError("Extra ')'")
+    def ident(m):
+        stack[-1].append(m.group())
+    def qstring(m):
+        item = m.group()[1:-1]
+        stack[-1].append(item.encode("utf8"))
+    def num(m):
+        stack[-1].append(int(m.group()))
+    actions = locals()
+    pos = 0
+    while 1:
+        m = reg.match(txt, pos)
+        if m:
+            actions[m.lastgroup](m)
+            pos = m.end()
+        elif pos==len(txt):
             break
-        ret.append(item)
+        else:
+            raise ParseError("unrecognized token")
+    if len(stack)!=1:
+        raise ParseError("open brace at eof")
     return ret
+
+
+def s_readfile(fname):
+    return s_read(open(fname).read(), fname)
 
 
 def main():
     env = Env(None)
     for k,v in globals().items():
         if k.startswith("b_"):
-            p(k)
+            #p(k)
             env.set(k[2:], v)
-    prog = s_read(open("slip_4.slip").read())
-    pprint.pprint(prog)
+    try:
+        prog = s_readfile("slip_5.slip")
+    except RuntimeError as err:
+        print(err)
+        return None
+    #pprint.pprint(prog)
     print(b_eval(env, prog))
 
 

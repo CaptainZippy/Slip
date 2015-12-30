@@ -1,3 +1,4 @@
+
 (define quote (vau (expr) env expr))
 (define comp (wrap comp1))
 
@@ -48,7 +49,6 @@
       (if n (fib-aux (sub n 1) (mul n acc)) acc))
     (fib-aux n 1))
 (print (fib-iter 15))
-
 
 (define fib-iter2 (lambda (n) (begin
   (define fib-aux (lambda (n acc)
