@@ -9,6 +9,16 @@ def p(*args):
     for a in args:
         pprint.pprint(a)
 
+class Num(int):
+    pass
+class String(bytes):
+    pass
+class Ident(str):
+    pass
+class List(list):
+    def __init__(self,*args):
+        self.extend(args)
+
 class Env:
     def __init__(self, parent, keys=None, vals=None):
         self.keys = {}
@@ -49,11 +59,11 @@ def b_wrap(env, expr):
 
 def b_eval(env, expr):
     #print("EVAL", expr)
-    if isinstance(expr, (bytes,float,int)):
+    if isinstance(expr, (String,Num)):
         return expr
-    elif isinstance(expr, str):
+    elif isinstance(expr, Ident):
         return env.get(expr)
-    elif isinstance(expr, list):
+    elif isinstance(expr, List):
         func = b_eval(env, expr[0])
         return func(env, *expr[1:])
     else:
@@ -92,7 +102,7 @@ def b_lambda(lex_env, vars, body):
 
 
 def b_func(env, name, vars, *body):
-    return b_define(env, name, ["lambda", vars, ["begin", *body]])
+    return b_define(env, name, List(Ident("lambda"), vars, List(Ident("begin"), *body)))
 
 
 class Vau:
@@ -112,7 +122,7 @@ def b_vau(lex_env, vars, sym, body):
 
 
 def b_macro(env, name, vars, sym, body):
-    return b_define(env, name, ["vau", vars, sym, body])
+    return b_define(env, name, List(Ident("vau"), vars, sym, body))
 
 
 def b_plus(env, *args):
@@ -163,7 +173,7 @@ def s_read(txt, inputname="<input>"):
     class ParseError(RuntimeError):
         def __init__(self, msg):
             RuntimeError.__init__(self,"%s:%s:%s near '%s'" % (inputname, msg, lineof(txt,pos), context(txt,pos)))
-    ret = ["begin"]
+    ret = List(Ident("begin"))
     stack = [ ret ]
     reg = re.compile(r"""
         (?P<white>\s+) |
@@ -179,7 +189,7 @@ def s_read(txt, inputname="<input>"):
     def comment(m):
         pass
     def open(m):
-        l = []
+        l = List()
         stack[-1].append(l)
         stack.append(l)
     def close(m):
@@ -187,12 +197,12 @@ def s_read(txt, inputname="<input>"):
         if len(stack)==0:
             raise ParseError("Extra ')'")
     def ident(m):
-        stack[-1].append(m.group())
+        stack[-1].append(Ident(m.group()))
     def qstring(m):
         item = m.group()[1:-1]
-        stack[-1].append(item.encode("utf8"))
+        stack[-1].append(String(item.encode("utf8")))
     def num(m):
-        stack[-1].append(int(m.group()))
+        stack[-1].append(Num(int(m.group())))
     actions = locals()
     pos = 0
     while 1:
