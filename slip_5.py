@@ -10,12 +10,13 @@ def p(*args):
         pprint.pprint(a)
 
 class Num(int):
-    pass
+    loc = -1
 class String(bytes):
-    pass
+    loc = -1
 class Ident(str):
-    pass
+    loc = -1
 class List(list):
+    loc = -1
     def __init__(self,*args):
         self.extend(args)
 
@@ -58,7 +59,7 @@ def b_wrap(env, expr):
 
 
 def b_eval(env, expr):
-    #print("EVAL", expr)
+    #print(expr.loc)#print("EVAL", expr)
     if isinstance(expr, (String,Num)):
         return expr
     elif isinstance(expr, Ident):
@@ -189,20 +190,27 @@ def s_read(txt, inputname="<input>"):
     def comment(m):
         pass
     def open(m):
-        l = List()
-        stack[-1].append(l)
-        stack.append(l)
+        i = List()
+        i.loc = pos
+        stack[-1].append(i)
+        stack.append(i)
     def close(m):
         stack.pop()
         if len(stack)==0:
             raise ParseError("Extra ')'")
     def ident(m):
-        stack[-1].append(Ident(m.group()))
+        i = Ident(m.group())
+        i.loc = pos
+        stack[-1].append(i)
     def qstring(m):
-        item = m.group()[1:-1]
-        stack[-1].append(String(item.encode("utf8")))
+        i = String(m.group()[1:-1].encode("utf8"))
+        i.loc = pos
+        stack[-1].append(i)
     def num(m):
-        stack[-1].append(Num(int(m.group())))
+        i = Num(int(m.group()))
+        i.loc = pos
+        stack[-1].append(i)
+
     actions = locals()
     pos = 0
     while 1:
