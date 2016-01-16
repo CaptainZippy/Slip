@@ -24,9 +24,14 @@
   (lambda (x) (lam arg x)))
 
 (define ack3 (partial1 ackermann 3))
+;(print (ackermann 3 2))
 ;(print (ack3 1))
-(print (ack3 2))
+;(print (ack3 2))
 ;(print (ack3 3))
+(func dp (x)
+  (print "<" x ":" (type x) ">" )
+  x)
+
 
 (func atoi (s)
   (func aux (acc s)
@@ -38,6 +43,13 @@
         (rest s))))
   (aux 0 s))
 
+
 (map
-  (lambda (x) (ack3 (atoi x)))
+  (lambda (x) (dp (atoi x)))
   argv)
+
+(map
+  (lambda (x) (print x (ack3 (atoi x))))
+  argv)
+
+1

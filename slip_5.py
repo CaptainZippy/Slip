@@ -1,4 +1,4 @@
-
+#! /usr/bin/env python
 # add fexprs
 
 
@@ -9,14 +9,67 @@ def p(*args):
     for a in args:
         pprint.pprint(a)
 
-class Num(int):
-    loc = -1
-class String(bytes):
-    loc = -1
-class Ident(str):
-    loc = -1
-class List(list):
-    loc = -1
+class Atom:
+    loc = ("x",0)
+class Num(Atom):
+    def __init__(self, num):
+        assert(isinstance(num,(int,float)))
+        self.num = num
+    def __str__(self):
+        return str(self.num)
+    def __sub__(self, n):
+        assert(isinstance(n,Num))
+        return Num(self.num-n.num)
+    def __mul__(self, n):
+        assert(isinstance(n,Num))
+        return Num(self.num*n.num)
+    def __add__(self, n):
+        assert(isinstance(n,Num))
+        return Num(self.num+n.num)
+    def __eq__(self,n):
+        assert(isinstance(n,Num))
+        return self.num == n.num
+class String(Atom):
+    def __init__(self, s):
+        assert(isinstance(s,str))
+        self.str = s
+    def __str__(self):
+        return self.str
+    def __len__(self):
+        return len(self.str)
+    def __getitem__(self, idx):
+        return String(self.str[idx])
+    def __eq__(self,n):
+        assert(isinstance(n,String))
+        return self.str == n.str
+class Ident(Atom):
+    def __init__(self, ident):
+        self.ident = ident
+    def __str__(self):
+        return self.ident
+    def __hash__(self):
+        return hash(self.ident)
+    def __eq__(self, i):
+        assert(isinstance(i,Ident))
+        return self.ident == i.ident
+class List(Atom):
+    def __init__(self, lst=None):
+        self.lst = []
+        if lst:
+            self.lst.extend(lst)
+    def __len__(self):
+        return len(self.lst)
+    def __str__(self):
+        return str(self.lst)
+    def append(self, atom):
+        assert( isinstance(atom,Atom) )
+        self.lst.append(atom)
+    def extend(self, lst):
+        assert( all(isinstance(i,Atom) for i in lst) )
+        self.lst.extend(lst)
+    def __getitem__(self, idx):
+        return self.lst[idx]
+
 
 
 class Env:
@@ -25,8 +78,8 @@ class Env:
         self.parent = parent
         if keys or vals:
             if len(keys)!=len(vals):
-                print(keys, vals)
-                raise RuntimeError("foo")
+                #(keys, vals)
+                raise RuntimeError("Wrong number of args %i,%i" % (len(keys), len(vals)))
             for n,v in zip(keys, vals):
                 self.set(n, v)
 
@@ -34,15 +87,21 @@ class Env:
         return repr(self.keys) + repr(self.parent) if self.parent else ""
 
     def get(self, key):
+        assert(isinstance(key,Ident))
         tab = self
         while tab:
             v = tab.keys.get(key)
             if v is not None:
                 return v
             tab = tab.parent
+        #print("??",key.ident)
         raise KeyError(key)
 
     def set(self, key, val):
+        if not isinstance(key,Ident):
+            assert(isinstance(key,str))
+            key = Ident(key)
+        #print("%s=%s" % (key,val))
         assert self.keys.get(key) is None
         self.keys[key] = val
         return val
@@ -59,18 +118,32 @@ def s_wrap(env, expr):
     return Wrap(s_eval(env, expr))
 
 
+def lineof(txt, pos):
+    return txt.count("\n", 0, pos)+1
+def context(txt, pos):
+    return txt[pos:min(len(txt),pos+30)].replace("\n","\\n")
+def location(expr):
+    txt, pos = expr.loc
+    return "%s:%s" % (lineof(txt, pos), context(txt, pos))
+
+stack = []
+
 def s_eval(env, expr):
-    print(expr.loc)#print("EVAL", expr)
+    #print(location(expr))#print("EVAL", expr)
+    stack.append(expr)
+    ret = None
     if isinstance(expr, (String,Num)):
-        return expr
+        ret = expr
     elif isinstance(expr, Ident):
-        return env.get(expr)
+        ret = env.get(expr)
     elif isinstance(expr, List):
         func = s_eval(env, expr[0])
-        return func(env, *expr[1:])
+        ret = func(env, *expr[1:])
     else:
         print(type(expr))
         assert(0)
+    stack.pop()
+    return ret
 
 
 def s_comp1(env, denv, expr):
@@ -95,8 +168,11 @@ class Lambda:
         self.vars = vars
         self.body = body
     def __call__(self, call_env, *args):
+        #print(">lam", args, [type(a) for a in args])
         e = Env(self.lex_env, self.vars, [s_eval(call_env,a) for a in args])
-        return s_eval(e, self.body)
+        r = s_eval(e, self.body)
+        #print("<lam", r, type(r))
+        return r
 
 
 def s_lambda(lex_env, vars, body):
@@ -131,24 +207,24 @@ def s_macro(env, name, vars, sym, body):
     return s_define(env, name, List([Ident("vau"), vars, sym, body]))
 
 
-def s_plus(env, *args):
-    acc = 0
+def f_plus(env, *args):
+    acc = Num(0)
     for a in args:
-        acc += s_eval(env, a)
+        acc += a
     return acc
 
 
-def s_sub(env, *args):
-    acc = s_eval(env, args[0])
+def f_sub(env, *args):
+    acc = args[0]
     for a in args[1:]:
-        acc -= s_eval(env, a)
+        acc -= a
     return acc
 
 
-def s_mul(env, *args):
-    acc = 1
+def f_mul(env, *args):
+    acc = Num(1)
     for a in args:
-        acc *= s_eval(env, a)
+        acc *= a
     return acc
 
 
@@ -181,6 +257,7 @@ def p_eq(env, *args):
     cur = s_eval(env, args[0])
     for r in args[1:]:
         a = s_eval(env, r)
+        assert(type(a)==type(cur))
         #print(cur, a, type(cur), type(a))
         #if type(cur) != type(a):
         #    return False
@@ -196,7 +273,8 @@ def p_list(env, expr):
 
 def p_empty(env, expr):
     cur = s_eval(env, expr)
-    return isinstance(cur, (List,String)) and not cur
+    assert isinstance(cur, (List,String))
+    return len(cur)==0
 
 def f_map(env, func, expr):
     #print("MAP", env, func, expr)
@@ -204,19 +282,20 @@ def f_map(env, func, expr):
 
 
 def f_chr(env, c):
-    return int(c)
+    assert(isinstance(c,String))
+    return Num(int(c.str))
+
+def f_type(env, c):
+    return type(c).__name__
+
+def f_first(env, expr):
+    assert isinstance(expr, (List,String))
+    return expr[0]
 
 
-def s_first(env, expr):
-    cur = s_eval(env, expr)
-    assert isinstance(cur, (List,String))
-    return cur[0]
-
-
-def s_rest(env, expr):
-    cur = s_eval(env, expr)
-    assert isinstance(cur, (List,String))
-    return cur[1:]
+def f_rest(env, expr):
+    assert isinstance(expr, (List,String))
+    return expr[1:]
 
 def s_let(env, bind, body):
     e = Env(env)
@@ -230,10 +309,6 @@ def s_printf(env, fmt, *args):
 
 
 def read(txt, inputname="<input>"):
-    def lineof(txt, pos):
-        return txt.count("\n", 0, pos)+1
-    def context(txt, pos):
-        return txt[pos:min(len(txt),pos+30)].replace("\n","\\n")
     class ParseError(RuntimeError):
         def __init__(self, msg):
             RuntimeError.__init__(self,"%s:%s:%s near '%s'" % (inputname, msg, lineof(txt,pos), context(txt,pos)))
@@ -254,7 +329,7 @@ def read(txt, inputname="<input>"):
         pass
     def open(m):
         i = List()
-        i.loc = pos
+        i.loc = (txt, pos)
         stack[-1].append(i)
         stack.append(i)
     def close(m):
@@ -263,15 +338,15 @@ def read(txt, inputname="<input>"):
             raise ParseError("Extra ')'")
     def ident(m):
         i = Ident(m.group())
-        i.loc = pos
+        i.loc = (txt, pos)
         stack[-1].append(i)
     def qstring(m):
-        i = String(m.group()[1:-1].encode("utf8"))
-        i.loc = pos
+        i = String(m.group()[1:-1])
+        i.loc = (txt, pos)
         stack[-1].append(i)
     def num(m):
         i = Num(int(m.group()))
-        i.loc = pos
+        i.loc = (txt, pos)
         stack[-1].append(i)
 
     actions = locals()
@@ -300,7 +375,7 @@ sys.setrecursionlimit(10000)
 
 def main():
     env = Env(None)
-    argv = [String(a.encode("utf8")) for a in sys.argv[1:]]
+    argv = [String(a) for a in sys.argv[1:]]
     print(argv)
     env.set("argv", List(argv))
     for k,v in globals().items():
@@ -319,11 +394,13 @@ def main():
     except RuntimeError as err:
         print(err)
         return None
-    pprint.pprint(prog)
-    #try:
-    print(s_eval(env, prog))
-    #except U:
-    #    pass
+    #pprint.pprint(prog)
+    try:
+        print(s_eval(env, prog))
+    except:
+        for s in stack:
+            print(location(s))
+        raise
 
 
 if __name__ == '__main__':
