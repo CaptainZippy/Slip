@@ -2,64 +2,42 @@
 (define quote (vau (expr) env expr))
 (define comp (wrap comp1))
 
-;(define func (vau (name args body) env
-;  (define name (lambda args (begin body)))))
-;(func hello who (print "hello" who))
-
-;#(define lambda (vau (args body) e
-;  (wrap (eval )))
-
-;(define func (name args) e
-;  (wrap (eval )))
-
-;(print "hello")
-;(begin (define c 100)) ; begin introduces a new scope
-;(define c 100) ; this is in the global scope
-;(define foo (lambda (a b) (plus a b c)))
-(define foo (lambda (a b c)
-  (cond (c (foo (plus a 1) (plus a b) (sub c 1)))
-        (1 (plus a b)))))
-
-(print "foo" (foo 3 33 2))
-
-(define fib-recursive (lambda (n)
+(func ackermann (m n)
   (cond
-   (n (mul n (fib-recursive (sub n 1))))
-   (1 1))))
-(print (fib-recursive 15))
+    ((eq? m 0)
+     (plus n 1))
+    ((eq? n 0)
+     (ackermann (sub m 1) 1))
+    (1 (ackermann
+        (sub m 1)
+        (ackermann m (sub n 1))))))
 
-(define dlog
-  (vau (x) env
-    (print x "is" (comp env x))))
+(func main (args)
+  (func aux (lst)
+    (let ((n (first lst)))
+      (print "Ack(3," n ")" (ackermann 3 n))))
+  (if (list? args)
+    (aux args)
+    (printf "Usage: <N>")))
 
-(macro elog (x) env
-  (print x "is" (comp env x)))
+(func partial1 (lam arg)
+  (lambda (x) (lam arg x)))
 
-;(define pi 31)
-(begin
-  (define pi 31)
-  (dlog pi))
+(define ack3 (partial1 ackermann 3))
+;(print (ack3 1))
+(print (ack3 2))
+;(print (ack3 3))
 
-(begin
-  (define tau 62)
-  (elog tau))
+(func atoi (s)
+  (func aux (acc s)
+    (if (empty? s)
+     acc
+     (aux
+        (plus (mul 10 acc)
+          (chr (first s)))
+        (rest s))))
+  (aux 0 s))
 
-(func fib-iter (n)
-    (func fib-aux (n acc)
-      (if n (fib-aux (sub n 1) (mul n acc)) acc))
-    (fib-aux n 1))
-(print (fib-iter 15))
-
-(define fib-iter2 (lambda (n) (begin
-  (define fib-aux (lambda (n acc)
-     (if n (fib-aux (sub n 1) (mul n acc)) acc)))
-  (fib-aux n 1))))
-(print (fib-iter2 15))
-(print "hello")
-
-; (begin (print (foo 3 33)))
-; (begin (define c 100) (print (foo 3 33)))
-;(define pp
-;   (vau (x) e (print (eval x e))))
-;(print)
-; (print (eval foo foo))
+(map
+  (lambda (x) (ack3 (atoi x)))
+  argv)

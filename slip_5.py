@@ -17,15 +17,16 @@ class Ident(str):
     loc = -1
 class List(list):
     loc = -1
-    def __init__(self,*args):
-        self.extend(args)
+
 
 class Env:
     def __init__(self, parent, keys=None, vals=None):
         self.keys = {}
         self.parent = parent
         if keys or vals:
-            assert(len(keys)==len(vals))
+            if len(keys)!=len(vals):
+                print(keys, vals)
+                raise RuntimeError("foo")
             for n,v in zip(keys, vals):
                 self.set(n, v)
 
@@ -51,41 +52,41 @@ class Wrap:
     def __init__(self, func):
         self.func = func
     def __call__(self, call_env, *args):
-        return self.func( call_env, *[b_eval(call_env, a) for a in args] )
+        return self.func( call_env, *[s_eval(call_env, a) for a in args] )
 
 
-def b_wrap(env, expr):
-    return Wrap(b_eval(env, expr))
+def s_wrap(env, expr):
+    return Wrap(s_eval(env, expr))
 
 
-def b_eval(env, expr):
-    #print(expr.loc)#print("EVAL", expr)
+def s_eval(env, expr):
+    print(expr.loc)#print("EVAL", expr)
     if isinstance(expr, (String,Num)):
         return expr
     elif isinstance(expr, Ident):
         return env.get(expr)
     elif isinstance(expr, List):
-        func = b_eval(env, expr[0])
+        func = s_eval(env, expr[0])
         return func(env, *expr[1:])
     else:
         print(type(expr))
         assert(0)
 
 
-def b_comp1(env, denv, expr):
-    return b_eval(denv, expr)
+def s_comp1(env, denv, expr):
+    return s_eval(denv, expr)
 
 
-def b_begin(env, *args):
+def s_begin(env, *args):
     r = None
     lenv = Env(env)
     for a in args:
-        r = b_eval(lenv, a)
+        r = s_eval(lenv, a)
     return r
 
 
-def b_define(env, sym, val):
-    return env.set(sym, b_eval(env,val))
+def s_define(env, sym, val):
+    return env.set(sym, s_eval(env,val))
 
 
 class Lambda:
@@ -94,16 +95,20 @@ class Lambda:
         self.vars = vars
         self.body = body
     def __call__(self, call_env, *args):
-        e = Env(self.lex_env, self.vars, [b_eval(call_env,a) for a in args])
-        return b_eval(e, self.body)
+        e = Env(self.lex_env, self.vars, [s_eval(call_env,a) for a in args])
+        return s_eval(e, self.body)
 
 
-def b_lambda(lex_env, vars, body):
+def s_lambda(lex_env, vars, body):
     return Lambda(lex_env, vars, body)
 
 
-def b_func(env, name, vars, *body):
-    return b_define(env, name, List(Ident("lambda"), vars, List(Ident("begin"), *body)))
+def s_func(env, name, vars, *body):
+    return s_define(env, name, List([
+        Ident("lambda"),
+        vars,
+        List( [Ident("begin")] + list(body) )
+    ]))
 
 
 class Vau:
@@ -115,58 +120,116 @@ class Vau:
     def __call__(self, call_env, *args):
         e = Env(self.lex_env, self.vars, args)
         e.set(self.sym, call_env)
-        return b_eval(e, self.body)
+        return s_eval(e, self.body)
 
 
-def b_vau(lex_env, vars, sym, body):
+def s_vau(lex_env, vars, sym, body):
     return Vau(lex_env, vars, sym, body)
 
 
-def b_macro(env, name, vars, sym, body):
-    return b_define(env, name, List(Ident("vau"), vars, sym, body))
+def s_macro(env, name, vars, sym, body):
+    return s_define(env, name, List([Ident("vau"), vars, sym, body]))
 
 
-def b_plus(env, *args):
+def s_plus(env, *args):
     acc = 0
     for a in args:
-        acc += b_eval(env, a)
+        acc += s_eval(env, a)
     return acc
 
 
-def b_sub(env, *args):
-    acc = b_eval(env, args[0])
+def s_sub(env, *args):
+    acc = s_eval(env, args[0])
     for a in args[1:]:
-        acc -= b_eval(env, a)
+        acc -= s_eval(env, a)
     return acc
 
 
-def b_mul(env, *args):
+def s_mul(env, *args):
     acc = 1
     for a in args:
-        acc *= b_eval(env, a)
+        acc *= s_eval(env, a)
     return acc
 
 
-def b_cond(env, *cases):
+def s_cond(env, *cases):
     for c,b in cases:
-        if b_eval(env, c):
-            return b_eval(env, b)
+        if s_eval(env, c):
+            return s_eval(env, b)
     raise RuntimeError("invalid case")
 
 
-def b_if(env, test, yes, no):
-    if b_eval(env, test):
-        return b_eval(env, yes)
+def s_if(env, test, yes, no):
+    if s_eval(env, test):
+        return s_eval(env, yes)
     else:
-        return b_eval(env, no)
+        return s_eval(env, no)
 
 
-def b_print(env, *args):
-    print(" ".join(str(b_eval(env,a)) for a in args))
-    return None
+def s_print(env, *args):
+    def next(args):
+        for a in args:
+            v = s_eval(env,a)
+            if isinstance(v, bytes):
+                v = v.decode("utf8")
+            yield str(v)
+    print(" ".join(next(args)))
 
 
-def s_read(txt, inputname="<input>"):
+def p_eq(env, *args):
+    #print("EQ",args)
+    cur = s_eval(env, args[0])
+    for r in args[1:]:
+        a = s_eval(env, r)
+        #print(cur, a, type(cur), type(a))
+        #if type(cur) != type(a):
+        #    return False
+        if cur != a:
+            return False
+    return True
+
+
+def p_list(env, expr):
+    cur = s_eval(env, expr)
+    return isinstance(cur, List)
+
+
+def p_empty(env, expr):
+    cur = s_eval(env, expr)
+    return isinstance(cur, (List,String)) and not cur
+
+def f_map(env, func, expr):
+    #print("MAP", env, func, expr)
+    return List([func(env,f) for f in expr])
+
+
+def f_chr(env, c):
+    return int(c)
+
+
+def s_first(env, expr):
+    cur = s_eval(env, expr)
+    assert isinstance(cur, (List,String))
+    return cur[0]
+
+
+def s_rest(env, expr):
+    cur = s_eval(env, expr)
+    assert isinstance(cur, (List,String))
+    return cur[1:]
+
+def s_let(env, bind, body):
+    e = Env(env)
+    for b in bind:
+        e.set(b[0], s_eval(env,b[1]))
+    return s_eval(e, body)
+
+
+def s_printf(env, fmt, *args):
+    print(fmt, args)
+
+
+def read(txt, inputname="<input>"):
     def lineof(txt, pos):
         return txt.count("\n", 0, pos)+1
     def context(txt, pos):
@@ -174,14 +237,14 @@ def s_read(txt, inputname="<input>"):
     class ParseError(RuntimeError):
         def __init__(self, msg):
             RuntimeError.__init__(self,"%s:%s:%s near '%s'" % (inputname, msg, lineof(txt,pos), context(txt,pos)))
-    ret = List(Ident("begin"))
+    ret = List([Ident("begin")])
     stack = [ ret ]
     reg = re.compile(r"""
         (?P<white>\s+) |
         (?P<comment>;[^\n]+) |
         (?P<open>\() |
         (?P<close>\)) |
-        (?P<ident>[$a-zA-Z_][a-zA-Z0-9-]*) |
+        (?P<ident>[$a-zA-Z_\+\-][a-zA-Z0-9-=\+\-\?]*) |
         (?P<qstring>"[^"]*") |
         (?P<num>[0-9][a-zA-Z0-9_-]*)
         """, re.VERBOSE)
@@ -227,23 +290,40 @@ def s_read(txt, inputname="<input>"):
     return ret
 
 
-def s_readfile(fname):
-    return s_read(open(fname).read(), fname)
+def readfile(fname):
+    return read(open(fname).read(), fname)
+
+
+import sys
+sys.setrecursionlimit(10000)
 
 
 def main():
     env = Env(None)
+    argv = [String(a.encode("utf8")) for a in sys.argv[1:]]
+    print(argv)
+    env.set("argv", List(argv))
     for k,v in globals().items():
-        if k.startswith("b_"):
-            #p(k)
+        if len(k)<2 or k[0]=="_" or k[1]!="_":
+            continue
+        if k.startswith("s_"):#special operative
             env.set(k[2:], v)
+        elif k.startswith("f_"):#func applicative
+            env.set(k[2:], Wrap(v))
+        elif k.startswith("p_"):#pred?
+            env.set(k[2:]+"?", v)
+        else:
+            raise RuntimeError(k)
     try:
-        prog = s_readfile("slip_5.slip")
+        prog = readfile("slip_5.slip")
     except RuntimeError as err:
         print(err)
         return None
-    #pprint.pprint(prog)
-    print(b_eval(env, prog))
+    pprint.pprint(prog)
+    #try:
+    print(s_eval(env, prog))
+    #except U:
+    #    pass
 
 
 if __name__ == '__main__':
