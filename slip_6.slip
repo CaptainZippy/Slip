@@ -1,0 +1,19 @@
+
+
+(define test (func celsius (F) (mul (div 5 9) (sub F 32) )))
+
+(print (type test))
+(func normalize (prog)
+  match
+  prog)
+
+(print test)
+(print (normalize test))
+
+;(func test (n)
+;  (match n
+;    (0 "zero")
+;    (1 "one")
+;    (2 "two")
+;    ((3 4 5) "big")
+;    (_ "other")))
