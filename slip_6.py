@@ -82,7 +82,11 @@ class List(Atom):
         self.lst.extend(lst)
     def __getitem__(self, idx):
         return self.lst[idx]
-
+class Operative(Atom):
+    def __init__(self, op):
+        self.oper = op
+    def __call__(self, *args):
+        return self.oper(*args)
 
 
 class Env:
@@ -171,19 +175,13 @@ def s_begin(env, *args):
     return r
 
 
-def s_match(env, expr, *cases):
+def s_switch(env, expr, *cases):
     exp = s_eval(env, expr)
+    print("?", exp, type(exp))
     for val,rest in cases:
-        if isinstance(val, Ident) and val.ident=="_":
+        if s_eval(env, val):
             return s_eval(env,rest)
-        elif isinstance(val,List):
-            for v in val:
-                if exp == v:
-                    return s_eval(env, rest)
-        #print(exp, val, type(exp),type(val))
-        elif exp == val:
-            return s_eval(env, rest)
-    assert "Not matched"
+    assert 0, "Not matched"
 
 
 def s_define(env, sym, val):
@@ -206,7 +204,9 @@ class Lambda:
 
 
 def s_lambda(lex_env, vars, body):
-    return Lambda(lex_env, vars, body)
+    #return Lambda(lex_env, vars, body)
+    v = Vau(lex_env, vars, None, body)
+    return Wrap(v)
 
 
 def s_func(env, name, vars, *body):
@@ -225,7 +225,8 @@ class Vau:
         self.body = body
     def __call__(self, call_env, *args):
         e = Env(self.lex_env, self.vars, args)
-        e.set(self.sym, call_env)
+        if self.sym:
+            e.set(self.sym, call_env)
         return s_eval(e, self.body)
 
 
@@ -291,7 +292,7 @@ def p_eq(env, *args):
     cur = s_eval(env, args[0])
     for r in args[1:]:
         a = s_eval(env, r)
-        assert(type(a)==type(cur))
+        assert type(a)==type(cur), "%s vs %s" %( str(a),str(cur))
         #print(cur, a, type(cur), type(a))
         #if type(cur) != type(a):
         #    return False
@@ -301,8 +302,7 @@ def p_eq(env, *args):
 
 
 def p_list(env, expr):
-    cur = s_eval(env, expr)
-    return isinstance(cur, List)
+    return isinstance(expr, List)
 
 
 def p_empty(env, expr):
@@ -415,11 +415,11 @@ def main():
         if len(k)<2 or k[0]=="_" or k[1]!="_":
             continue
         if k.startswith("s_"):#special operative
-            env.set(k[2:], v)
+            env.set(k[2:], Operative(v))
         elif k.startswith("f_"):#func applicative
-            env.set(k[2:], Wrap(v))
+            env.set(k[2:], Wrap(Operative(v)))
         elif k.startswith("p_"):#pred?
-            env.set(k[2:]+"?", v)
+            env.set(k[2:]+"?", Wrap(Operative(v)))
         else:
             raise RuntimeError(k)
     try:

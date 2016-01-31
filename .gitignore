@@ -42,3 +42,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 .tags1
+
+# MSVC
+Debug
+Release
+*.pdb
+*.sdf

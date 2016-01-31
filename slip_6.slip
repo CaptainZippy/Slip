@@ -2,13 +2,18 @@
 
 (define test (func celsius (F) (mul (div 5 9) (sub F 32) )))
 
+(print "H" wrap (type wrap))
 (print (type test))
-(func normalize (prog)
-  match
-  prog)
 
-(print test)
-(print (normalize test))
+(func normalize (expr)
+  (switch expr
+    ((eq? (type expr) "function")
+     "OHOHO")
+    (1
+     "yes")))
+
+(print "ORIG" test)
+(print "NORM" (normalize test))
 
 ;(func test (n)
 ;  (match n
