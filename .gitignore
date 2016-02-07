@@ -49,3 +49,7 @@ Release
 *.pdb
 *.sdf
 *.suo
+*.filters
+*.opensdf
+*.ipch
+*.vcxproj
