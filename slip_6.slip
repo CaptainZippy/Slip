@@ -2,12 +2,30 @@
 	;(lambda (F) (div (add 5 1) 9))
 
 
-(define celsius_from_fahrenheit
-	(lambda (F) (div (mul 5 (sub F 32) ) 9) ))
-(print (normalize celsius_from_fahrenheit))
-(define c_from_f (normalize celsius_from_fahrenheit))
+;(define celsius_from_fahrenheit
+;	(lambda (F : Num) (div (mul 5 (sub F 32) ) 9) ))
+;(print (normalize celsius_from_fahrenheit))
+;(define c_from_f (normalize celsius_from_fahrenheit))
 
-(print (c_from_f 99) (celsius_from_fahrenheit 99))
+;(print (c_from_f 99) (celsius_from_fahrenheit 99))
+
+
+;(define macro (kappa (...))
+
+;(define func
+;	(macro (spec body) _
+;		'(define ,(first spec) (lambda ,(rest spec) body))))
+
+;(func (f2c Num:F)
+;	Num:(div (mul 5 (sub F 32) ) 9) )
+(define f2c
+  (lambda (Num:F)
+    Num:(div (mul 5 (sub F 32) ) 9) ))
+
+(print (f2c 100))
+;(print (f2c 11 100))
+;(print (f2c "11"))
+
 ;(print (let(
 ;	(t0 (sub 44 32))
 ;	(t1 (mul 5 t0)))
@@ -16,7 +34,7 @@
 ;			 (mul 5 t0))
 ;		(div t1 9))
 
-;	(let t1 
+;	(let t1
 ;		(let (t0 (sub f 32))
 ;			 (mul 5 t0))
 ;		(div t1 9))

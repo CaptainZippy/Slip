@@ -26,14 +26,17 @@ struct array_view {
 
 struct Env;
 struct List;
+struct Type;
+
 
 struct Atom {
 	virtual ~Atom() {}
 	virtual Atom* eval(Env* env) = 0;
 	virtual Atom* normalize() = 0;
 	virtual void print() const = 0;
+	Atom() : m_type(nullptr) {}
+	Atom* m_type;
 };
-
 
 struct Value : Atom {
 	Atom* eval(Env* env) override {
@@ -44,6 +47,19 @@ struct Value : Atom {
 	}
 };
 
+struct Type : public Value {
+	void print() const override {
+		printf("type");
+	}
+	static Type s_bool;
+	static Type s_string;
+	static Type s_num;
+	static Type s_list;
+};
+
+Type Type::s_num;
+Type Type::s_string;
+
 struct Bool : Value {
 	Bool(bool v) : m_val(v) {}
 	void print() const override {
@@ -53,7 +69,7 @@ struct Bool : Value {
 };
 
 struct Num : Value {
-	Num(int n) : m_num(n) {}
+	Num(int n) : m_num(n) { m_type = &Type::s_num; }
 	void print() const override {
 		printf("%i", m_num);
 	}
@@ -61,7 +77,7 @@ struct Num : Value {
 };
 
 struct String : Value {
-	String(const char* s=nullptr) : m_str(s) {}
+	String(const char* s = nullptr) : m_str(s) { m_type = &Type::s_string; }
 	void print() const override {
 		printf("%s", m_str);
 	}
@@ -195,13 +211,17 @@ protected:
 	std::vector<Atom*> lst;
 };
 
-
-
 struct Lambda : Callable {
 	Lambda(Env* lex_env, List* arg_names, Atom* body)
-		: m_lex_env(lex_env), m_arg_names(arg_names), m_body(body) {
+		: m_lex_env(lex_env), m_arg_names(new List()), m_body(body) {
 		for(auto a : *arg_names) {
-			assert(cast(Symbol, a));
+			if(auto bs = cast(Symbol, a)) {
+				m_arg_names->append(bs);
+			}
+			else {
+				auto ts = a->eval(lex_env);
+				m_arg_names->append(ts);
+			}
 		}
 	}
 	Atom* call(Env* env, ArgList arg_vals) override {
@@ -209,7 +229,9 @@ struct Lambda : Callable {
 		assert(m_arg_names->size() == arg_vals.size());
 		for(int i = 0; i < m_arg_names->size(); ++i) {
 			Atom* a = arg_vals[i]->eval(env);
-			e->put( cast(Symbol,m_arg_names->at(i))->m_sym, a);
+			auto s = cast(Symbol, m_arg_names->at(i));
+			assert( s->m_type == nullptr || a->m_type->eval(env) == s->m_type->eval(env));
+			e->put( s->m_sym, a);
 		}
 		return m_body->eval(e);
 	}
@@ -233,8 +255,33 @@ struct Lambda : Callable {
 };
 
 struct Vau : Callable {
-	Vau(Env* lex_env, List* arg_names, Atom* symbol, Atom* body) { }
-	//Func func;
+	Env* m_lex_env;
+	List* m_arg_names;
+	Atom* m_env_sym;
+	Atom* m_body;
+	Vau(Env* lex_env, List* arg_names, Atom* symbol, Atom* body)
+	: m_lex_env(lex_env), m_arg_names(new List()), m_env_sym(symbol), m_body(body) { 
+		for(auto a : *arg_names) {
+			if(auto bs = cast(Symbol, a)) {
+				m_arg_names->append(bs);
+			}
+			else {
+				auto ts = a->eval(lex_env);
+				m_arg_names->append(ts);
+			}
+		}
+	}
+
+	Atom* call(Env* env, ArgList args) override {
+		assert(args.size() == 2);
+		Env* e = new Env(env);
+		List* arg_vals = cast(List, args[0]);
+		assert(arg_vals->size() == m_arg_names->size());
+		for(int i = 0; i < arg_vals->size(); ++i) {
+			e->put(cast(Symbol, m_arg_names->at(i))->m_sym, arg_vals->at(i));
+		}
+		return args[1]->eval(e);
+	}
 	Atom* normalize() override {
 		assert(0);
 		return nullptr;
@@ -275,6 +322,16 @@ Atom* v_eval(Env* env, Callable::ArgList args) {
 	return args[0]->eval(env);
 }
 
+Atom* v_type(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	auto t = cast(Type, args[1]->eval(env));
+	auto s = cast(Symbol, args[0]);
+	assert(s);
+	assert(t);
+	s->m_type = t;
+	return s;
+}
+
 Atom* v_begin(Env* env, Callable::ArgList args) {
 	Atom* r = nullptr;
 	for(auto a : args) {
@@ -298,6 +355,16 @@ Atom* v_lambda(Env* env, Callable::ArgList args) {
 	assert(args.size() == 2);
 	if(List* names = cast(List, args[0])) {
 		return new Lambda(env, names, args[1]);
+	}
+	return nullptr;
+}
+
+Atom* v_vau(Env* env, Callable::ArgList args) {
+	assert(args.size() == 3);
+	assert(cast(List, args[0]));
+	assert(cast(Symbol, args[1]));
+	if(List* names = cast(List, args[0])) {
+		return new Vau(env, names, args[1], args[2]);
 	}
 	return nullptr;
 }
@@ -333,6 +400,7 @@ Atom* l_sub(Callable::ArgList args) {
 	}
 	return new Num(acc);
 }
+
 Atom* l_mul(Callable::ArgList args) {
 	assert(args.size() >= 1);
 	int acc = 1;
@@ -398,7 +466,8 @@ struct Input {
 };
 
 Atom* parse_string(Input& in) {
-	while(1) {
+	Atom* ret = nullptr;
+	while(ret == nullptr) {
 		switch(in.peek()) {
 			case '\0':
 				return nullptr;
@@ -415,12 +484,13 @@ Atom* parse_string(Input& in) {
 				break;
 			case '(':{
 				in.next();
-				List* ret = new List();
+				List* lst = new List();
 				while(Atom* a = parse_string(in)) {
-					ret->append(a);
+					lst->append(a);
 				}
 				assert(in.next() == ')');
-				return ret;
+				ret = lst;
+				break;
 			}
 			case ')':
 				return nullptr;
@@ -435,39 +505,50 @@ Atom* parse_string(Input& in) {
 					}
 					else break;
 				}
-				return new Num(value);
+				ret = new Num(value);
+				break;
 			}
 			case '"': {
 				in.next();
 				const char* s = in.peekbuf();
-				while(1) {
+				while(ret == nullptr) {
 					switch(int c = in.next()) {
 						case 0:
 							error("eof in string"); return nullptr;
 						case '"':
-							return new String(strndup(s, in.peekbuf() - 1));
-						default: break;
+							ret = new String(strndup(s, in.peekbuf() - 1));
+							break;
+						default:
+							break;
 					}
 				}
+				break;
 			}
 			default: {
-				if(isalpha(in.peek())) {
+				if(isalpha(in.peek()) || in.peek() == '_' || in.peek()=='@') {
 					const char* s = in.peekbuf();
 					in.next();
 					while(int c = in.peek()) {
-						if(isdigit(c) || isalpha(c) || c == '_' || c == '?' || c == '!'){
+						if(isdigit(c) || isalpha(c) || c == '@' || c == '_' || c == '?' || c == '!'){
 							in.next();
 						}
 						else break;
 					}
-					return new Symbol(strndup(s, in.peekbuf()));
+					ret = new Symbol(strndup(s, in.peekbuf()));
+					break;
 				}
 				else throw 0;
 			}
 		}
 	}
-	error("BAD");
-	return nullptr;
+	in.eatwhite();
+	if(in.peek() == ':') {
+		in.next();
+		Atom* rhs = parse_string(in);
+		rhs->m_type = ret;
+		ret = rhs;
+	}
+	return ret;
 }
 
 Atom* parse_file(const char* fname) {
@@ -490,7 +571,6 @@ Atom* parse_file(const char* fname) {
 	return l;
 }
 
-
 int main() {
 	Atom* prog = parse_file("d:/sk/slip/slip_6.slip");
 	Env* env = new Env(nullptr);
@@ -498,12 +578,14 @@ int main() {
 	env->put("begin", new BuiltinVau(&v_begin));
 	env->put("define", new BuiltinVau(&v_define));
 	env->put("lambda", new BuiltinVau(&v_lambda));
+	env->put("vau", new BuiltinVau(&v_vau));
 	env->put("let", new BuiltinVau(&v_let));
 	env->put("print", new BuiltinLambda(&l_print));
 	env->put("mul", new BuiltinLambda(&l_mul));
 	env->put("div", new BuiltinLambda(&l_div));
 	env->put("sub", new BuiltinLambda(&l_sub));
 	env->put("normalize", new BuiltinLambda(&l_normalize));
+	env->put("Num", &Type::s_num);
 	v_eval(env, Callable::ArgList(&prog,&prog+1));
     return 0;
 }
