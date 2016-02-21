@@ -1,14 +1,12 @@
 
 	;(lambda (F) (div (add 5 1) 9))
 
-
 ;(define celsius_from_fahrenheit
 ;	(lambda (F : Num) (div (mul 5 (sub F 32) ) 9) ))
 ;(print (normalize celsius_from_fahrenheit))
 ;(define c_from_f (normalize celsius_from_fahrenheit))
 
 ;(print (c_from_f 99) (celsius_from_fahrenheit 99))
-
 
 ;(define macro (kappa (...))
 

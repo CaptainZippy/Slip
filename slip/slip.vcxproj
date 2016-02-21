@@ -152,6 +152,7 @@
     <ClInclude Include="Pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bench\ack.slip" />
     <None Include="slip.natvis">
       <SubType>Designer</SubType>
     </None>

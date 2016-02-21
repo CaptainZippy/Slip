@@ -9,5 +9,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="slip.natvis" />
+    <None Include="bench\ack.slip">
+      <Filter>bench</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="bench">
+      <UniqueIdentifier>{20f4cd82-ed0c-4ef2-ad8e-b39e2ba77a1c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

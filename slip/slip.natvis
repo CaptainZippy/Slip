@@ -19,4 +19,8 @@
       </ArrayItems>
     </Expand>
   </Type>
+  <Type Name="SourceManager::Location">
+    <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_off}</DisplayString>
+    <DisplayString>file="unnamed"</DisplayString>
+  </Type>
 </AutoVisualizer>

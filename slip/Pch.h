@@ -3,4 +3,7 @@
 #include <vector>
 #include <cctype>
 #include <string>
+#include <map>
+#include <cstdarg>
+#include <windows.h>
 #include <unordered_map>
