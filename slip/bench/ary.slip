@@ -1,0 +1,5 @@
+
+(define ary (lambda (n) 
+  (let ((x (array n))
+      (y (array n)))
+    (print x y))))
