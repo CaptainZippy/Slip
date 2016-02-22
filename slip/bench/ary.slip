@@ -1,5 +1,10 @@
 
 (define ary (lambda (n) 
-  (let ((x (array n))
-      (y (array n)))
-    (print x y))))
+  (let ((x (vec_new n))
+      (y (vec_new n)))
+    (begin
+      (vec_set! x 1 10)
+    ))))
+    ;(print x y))))
+
+(let ((n 10)) (print (ary 10)))

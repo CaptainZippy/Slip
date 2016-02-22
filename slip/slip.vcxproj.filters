@@ -12,6 +12,9 @@
     <None Include="bench\ack.slip">
       <Filter>bench</Filter>
     </None>
+    <None Include="bench\ary.slip">
+      <Filter>bench</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

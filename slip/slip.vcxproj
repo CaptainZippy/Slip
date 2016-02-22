@@ -153,6 +153,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="bench\ack.slip" />
+    <None Include="bench\ary.slip" />
     <None Include="slip.natvis">
       <SubType>Designer</SubType>
     </None>

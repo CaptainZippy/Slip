@@ -27,8 +27,6 @@ namespace Detail {
     }
 }
 
-
-
 template<typename T>
 struct view_ptr {
     view_ptr() : m_ptr( nullptr ) {}
@@ -343,6 +341,9 @@ struct List : Atom {
         }
         printf( ")" );
     }
+    void resize( int n ) {
+        lst.resize( n, nullptr );
+    }
 protected:
     std::vector<Atom*> lst;
 };
@@ -554,10 +555,19 @@ Atom* v_cond( Env* env, Callable::ArgList args ) {
     return nullptr;
 }
 
+Atom* l_vec_set( Env* env, Callable::ArgList args ) {
+    Error( "TODO" );
+    return nullptr;
+}
+
+
 Atom* l_eq( Env* env, Callable::ArgList args ) {
     if( args.size() != 2 ) {
         Error( "Expected list of size 2" );
     }
+    if( args[0] == args[1] ) { return &Bool::s_true; }
+    if( !(args[0] && args[1]) ) { return &Bool::s_false; }
+
     if( Num* n0 = cast( Num, args[0] ) ) { // hack
         if( Num* n1 = cast( Num, args[1] ) ) { // hack
             return n0->m_num == n1->m_num ? &Bool::s_true : &Bool::s_false;
@@ -566,6 +576,50 @@ Atom* l_eq( Env* env, Callable::ArgList args ) {
     Error( "fixme" );
     return &Bool::s_false;
 }
+
+Atom* l_vec_new( Env* env, Callable::ArgList args ) {
+    if( args.size() != 1 ) {
+        Error( "Expected list of size 1" );
+    }
+    if( Num* num = cast( Num, args[0] ) ) {
+        int n = num->m_num;
+        if( n < 0 ) {
+            Error_At( num->m_loc, "Expected n > 0" );
+        }
+        List* l = new List();
+        l->m_loc = num->m_loc;
+        l->resize( n );
+        return l;
+    }
+    Error_At( args[0]->m_loc, "Expected number" );
+    return nullptr;
+}
+
+Atom* l_vec_idx( Env* env, Callable::ArgList args ) {
+    if( args.size() != 2 ) {
+        Error( "Expected list of size 2" );
+    }
+    if( List* lst = cast( List, args[0] ) ) {
+        if( Num* num = cast( Num, args[1] ) ) {
+            auto n = unsigned(num->m_num);
+            if( unsigned(n) < lst->size() ) {
+                return lst->at( n );
+            }
+            else {
+                Error_At( num->m_loc, "Out of bounds %i (%i)", n, lst->size() );
+            }
+        }
+        else {
+            Error_At( args[1]->m_loc, "Expected num" );
+        }
+    }
+    else {
+        Error_At( args[0]->m_loc, "Expected list" );
+    }
+    return nullptr;
+ }
+
+
 
 Atom* l_map( Env* env, Callable::ArgList args ) {
     if( args.size() != 2 ) {
@@ -781,6 +835,9 @@ int evaluate( const char* fname, Atom* argv ) {
         env->put( "normalize", new BuiltinLambda( &l_normalize ) );
         env->put( "eq?", new BuiltinLambda( &l_eq ) );
         env->put( "map", new BuiltinLambda( &l_map ) );
+        env->put( "vec_new", new BuiltinLambda( &l_vec_new ) );
+        env->put( "vec_idx", new BuiltinLambda( &l_vec_idx ) );
+        env->put( "vec_set!", new BuiltinVau( &l_vec_set ) );
         env->put( "Num", &Type::s_num );
         env->put( "true", &Bool::s_true );
         env->put( "false", &Bool::s_false );
@@ -792,6 +849,10 @@ int evaluate( const char* fname, Atom* argv ) {
 }
 
 int main( int argc, const char* argv[] ) {
+    if( argc < 2 ) {
+        Error( "Need a script to run" );
+        return 1;
+    }
     try {
         List* args = new List();
         static SourceManager::FileInfo cmdline{ "cmdline" };
