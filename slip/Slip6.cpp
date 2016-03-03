@@ -6,7 +6,7 @@ void error( const char* msg ) {
 }
 template<typename T>
 void assert2( T t, const char* msg ) {
-    if( !t ) error( msg );
+    if( !t ) Detail::_Error( msg );
 }
 #define assert(A) assert2(A, #A)
 #define cast(T,a) dynamic_cast<T*>(a)
@@ -331,6 +331,10 @@ struct List : Atom {
     Atom* at( int i ) const {
         return lst[i];
     }
+	Atom* set(int i, Atom* a) {
+		lst[i] = a;
+		return a;
+	}
     void print() const override {
         printf( "(" );
         const char* sep = "";
@@ -418,14 +422,13 @@ struct Vau : Callable {
     }
 
     Atom* call( Env* env, Atom* arg0, ArgList args ) override {
-        assert( args.size() == 2 );
-        Env* e = new Env( env );
-        List* arg_vals = cast( List, args[0] );
-        assert( arg_vals->size() == m_arg_names->size() );
-        for( unsigned i = 0; i < arg_vals->size(); ++i ) {
-            e->put( cast( Symbol, m_arg_names->at( i ) )->m_sym, arg_vals->at( i ) );
+        Env* e = new Env( m_lex_env );
+		e->put( cast(Symbol,m_env_sym)->m_sym, env);
+        assert( args.size() == m_arg_names->size() );
+        for( unsigned i = 0; i < args.size(); ++i ) {
+            e->put( cast( Symbol, m_arg_names->at( i ) )->m_sym, args[i]);
         }
-        return args[1]->eval( e );
+        return m_body->eval( e );
     }
     Atom* normalize() override {
         assert( 0 );
@@ -456,107 +459,131 @@ struct BuiltinVau : Callable {
     Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         return ( *m_func )( env, arg_vals );
     }
-    Atom* normalize() override {
-        return this;
-    }
-    Func m_func;
+	Atom* normalize() override {
+		return this;
+	}
+	Func m_func;
 };
 
-Atom* v_eval( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 1 );
-    return args[0]->eval( env );
+Atom* v_eval(Env* env, Callable::ArgList args) {
+	if(args.size() == 1) {
+		return args[0]->eval(env);
+	}
+	else if(args.size() == 2) {
+		std::vector<Atom*> a2;
+		for(auto a : args) {
+			a2.push_back(a->eval(env));
+		}
+		Env* e = cast(Env, a2[1]);
+		return a2[0]->eval(e);
+	}
+	Error("too many arguments");
+	return nullptr;
 }
 
-Atom* v_type( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    auto t = cast( Type, args[1]->eval( env ) );
-    auto s = cast( Symbol, args[0] );
-    assert( s );
-    assert( t );
-    s->m_type = t;
-    return s;
+Atom* v_type(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	auto t = cast(Type, args[1]->eval(env));
+	auto s = cast(Symbol, args[0]);
+	assert(s);
+	assert(t);
+	s->m_type = t;
+	return s;
 }
 
-Atom* v_begin( Env* env, Callable::ArgList args ) {
-    Atom* r = nullptr;
-    for( auto a : args ) {
-        r = a->eval( env );
-    }
-    return r;
+Atom* v_begin(Env* env, Callable::ArgList args) {
+	Atom* r = nullptr;
+	for(auto a : args) {
+		r = a->eval(env);
+	}
+	return r;
 }
 
-Atom* v_define( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    if( auto s = cast( Symbol, args[0] ) ) {
-        Atom* v = args[1]->eval( env );
-        env->put( s->m_sym, v );
-        return v;
-    }
-    error( "define needs a symbol" );
-    return nullptr;
+Atom* v_define(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	if(auto s = cast(Symbol, args[0])) {
+		Atom* v = args[1]->eval(env);
+		env->put(s->m_sym, v);
+		return v;
+	}
+	error("define needs a symbol");
+	return nullptr;
 }
 
-Atom* v_lambda( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    if( List* names = cast( List, args[0] ) ) {
-        auto r = new Lambda( env, names, args[1] );
-        r->m_loc = args[0]->m_loc;
-        return r;
-    }
-    return nullptr;
+Atom* v_lambda(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	if(List* names = cast(List, args[0])) {
+		auto r = new Lambda(env, names, args[1]);
+		r->m_loc = args[0]->m_loc;
+		return r;
+	}
+	return nullptr;
 }
 
-Atom* v_vau( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 3 );
-    assert( cast( List, args[0] ) );
-    assert( cast( Symbol, args[1] ) );
-    if( List* names = cast( List, args[0] ) ) {
-        return new Vau( env, names, args[1], args[2] );
-    }
-    return nullptr;
+Atom* v_vau(Env* env, Callable::ArgList args) {
+	assert(args.size() == 3);
+	assert(cast(List, args[0]));
+	assert(cast(Symbol, args[1]));
+	if(List* names = cast(List, args[0])) {
+		return new Vau(env, names, args[1], args[2]);
+	}
+	return nullptr;
 }
 
-Atom* v_let( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    List* lets = cast( List, args[0] );
-    Env* e = new Env( env );
-    for( auto item : *lets ) {
-        List* l = cast( List, item );
-        assert( l->size() == 2 );
-        Symbol* s = cast( Symbol, l->at( 0 ) );
-        Atom* a = l->at( 1 )->eval( e );
-        e->put( s->m_sym, a );
-    }
-    return args[1]->eval( e );
+Atom* v_let(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	List* lets = cast(List, args[0]);
+	Env* e = new Env(env);
+	for(auto item : *lets) {
+		List* l = cast(List, item);
+		assert(l->size() == 2);
+		Symbol* s = cast(Symbol, l->at(0));
+		Atom* a = l->at(1)->eval(e);
+		e->put(s->m_sym, a);
+	}
+	return args[1]->eval(e);
 }
 
-Atom* v_normalize( Env* env, Callable::ArgList args ) {
-    assert( args.size() >= 1 );
-    for( auto arg : args ) {
+Atom* v_normalize(Env* env, Callable::ArgList args) {
+	assert(args.size() >= 1);
+	for(auto arg : args) {
 
-    }
-    return nullptr;
+	}
+	return nullptr;
 }
 
-Atom* v_cond( Env* env, Callable::ArgList args ) {
-    for( auto arg : args ) {
-        if( List* l = cast( List, arg ) ) {
-            if( l->size() != 2 ) {
-                Error_At( l->m_loc, "Expected list of size 2" );
-            }
-            if( l->at( 0 )->eval( env ) != &Bool::s_false ) {
-                return l->at( 1 )->eval( env );
-            }
-        }
-        else {
-            Error_At( arg->m_loc, "Expected list of size 2" );
-        }
-    }
-    return nullptr;
+Atom* v_cond(Env* env, Callable::ArgList args) {
+	for(auto arg : args) {
+		if(List* l = cast(List, arg)) {
+			if(l->size() != 2) {
+				Error_At(l->m_loc, "Expected list of size 2");
+			}
+			if(l->at(0)->eval(env) != &Bool::s_false) {
+				return l->at(1)->eval(env);
+			}
+		}
+		else {
+			Error_At(arg->m_loc, "Expected list of size 2");
+		}
+	}
+	return nullptr;
 }
 
-Atom* l_vec_set( Env* env, Callable::ArgList args ) {
-    Error( "TODO" );
+Atom* l_vec_set(Env* env, Callable::ArgList args) {
+	if(args.size() != 3) {
+		Error("3 args");
+	}
+	if(List* l = cast(List, args[0])) {
+		if(Num* n = cast(Num, args[1])) {
+			auto i = unsigned(n->m_num);
+			if(i >= l->size()) {
+				Error("bad index");
+			}
+			l->set(i, args[2]);
+			return args[2];
+		}
+	}
+	Error("Bad args");
     return nullptr;
 }
 
@@ -577,6 +604,22 @@ Atom* l_eq( Env* env, Callable::ArgList args ) {
     return &Bool::s_false;
 }
 
+Atom* l_lt(Env* env, Callable::ArgList args) {
+	if(args.size() != 2) {
+		Error("Expected list of size 2");
+	}
+	if(args[0] < args[1]) { return &Bool::s_true; }
+	if(!(args[0] && args[1])) { return &Bool::s_false; }
+
+	if(Num* n0 = cast(Num, args[0])) { // hack
+		if(Num* n1 = cast(Num, args[1])) { // hack
+			return n0->m_num < n1->m_num ? &Bool::s_true : &Bool::s_false;
+		}
+	}
+	Error("fixme");
+	return &Bool::s_false;
+}
+
 Atom* l_vec_new( Env* env, Callable::ArgList args ) {
     if( args.size() != 1 ) {
         Error( "Expected list of size 1" );
@@ -593,6 +636,17 @@ Atom* l_vec_new( Env* env, Callable::ArgList args ) {
     }
     Error_At( args[0]->m_loc, "Expected number" );
     return nullptr;
+}
+
+Atom* l_vec_size(Env* env, Callable::ArgList args) {
+	if(args.size() != 1) {
+		Error("Expected 1 argument");
+	}
+	if(List* l = cast(List, args[0])) {
+		return new Num(l->size() );
+	}
+	Error("Expected a list");
+	return nullptr;
 }
 
 Atom* l_vec_idx( Env* env, Callable::ArgList args ) {
@@ -636,6 +690,41 @@ Atom* l_map( Env* env, Callable::ArgList args ) {
     }
     Error( "fixme" );
     return nullptr;
+}
+
+Atom* l_list(Env* env, Callable::ArgList args) {
+	if(args.size() == 0) Error("Need args");
+	List* l = new List();
+	for(auto& a : args) {
+		l->append(a);
+	}
+	return l;
+}
+
+Atom* l_range(Env* env, Callable::ArgList args) {
+	if(args.size() == 0) Error("");
+	if(args.size() > 3) Error("");
+	int nums[3];
+	int nn = 0;
+	for(auto& a : args) {
+		if(Num* n = cast(Num, a)) {
+			nums[nn++] = n->m_num;
+		}
+	}
+	int lo, hi, step;
+	switch(nn) {
+		case 1: lo = 0, hi = nums[0], step = 1; break;
+		case 2: lo = nums[0], hi = nums[1]; step = 1; break;
+		case 3: lo = nums[0], hi = nums[1]; step = nums[2]; break;
+	}
+	if(hi < lo) Error("");
+	if(step < 1) Error("");
+	List* l = new List();
+	l->resize(hi - lo);
+	for(int i = 0; i < hi-lo; i += 1) {
+		l->set(i, new Num(lo + i * lo));
+	}
+	return l;
 }
 
 Atom* l_add( Env* env, Callable::ArgList args ) {
@@ -834,10 +923,14 @@ int evaluate( const char* fname, Atom* argv ) {
         env->put( "sub", new BuiltinLambda( &l_sub ) );
         env->put( "normalize", new BuiltinLambda( &l_normalize ) );
         env->put( "eq?", new BuiltinLambda( &l_eq ) );
-        env->put( "map", new BuiltinLambda( &l_map ) );
+        env->put( "lt?", new BuiltinLambda( &l_lt ) );
+		env->put( "map", new BuiltinLambda(&l_map));
+		env->put( "list", new BuiltinLambda(&l_list));
+		env->put( "range", new BuiltinLambda(&l_range));
         env->put( "vec_new", new BuiltinLambda( &l_vec_new ) );
         env->put( "vec_idx", new BuiltinLambda( &l_vec_idx ) );
-        env->put( "vec_set!", new BuiltinVau( &l_vec_set ) );
+		env->put( "vec_set!", new BuiltinLambda(&l_vec_set));
+		env->put( "vec_size", new BuiltinLambda(&l_vec_size));
         env->put( "Num", &Type::s_num );
         env->put( "true", &Bool::s_true );
         env->put( "false", &Bool::s_false );

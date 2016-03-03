@@ -1,10 +1,42 @@
 
+(define fill_vec! (lambda (vec fill) (begin
+	(define aux (lambda (v i f)
+		(cond
+			((eq? i 0) 0)
+			(true (let ((j (sub i 1))) (begin
+				(vec_set! v j fill)
+				(aux v j fill)))))))
+	(let ((n (vec_size vec))) (aux vec n fill)))))
+
+	; x = [ range(1, n)]
+	; 100 times: for(i=n-1; i>=0; --i) y[i] += x[i];
+	; (y[0] y[n-1])
+
+(define repeat (vau (count expr) env 
+	(let ((nleft (eval count env)))
+		(cond
+			((eq? nleft 1) (eval expr))
+			(true (begin (eval expr env) (repeat (sub nleft 1) expr)))))
+ ))
+
+
+(define add_to_vec! (lambda (y x)
+	(begin
+		(define aux (lambda (a b n)
+			(cond
+				((lt? n 0) 0)
+				(true (begin
+					(vec_set! a n (add (vec_idx a n) (vec_idx b n))))))))
+		(aux y x (sub (vec_size y) 1)))))
+
 (define ary (lambda (n) 
-  (let ((x (vec_new n))
+  (let ((x (range 1 (add n 1)))
       (y (vec_new n)))
     (begin
-      (vec_set! x 1 10)
+      (fill_vec! y 1)
+	  (repeat 1 (add_to_vec! y x))
+	  (list (vec_idx y 0) (vec_idx y (sub n 1)))
+	  ;(list (vec_idx x 0) (vec_idx x (sub n 1)))
     ))))
-    ;(print x y))))
 
-(let ((n 10)) (print (ary 10)))
+(let ((n 10)) (print (ary n)))
