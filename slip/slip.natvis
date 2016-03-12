@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
 	<Type Name="Symbol">
-    <DisplayString>sym={sym,s}</DisplayString>
+    <DisplayString>sym={m_sym,s}</DisplayString>
 	</Type>
   <Type Name="String">
-    <DisplayString>str={str}</DisplayString>
+    <DisplayString>str={m_str}</DisplayString>
 	</Type>
   <Type Name="List">
     <Expand>

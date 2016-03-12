@@ -12,21 +12,24 @@
 	; 100 times: for(i=n-1; i>=0; --i) y[i] += x[i];
 	; (y[0] y[n-1])
 
-(define repeat (vau (count expr) env 
-	(let ((nleft (eval count env)))
+(define repeat (vau (count expr) denv
+	(let ((nleft (eval denv count))) (begin
+		(print "RR" nleft denv)
+		(eval denv expr)
 		(cond
-			((eq? nleft 1) (eval expr))
-			(true (begin (eval expr env) (repeat (sub nleft 1) expr)))))
- ))
-
+			((eq? nleft 1) 0)
+			(true 
+				(apply_wrap (repeat (sub nleft 1) expr) denv)))))))
 
 (define add_to_vec! (lambda (y x)
 	(begin
+		(print "add" y x)
 		(define aux (lambda (a b n)
 			(cond
-				((lt? n 0) 0)
+				((lt? n 0) y)
 				(true (begin
-					(vec_set! a n (add (vec_idx a n) (vec_idx b n))))))))
+					(vec_set! a n (add (vec_idx a n) (vec_idx b n)))
+					(aux a b (sub n 1)))))))
 		(aux y x (sub (vec_size y) 1)))))
 
 (define ary (lambda (n) 
@@ -34,7 +37,9 @@
       (y (vec_new n)))
     (begin
       (fill_vec! y 1)
-	  (repeat 1 (add_to_vec! y x))
+	  (print x y)
+	  (repeat 4 (add_to_vec! y x))
+	  (print x y)
 	  (list (vec_idx y 0) (vec_idx y (sub n 1)))
 	  ;(list (vec_idx x 0) (vec_idx x (sub n 1)))
     ))))

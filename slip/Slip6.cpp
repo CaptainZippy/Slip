@@ -50,6 +50,27 @@ struct array_view {
     const T* m_end;
 };
 
+template<typename T, typename... P>
+T* gcnew(P... p) {
+	void* addr = malloc(sizeof(T));
+	return new (addr) T(p...);
+}
+
+template<typename S>
+struct safe_cast_t
+{
+	safe_cast_t(const S& s) : m_s(s) {}
+	template<typename D>
+	operator D() { assert(S(D(m_s)) == m_s); return D(m_s); }
+	const S& m_s;
+};
+
+template<typename T>
+safe_cast_t<T> safe_cast(const T& t)
+{
+	return safe_cast_t<T>(t);
+};
+
 struct Atom;
 struct Symbol;
 struct Env;
@@ -71,7 +92,7 @@ struct SourceManager {
         int line() const {
             if( m_file ) {
                 auto& txt = m_file->m_contents;
-                return std::count( txt.begin(), txt.begin() + m_off, '\n' ) + 1;
+                return safe_cast(std::count( txt.begin(), txt.begin() + m_off, '\n' ) + 1);
             }
             return 0;
         }
@@ -79,7 +100,7 @@ struct SourceManager {
             if( m_file ) {
                 auto& txt = m_file->m_contents;
                 auto nl = txt.rfind( '\n', m_off );
-                return m_off - ( ( nl == std::string::npos ) ? 0 : nl );
+                return safe_cast(m_off - ( ( nl == std::string::npos ) ? 0 : nl ));
             }
             return 0;
         }
@@ -106,7 +127,7 @@ struct SourceManager {
             return cur;
         }
         Location location() const {
-            return Location{ info, cur - start };
+            return Location{ info, safe_cast(cur - start) };
         }
         const char* cur;
         const char* start;
@@ -151,26 +172,32 @@ namespace Detail {
 }
 
 struct Atom {
+	void* operator new(size_t) = delete;
+	void* operator new(size_t, void* p){ return p; }
     virtual ~Atom() {}
-    virtual Atom* eval( Env* env ) = 0;
-    virtual Atom* normalize() = 0;
-    virtual void print() const = 0;
+	Atom* eval(Env* env) { return _eval(env); }
+	Atom* normalize() { return _normalize(); }
+	void print() const { _print(); }
     Atom() : m_type( nullptr ) {}
-    Atom* m_type;
     SourceManager::Location m_loc;
+    Atom* m_type;
+protected:
+    virtual Atom* _eval( Env* env ) = 0;
+    virtual Atom* _normalize() = 0;
+    virtual void _print() const = 0;
 };
 
 struct Value : Atom {
-    Atom* eval( Env* env ) override {
+    Atom* _eval( Env* env ) override {
         return this;
     }
-    Atom* normalize() override {
+    Atom* _normalize() override {
         return this;
     }
 };
 
 struct Type : public Value {
-    void print() const override {
+    void _print() const override {
         printf( "type" );
     }
     static Type s_bool;
@@ -184,7 +211,7 @@ Type Type::s_string;
 
 struct Bool : Value {
     Bool( bool v ) : m_val( v ) {}
-    void print() const override {
+    void _print() const override {
         printf( m_val ? "true" : "false" );
     }
     bool m_val;
@@ -199,7 +226,7 @@ Bool Bool::s_true{ true };
 
 struct Num : Value {
     Num( int n ) : m_num( n ) { m_type = &Type::s_num; }
-    void print() const override {
+    void _print() const override {
         printf( "%i", m_num );
     }
     int m_num;
@@ -207,7 +234,7 @@ struct Num : Value {
 
 struct String : Value {
     String( const char* s = nullptr ) : m_str( s ) { m_type = &Type::s_string; }
-    void print() const override {
+    void _print() const override {
         printf( "%s", m_str );
     }
     const char* m_str;
@@ -215,11 +242,11 @@ struct String : Value {
 
 struct Symbol : Atom {
     Symbol( const char* s ) : m_sym( s ) {}
-    Atom* eval( Env* env ) override;
-    void print() const override {
+    Atom* _eval( Env* env ) override;
+    void _print() const override {
         printf( "'%s", m_sym );
     }
-    Atom* normalize() {
+    Atom* _normalize() {
         return this;
     }
     const char* m_sym;
@@ -238,9 +265,15 @@ struct Env : Value {
         Error_At( sym->m_loc, "Symbol '%s' not found", s );
         return nullptr;
     }
-    void print() const override {
-        printf( "<env>" );
-    }
+    void _print() const override {
+        printf( "<env" );
+		for(auto& e : m_tab) {
+			printf(" %s=", e.first.data());
+			e.second->print();
+		}
+		if(m_parent && m_parent->m_parent) m_parent->print();
+		printf(">");
+	}
     void put( const char* sym, Atom* val ) {
         m_tab.emplace( sym, val );
     }
@@ -249,7 +282,7 @@ struct Env : Value {
     Table m_tab;
 };
 
-Atom* Symbol::eval( Env* env ) {
+Atom* Symbol::_eval( Env* env ) {
     return env->get( this );
 }
 
@@ -257,14 +290,14 @@ Atom* Symbol::eval( Env* env ) {
 struct Callable : Value {
     typedef array_view<Atom*> ArgList;
     virtual Atom* call( Env* env, Atom* arg0, ArgList args ) = 0;
-    void print() const override {
+    void _print() const override {
         printf( "<callable>" );
     }
 };
 
 struct List : Atom {
     typedef std::vector<Atom*> vector;
-    Atom* eval( Env* env ) override {
+    Atom* _eval( Env* env ) override {
         if( lst.empty() ) {
             Error_At( m_loc, "Empty list is illegal" );
         }
@@ -275,16 +308,16 @@ struct List : Atom {
         Error_At( lst[0]->m_loc, "Expected a callable as the first argument" );
         return nullptr;
     }
-    Atom* normalize() override {
+    Atom* _normalize() override {
         std::vector<List*> lets;
-        List* fin = new List();
+        List* fin = gcnew<List>();
         for( auto arg : lst ) {
             auto a = normalize2( arg, lets );
             fin->append( a );
         }
-        List* ret = new List();
-        ret->append( new Symbol( "let" ) );
-        List* loc = new List();
+        List* ret = gcnew<List>();
+        ret->append( gcnew<Symbol>( "let" ) );
+        List* loc = gcnew<List>();
         for( auto l : lets ) {
             loc->append( l );
         }
@@ -294,7 +327,7 @@ struct List : Atom {
     }
     static Atom* normalize2( Atom* arg, std::vector<List*>& lets ) {
         if( auto l = cast( List, arg ) ) {
-            List* simp = new List();
+            List* simp = gcnew<List>();
             for( auto a : l->lst ) {
                 Atom* b = normalize2( a, lets );
                 simp->append( b );
@@ -303,9 +336,9 @@ struct List : Atom {
             {
                 char buf[256];
                 sprintf( buf, "t%i", lets.size() );
-                sym = new Symbol( strdup( buf ) );
+                sym = gcnew<Symbol>( strdup( buf ) );
             }
-            List* let = new List();
+            List* let = gcnew<List>();
             let->append( sym );
             let->append( simp );
             lets.push_back( let );
@@ -335,7 +368,7 @@ struct List : Atom {
 		lst[i] = a;
 		return a;
 	}
-    void print() const override {
+    void _print() const override {
         printf( "(" );
         const char* sep = "";
         for( auto a : lst ) {
@@ -348,13 +381,14 @@ struct List : Atom {
     void resize( int n ) {
         lst.resize( n, nullptr );
     }
+	array_view<Atom*> view() const { return lst; }
 protected:
     std::vector<Atom*> lst;
 };
 
 struct Lambda : Callable {
     Lambda( Env* lex_env, List* arg_names, Atom* body )
-        : m_lex_env( lex_env ), m_arg_names( new List() ), m_body( body ) {
+        : m_lex_env( lex_env ), m_arg_names( gcnew<List>() ), m_body( body ) {
         for( auto a : *arg_names ) {
             if( auto bs = cast( Symbol, a ) ) {
                 m_arg_names->append( bs );
@@ -366,7 +400,7 @@ struct Lambda : Callable {
         }
     }
     Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
-        Env* e = new Env( m_lex_env );
+        Env* e = gcnew<Env>( m_lex_env );
         if( m_arg_names->size() != arg_vals.size() ) {
             Error_At( arg0->m_loc, "Wrong number of arguments. Expected %i, got %i", m_arg_names->size(), arg_vals.size() );
         }
@@ -384,11 +418,11 @@ struct Lambda : Callable {
         }
         return m_body->eval( e );
     }
-    Atom* normalize() override {
+    Atom* _normalize() override {
         Atom* body = m_body->normalize();
-        return new Lambda( m_lex_env, m_arg_names, body );
+        return gcnew<Lambda>( m_lex_env, m_arg_names, body );
     }
-    void print() const override {
+    void _print() const override {
         printf( "(lambda (" );
         for( auto a : *m_arg_names ) {
             a->print();
@@ -409,7 +443,7 @@ struct Vau : Callable {
     Atom* m_env_sym;
     Atom* m_body;
     Vau( Env* lex_env, List* arg_names, Atom* symbol, Atom* body )
-        : m_lex_env( lex_env ), m_arg_names( new List() ), m_env_sym( symbol ), m_body( body ) {
+        : m_lex_env( lex_env ), m_arg_names( gcnew<List>() ), m_env_sym( symbol ), m_body( body ) {
         for( auto a : *arg_names ) {
             if( auto bs = cast( Symbol, a ) ) {
                 m_arg_names->append( bs );
@@ -422,7 +456,7 @@ struct Vau : Callable {
     }
 
     Atom* call( Env* env, Atom* arg0, ArgList args ) override {
-        Env* e = new Env( m_lex_env );
+        Env* e = gcnew<Env>( m_lex_env );
 		e->put( cast(Symbol,m_env_sym)->m_sym, env);
         assert( args.size() == m_arg_names->size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
@@ -430,7 +464,7 @@ struct Vau : Callable {
         }
         return m_body->eval( e );
     }
-    Atom* normalize() override {
+    Atom* _normalize() override {
         assert( 0 );
         return nullptr;
     }
@@ -447,7 +481,7 @@ struct BuiltinLambda : Callable {
         }
         return m_func( env, args );
     }
-    Atom* normalize() override {
+    Atom* _normalize() override {
         return this;
     }
     Func m_func;
@@ -459,23 +493,21 @@ struct BuiltinVau : Callable {
     Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         return ( *m_func )( env, arg_vals );
     }
-	Atom* normalize() override {
+	Atom* _normalize() override {
 		return this;
 	}
 	Func m_func;
 };
+
 
 Atom* v_eval(Env* env, Callable::ArgList args) {
 	if(args.size() == 1) {
 		return args[0]->eval(env);
 	}
 	else if(args.size() == 2) {
-		std::vector<Atom*> a2;
-		for(auto a : args) {
-			a2.push_back(a->eval(env));
-		}
-		Env* e = cast(Env, a2[1]);
-		return a2[0]->eval(e);
+		Env* e = cast(Env, args[0]->eval(env));
+		Atom* a = args[1]->eval(env);
+		return a->eval(e);
 	}
 	Error("too many arguments");
 	return nullptr;
@@ -513,7 +545,7 @@ Atom* v_define(Env* env, Callable::ArgList args) {
 Atom* v_lambda(Env* env, Callable::ArgList args) {
 	assert(args.size() == 2);
 	if(List* names = cast(List, args[0])) {
-		auto r = new Lambda(env, names, args[1]);
+		auto r = gcnew<Lambda>(env, names, args[1]);
 		r->m_loc = args[0]->m_loc;
 		return r;
 	}
@@ -525,7 +557,7 @@ Atom* v_vau(Env* env, Callable::ArgList args) {
 	assert(cast(List, args[0]));
 	assert(cast(Symbol, args[1]));
 	if(List* names = cast(List, args[0])) {
-		return new Vau(env, names, args[1], args[2]);
+		return gcnew<Vau>(env, names, args[1], args[2]);
 	}
 	return nullptr;
 }
@@ -533,7 +565,7 @@ Atom* v_vau(Env* env, Callable::ArgList args) {
 Atom* v_let(Env* env, Callable::ArgList args) {
 	assert(args.size() == 2);
 	List* lets = cast(List, args[0]);
-	Env* e = new Env(env);
+	Env* e = gcnew<Env>(env);
 	for(auto item : *lets) {
 		List* l = cast(List, item);
 		assert(l->size() == 2);
@@ -567,6 +599,35 @@ Atom* v_cond(Env* env, Callable::ArgList args) {
 		}
 	}
 	return nullptr;
+}
+
+Atom* l_apply(Env* env, Callable::ArgList args) {
+	assert(args.size() == 3);
+	Callable* c = cast(Callable, args[0]);
+	List* a = cast(List, args[1]);
+	Env* e = cast(Env, args[2]);
+	return c->call(e, c, a->view());
+}
+
+Atom* l_apply_wrap(Env* env, Callable::ArgList args) {
+	assert(args.size() == 2);
+	List* slst = cast(List, args[0]);
+	List* dlst = gcnew<List>();
+	for(auto& a : *slst) {
+		dlst->append(a->eval(env));
+	}
+	Env* e = cast(Env, args[1]->eval(env));
+	std::vector<Atom*> a2; a2.push_back(e); a2.push_back(dlst);
+	return v_eval(env, array_view<Atom*>(a2));
+}
+
+Atom* l_wrap(Env* env, Callable::ArgList args) {
+	assert(args.size() == 1);
+	Callable* c = cast(Callable, args[0]);
+	if(cast(Lambda, c) || cast(BuiltinLambda, c)) {
+		return c;
+	}
+	return nullptr;// new Lambda(env, c->->call(e, c, a->view());
 }
 
 Atom* l_vec_set(Env* env, Callable::ArgList args) {
@@ -629,7 +690,7 @@ Atom* l_vec_new( Env* env, Callable::ArgList args ) {
         if( n < 0 ) {
             Error_At( num->m_loc, "Expected n > 0" );
         }
-        List* l = new List();
+        List* l = gcnew<List>();
         l->m_loc = num->m_loc;
         l->resize( n );
         return l;
@@ -643,7 +704,7 @@ Atom* l_vec_size(Env* env, Callable::ArgList args) {
 		Error("Expected 1 argument");
 	}
 	if(List* l = cast(List, args[0])) {
-		return new Num(l->size() );
+		return gcnew<Num>( int(l->size()) );
 	}
 	Error("Expected a list");
 	return nullptr;
@@ -681,7 +742,7 @@ Atom* l_map( Env* env, Callable::ArgList args ) {
     }
     if( Callable* c = cast( Callable, args[0] ) ) {
         if( List* l = cast( List, args[1] ) ) {
-            List* r = new List();
+            List* r = gcnew<List>();
             for( auto i : *l ) {
                 r->append( c->call( env, c, Callable::ArgList::from_single( i ) ) );
             }
@@ -694,7 +755,7 @@ Atom* l_map( Env* env, Callable::ArgList args ) {
 
 Atom* l_list(Env* env, Callable::ArgList args) {
 	if(args.size() == 0) Error("Need args");
-	List* l = new List();
+	List* l = gcnew<List>();
 	for(auto& a : args) {
 		l->append(a);
 	}
@@ -719,10 +780,10 @@ Atom* l_range(Env* env, Callable::ArgList args) {
 	}
 	if(hi < lo) Error("");
 	if(step < 1) Error("");
-	List* l = new List();
+	List* l = gcnew<List>();
 	l->resize(hi - lo);
 	for(int i = 0; i < hi-lo; i += 1) {
-		l->set(i, new Num(lo + i * lo));
+		l->set(i, gcnew<Num>(lo + i * lo));
 	}
 	return l;
 }
@@ -734,7 +795,7 @@ Atom* l_add( Env* env, Callable::ArgList args ) {
         Num* a = cast( Num, arg );
         acc += a->m_num;
     }
-    return new Num( acc );
+    return gcnew<Num>( acc );
 }
 
 Atom* l_sub( Env* env, Callable::ArgList args ) {
@@ -744,7 +805,7 @@ Atom* l_sub( Env* env, Callable::ArgList args ) {
         Num* a = cast( Num, arg );
         acc -= a->m_num;
     }
-    return new Num( acc );
+    return gcnew<Num>( acc );
 }
 
 Atom* l_mul( Env* env, Callable::ArgList args ) {
@@ -754,7 +815,7 @@ Atom* l_mul( Env* env, Callable::ArgList args ) {
         Num* a = cast( Num, arg );
         acc *= a->m_num;
     }
-    return new Num( acc );
+    return gcnew<Num>( acc );
 }
 
 Atom* l_div( Env* env, Callable::ArgList args ) {
@@ -764,7 +825,7 @@ Atom* l_div( Env* env, Callable::ArgList args ) {
         Num* a = cast( Num, arg );
         acc /= a->m_num;
     }
-    return new Num( acc );
+    return gcnew<Num>( acc );
 }
 
 Atom* l_print( Env* env, Callable::ArgList args ) {
@@ -810,7 +871,7 @@ Atom* parse_string( SourceManager::Input& in ) {
                 }
                 break;
             case '(': {
-                List* lst = new List();
+                List* lst = gcnew<List>();
                 lst->m_loc = in.location();
                 in.next();
                 while( Atom* a = parse_string( in ) ) {
@@ -837,7 +898,7 @@ Atom* parse_string( SourceManager::Input& in ) {
                     }
                     else break;
                 }
-                ret = new Num( value );
+                ret = gcnew<Num>( value );
                 ret->m_loc = loc;
                 break;
             }
@@ -852,7 +913,7 @@ Atom* parse_string( SourceManager::Input& in ) {
                             Error_At( loc, "End of input while parsing quoted string" );
                             return nullptr;
                         case '"':
-                            ret = new String( strndup( s, in.peekbuf() - 1 ) );
+                            ret = gcnew<String>( strndup( s, in.peekbuf() - 1 ) );
                             ret->m_loc = loc;
                             break;
                         default:
@@ -872,7 +933,7 @@ Atom* parse_string( SourceManager::Input& in ) {
                         }
                         else break;
                     }
-                    ret = new Symbol( strndup( s, in.peekbuf() ) );
+                    ret = gcnew<Symbol>( strndup( s, in.peekbuf() ) );
                     ret->m_loc = loc;
                     break;
                 }
@@ -892,8 +953,8 @@ Atom* parse_string( SourceManager::Input& in ) {
 
 Atom* parse_file( SourceManager& sm, const char* fname ) {
     if( SourceManager::Input input = sm.load( fname ) ) {
-        List* l = new List();
-        l->append( new Symbol( "begin" ) );
+        List* l = gcnew<List>();
+        l->append( gcnew<Symbol>( "begin" ) );
         while( Atom* a = parse_string( input ) ) {
             l->append( a );
         }
@@ -908,29 +969,32 @@ Atom* parse_file( SourceManager& sm, const char* fname ) {
 int evaluate( const char* fname, Atom* argv ) {
     SourceManager sm;
     if( Atom* prog = parse_file( sm, fname ) ) {
-        Env* env = new Env( nullptr );
-        env->put( "eval", new BuiltinVau( &v_eval ) );
-        env->put( "begin", new BuiltinVau( &v_begin ) );
-        env->put( "define", new BuiltinVau( &v_define ) );
-        env->put( "lambda", new BuiltinVau( &v_lambda ) );
-        env->put( "vau", new BuiltinVau( &v_vau ) );
-        env->put( "let", new BuiltinVau( &v_let ) );
-        env->put( "cond", new BuiltinVau( &v_cond ) );
-        env->put( "print", new BuiltinLambda( &l_print ) );
-        env->put( "add", new BuiltinLambda( &l_add ) );
-        env->put( "mul", new BuiltinLambda( &l_mul ) );
-        env->put( "div", new BuiltinLambda( &l_div ) );
-        env->put( "sub", new BuiltinLambda( &l_sub ) );
-        env->put( "normalize", new BuiltinLambda( &l_normalize ) );
-        env->put( "eq?", new BuiltinLambda( &l_eq ) );
-        env->put( "lt?", new BuiltinLambda( &l_lt ) );
-		env->put( "map", new BuiltinLambda(&l_map));
-		env->put( "list", new BuiltinLambda(&l_list));
-		env->put( "range", new BuiltinLambda(&l_range));
-        env->put( "vec_new", new BuiltinLambda( &l_vec_new ) );
-        env->put( "vec_idx", new BuiltinLambda( &l_vec_idx ) );
-		env->put( "vec_set!", new BuiltinLambda(&l_vec_set));
-		env->put( "vec_size", new BuiltinLambda(&l_vec_size));
+        Env* env = gcnew<Env>( nullptr );
+        env->put( "eval", gcnew<BuiltinVau>( &v_eval ) );
+        env->put( "begin", gcnew<BuiltinVau>( &v_begin ) );
+        env->put( "define", gcnew<BuiltinVau>( &v_define ) );
+        env->put( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
+        env->put( "vau", gcnew<BuiltinVau>( &v_vau ) );
+        env->put( "let", gcnew<BuiltinVau>( &v_let ) );
+        env->put( "cond", gcnew<BuiltinVau>( &v_cond ) );
+        env->put( "apply", gcnew<BuiltinLambda>( &l_apply ) );
+        env->put( "wrap", gcnew<BuiltinLambda>( &l_wrap ) );
+        env->put( "apply_wrap", gcnew<BuiltinVau>( &l_apply_wrap ) );
+        env->put( "print", gcnew<BuiltinLambda>( &l_print ) );
+        env->put( "add", gcnew<BuiltinLambda>( &l_add ) );
+        env->put( "mul", gcnew<BuiltinLambda>( &l_mul ) );
+        env->put( "div", gcnew<BuiltinLambda>( &l_div ) );
+        env->put( "sub", gcnew<BuiltinLambda>( &l_sub ) );
+        env->put( "normalize", gcnew<BuiltinLambda>( &l_normalize ) );
+        env->put( "eq?", gcnew<BuiltinLambda>( &l_eq ) );
+        env->put( "lt?", gcnew<BuiltinLambda>( &l_lt ) );
+		env->put( "map", gcnew<BuiltinLambda>(&l_map));
+		env->put( "list", gcnew<BuiltinLambda>(&l_list));
+		env->put( "range", gcnew<BuiltinLambda>(&l_range));
+        env->put( "vec_new", gcnew<BuiltinLambda>( &l_vec_new ) );
+        env->put( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
+		env->put( "vec_set!", gcnew<BuiltinLambda>(&l_vec_set));
+		env->put( "vec_size", gcnew<BuiltinLambda>(&l_vec_size));
         env->put( "Num", &Type::s_num );
         env->put( "true", &Bool::s_true );
         env->put( "false", &Bool::s_false );
@@ -947,7 +1011,7 @@ int main( int argc, const char* argv[] ) {
         return 1;
     }
     try {
-        List* args = new List();
+        List* args = gcnew<List>();
         static SourceManager::FileInfo cmdline{ "cmdline" };
         for( int i = 2; i < argc; ++i ) {
             SourceManager::Input in( argv[i], argv[i] + strlen( argv[i] ), &cmdline );
