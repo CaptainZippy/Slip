@@ -292,10 +292,14 @@ Atom* Symbol::_eval( Env* env ) {
 
 struct Callable : Value {
     typedef array_view<Atom*> ArgList;
-    virtual Atom* call( Env* env, Atom* arg0, ArgList args ) = 0;
+    Atom* call( Env* env, Atom* arg0, ArgList args ) {
+        return _call( env, arg0, args );
+    }
     void _print() const override {
         printf( "<callable>" );
     }
+protected:
+    virtual Atom* _call( Env* env, Atom* arg0, ArgList args ) = 0;
 };
 
 struct List : Atom {
@@ -402,7 +406,7 @@ struct Lambda : Callable {
             }
         }
     }
-    Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
+    Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         Env* e = gcnew<Env>( m_lex_env );
         if( m_arg_names->size() != arg_vals.size() ) {
             Error_At( arg0->m_loc, "Wrong number of arguments. Expected %i, got %i", m_arg_names->size(), arg_vals.size() );
@@ -458,7 +462,7 @@ struct Vau : Callable {
         }
     }
 
-    Atom* call( Env* env, Atom* arg0, ArgList args ) override {
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         Env* e = gcnew<Env>( m_lex_env );
         e->put( cast(Symbol,m_env_sym)->m_sym, env);
         assert( args.size() == m_arg_names->size() );
@@ -476,7 +480,7 @@ struct Vau : Callable {
 struct BuiltinLambda : Callable {
     typedef Atom* ( *Func )( Env* env, ArgList args );
     BuiltinLambda( Func f ) : m_func( f ) {}
-    Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
+    Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         std::vector<Atom*> args;
         for( auto arg : arg_vals ) {
             Atom* a = arg->eval( env );
@@ -493,7 +497,7 @@ struct BuiltinLambda : Callable {
 struct BuiltinVau : Callable {
     typedef Atom* ( *Func )( Env*, ArgList );
     BuiltinVau( Func f ) : m_func( f ) {}
-    Atom* call( Env* env, Atom* arg0, ArgList arg_vals ) override {
+    Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         return ( *m_func )( env, arg_vals );
     }
     Atom* _normalize() override {
@@ -501,7 +505,6 @@ struct BuiltinVau : Callable {
     }
     Func m_func;
 };
-
 
 Atom* v_eval(Env* env, Callable::ArgList args) {
     if(args.size() == 1) {
@@ -526,13 +529,18 @@ Atom* v_type(Env* env, Callable::ArgList args) {
     return s;
 }
 
-Atom* v_begin(Env* env, Callable::ArgList args) {
-    Atom* r = nullptr;
-    for(auto a : args) {
-        r = a->eval(env);
+struct VauBegin : public Callable {
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        Atom* r = nullptr;
+        for( auto a : args ) {
+            r = a->eval( env );
+        }
+        return r;
     }
-    return r;
-}
+    Atom* _normalize() override {
+        return this;
+    }
+};
 
 Atom* v_define(Env* env, Callable::ArgList args) {
     assert(args.size() == 2);
@@ -974,15 +982,15 @@ int evaluate( const char* fname, Atom* argv ) {
     if( Atom* prog = parse_file( sm, fname ) ) {
         Env* env = gcnew<Env>( nullptr );
         env->put( "eval", gcnew<BuiltinVau>( &v_eval ) );
-        env->put( "begin", gcnew<BuiltinVau>( &v_begin ) );
+        env->put( "begin", gcnew<VauBegin>() );
         env->put( "define", gcnew<BuiltinVau>( &v_define ) );
         env->put( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
         env->put( "vau", gcnew<BuiltinVau>( &v_vau ) );
         env->put( "let", gcnew<BuiltinVau>( &v_let ) );
         env->put( "cond", gcnew<BuiltinVau>( &v_cond ) );
+        env->put( "apply_wrap", gcnew<BuiltinVau>( &l_apply_wrap ) );
         env->put( "apply", gcnew<BuiltinLambda>( &l_apply ) );
         env->put( "wrap", gcnew<BuiltinLambda>( &l_wrap ) );
-        env->put( "apply_wrap", gcnew<BuiltinVau>( &l_apply_wrap ) );
         env->put( "print", gcnew<BuiltinLambda>( &l_print ) );
         env->put( "add", gcnew<BuiltinLambda>( &l_add ) );
         env->put( "mul", gcnew<BuiltinLambda>( &l_mul ) );
