@@ -11,6 +11,14 @@ void assert2( T t, const char* msg ) {
 #define assert(A) assert2(A, #A)
 #define cast(T,a) dynamic_cast<T*>(a)
 
+struct Result {
+    enum Code { OK=0, ERR=1 };
+    Result(Code c) : code(c) {}
+    bool isOk() const { return code == OK; }
+    Code code;
+};
+#define R_OK Result::OK
+
 #define Error( fmt, ... ) Detail::_Error("%s(%i,%i): error " fmt, __FILE__, __LINE__, 0, __VA_ARGS__)
 #define Error_At( loc, fmt, ... ) Detail::_Error("%s(%i,%i): error " fmt, loc.filename(), loc.line(), loc.col(), __VA_ARGS__)
 
@@ -57,8 +65,7 @@ T* gcnew(P... p) {
 }
 
 template<typename S>
-struct safe_cast_t
-{
+struct safe_cast_t {
     safe_cast_t(const S& s) : m_s(s) {}
     template<typename D>
     operator D() { assert(S(D(m_s)) == m_s); return D(m_s); }
@@ -66,8 +73,7 @@ struct safe_cast_t
 };
 
 template<typename T>
-safe_cast_t<T> safe_cast(const T& t)
-{
+safe_cast_t<T> safe_cast(const T& t) {
     return safe_cast_t<T>(t);
 };
 
@@ -258,14 +264,19 @@ struct Symbol : Atom {
 struct Env : Value {
     Env( Env *p ) : m_parent( p ) {}
     Atom* get( const Symbol* sym ) {
-        const char* s = sym->m_sym;
+        if( Atom* a = get( sym->m_sym ) ) {
+            return a;
+        }
+        Error_At( sym->m_loc, "Symbol '%s' not found", sym->m_sym );
+        return nullptr;
+    }
+    Atom* get( const char* sym ) {
         for( Env* e = this; e; e = e->m_parent ) {
-            auto it = e->m_tab.find( s );
+            auto it = e->m_tab.find( sym );
             if( it != e->m_tab.end() ) {
                 return it->second;
             }
         }
-        Error_At( sym->m_loc, "Symbol '%s' not found", s );
         return nullptr;
     }
     void _print() const override {
@@ -506,6 +517,85 @@ struct BuiltinVau : Callable {
     Func m_func;
 };
 
+struct State {
+    State() {
+        m_env = gcnew<Env>( nullptr );
+        m_stack.push_back( m_env );
+    }
+    Result let( const char* name, Atom* value ) {
+        m_env->put( name, value );
+        return R_OK;
+    }
+    void newList() {
+        m_stack.push_back( gcnew<List>( ) );
+    }
+    void newSymbol(const char* sym) {
+        m_stack.push_back( gcnew<Symbol>(sym) );
+    }
+    void newInteger( int value ) {
+        m_stack.push_back( gcnew<Num>( value ) );
+    }
+    void newString( const char* s ) {
+        m_stack.push_back( gcnew<String>( s ) );
+    }
+    int popInteger( int idx ) {
+        int r = 0;
+        if( Num* n = cast( Num, m_stack[idx] ) ) {
+            r = n->m_num;
+            m_stack.pop(1);
+        }
+        return r;
+    }
+    void listAppend( int idx ) {
+        if( List* l = cast(List, m_stack[idx]) ) {
+            l->append( m_stack[-1] );
+            m_stack.pop( 1 );
+        }
+        else {
+            throw 0;
+        }
+    }
+    Result getGlobal( const char* sym ) {
+        if( Atom* a = m_env->get( sym ) ) {
+            m_stack.push_back( a );
+            return R_OK;
+        }
+        return Result::ERR;
+    }
+    Result call( int narg, int nret ) {
+        if( Callable* c = cast( Callable, m_stack[-narg - 1] ) ) {
+            Atom** begin = m_stack.m_stack.data();
+            int size = m_stack.size();
+            Atom* r = c->call( m_env, c, Callable::ArgList(begin+size-narg, begin+size));
+            m_stack.pop( narg + 1 );
+            m_stack.push_back( r );
+            assert( nret == 1 && r );
+            return R_OK;
+        }
+        return Result::ERR;
+    }
+
+    
+    Env* m_env;
+    struct Stack {
+        Atom* operator[]( int i ) const {
+            return i >= 0 ? m_stack[i] : m_stack[m_stack.size() + i];
+        }
+        void push_back( Atom* a ) {
+            m_stack.push_back( a );
+        }
+        void pop( int n=1 ) {
+            m_stack.erase( m_stack.end()-1, m_stack.end() );
+        }
+        int size() const {
+            return m_stack.size();
+        }
+        std::vector<Atom*> m_stack;
+    };
+    Stack m_stack;
+};
+
+
 Atom* v_eval(Env* env, Callable::ArgList args) {
     if(args.size() == 1) {
         return args[0]->eval(env);
@@ -536,6 +626,35 @@ struct VauBegin : public Callable {
             r = a->eval( env );
         }
         return r;
+    }
+    Atom* _normalize() override {
+        return this;
+    }
+};
+
+struct VauModule : public Callable {
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        assert( args.size() == 1 );
+        Env* r = env;// gcnew<Env>( env );
+        List* l = cast( List, args[0]);
+        assert( l );
+        for( auto a : *l ) {
+            a->eval( r );
+        }
+        return r;
+    }
+    Atom* _normalize() override {
+        return this;
+    }
+};
+
+struct VauQuote: public Callable {
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        List* l = gcnew<List>( );
+        for( auto a : args ) {
+            l->append( a );
+        }
+        return l;
     }
     Atom* _normalize() override {
         return this;
@@ -864,12 +983,11 @@ const char* strndup( const char* s, const char* e ) {
 }
 
 
-Atom* parse_string( SourceManager::Input& in ) {
-    Atom* ret = nullptr;
-    while( ret == nullptr ) {
+Result parse_one( State* state, SourceManager::Input& in ) {
+    while( 1 ) {
         switch( in.peek() ) {
             case '\0':
-                return nullptr;
+                return Result::ERR;
             case ' ':
             case '\r':
             case '\n':
@@ -882,21 +1000,20 @@ Atom* parse_string( SourceManager::Input& in ) {
                 }
                 break;
             case '(': {
-                List* lst = gcnew<List>();
-                lst->m_loc = in.location();
+                state->newList();
+                //lst->m_loc = in.location();
                 in.next();
-                while( Atom* a = parse_string( in ) ) {
-                    lst->append( a );
+                while( parse_one(state, in ).isOk() ) {
+                    state->listAppend( -2 );
                 }
                 if( in.next() != ')' ) {
-                    Error_At( lst->m_loc, "Missing ')' for list begun here" );
+                    //Error_At( lst->m_loc, "Missing ')' for list begun here" );
                     throw 0;
                 }
-                ret = lst;
-                break;
+                return R_OK;
             }
             case ')':
-                return nullptr;
+                return Result::ERR;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9': {
                 auto loc = in.location();
@@ -909,24 +1026,24 @@ Atom* parse_string( SourceManager::Input& in ) {
                     }
                     else break;
                 }
-                ret = gcnew<Num>( value );
-                ret->m_loc = loc;
-                break;
+                state->newInteger( value );
+                //ret->m_loc = loc;
+                return R_OK;
             }
             case '"': {
                 auto loc = in.location();
                 in.next();
                 const char* s = in.peekbuf();
-                while( ret == nullptr ) {
+                while( 1 ) {
                     switch( int c = in.next() ) {
                         case -1:
                         case 0:
                             Error_At( loc, "End of input while parsing quoted string" );
-                            return nullptr;
+                            return Result::ERR;
                         case '"':
-                            ret = gcnew<String>( strndup( s, in.peekbuf() - 1 ) );
-                            ret->m_loc = loc;
-                            break;
+                            state->newString( strndup( s, in.peekbuf() - 1 ) );
+                            //ret->m_loc = loc;
+                            return R_OK;
                         default:
                             break;
                     }
@@ -944,76 +1061,76 @@ Atom* parse_string( SourceManager::Input& in ) {
                         }
                         else break;
                     }
-                    ret = gcnew<Symbol>( strndup( s, in.peekbuf() ) );
-                    ret->m_loc = loc;
-                    break;
+                    state->newSymbol( strndup( s, in.peekbuf() ) );
+                    return R_OK;
+                    //ret->m_loc = loc;
                 }
                 else throw 0;
             }
         }
     }
-    in.eatwhite();
-    if( in.peek() == ':' ) {
-        in.next();
-        Atom* rhs = parse_string( in );
-        rhs->m_type = ret;
-        ret = rhs;
-    }
-    return ret;
 }
 
-Atom* parse_file( SourceManager& sm, const char* fname ) {
-    if( SourceManager::Input input = sm.load( fname ) ) {
-        List* l = gcnew<List>();
-        l->append( gcnew<Symbol>( "begin" ) );
-        while( Atom* a = parse_string( input ) ) {
-            l->append( a );
+Result parse_string( State* state, SourceManager::Input& in ) {
+    if( parse_one(state, in).isOk() ) {
+        in.eatwhite();
+        if(0) if( in.peek() == ':' ) {
+            in.next();
+            //Atom* rhs = parse_one( state, in );
+            //rhs->m_type = ret;
+            //ret = rhs;
         }
-        return l;
+        return R_OK;
+    }
+    return Result::ERR;
+}
+
+Result parse_file( State* state, SourceManager& sm, const char* fname ) {
+    if( SourceManager::Input input = sm.load( fname ) ) {
+        state->newList();
+        while( parse_string( state, input ).isOk() ) {
+            state->listAppend( -2 );
+        }
+        return Result::OK;
     }
     else {
         Error( "Unable to open '%s'", fname );
-        return nullptr;
+        return Result::ERR;
     }
 }
 
-int evaluate( const char* fname, Atom* argv ) {
-    SourceManager sm;
-    if( Atom* prog = parse_file( sm, fname ) ) {
-        Env* env = gcnew<Env>( nullptr );
-        env->put( "eval", gcnew<BuiltinVau>( &v_eval ) );
-        env->put( "begin", gcnew<VauBegin>() );
-        env->put( "define", gcnew<BuiltinVau>( &v_define ) );
-        env->put( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
-        env->put( "vau", gcnew<BuiltinVau>( &v_vau ) );
-        env->put( "let", gcnew<BuiltinVau>( &v_let ) );
-        env->put( "cond", gcnew<BuiltinVau>( &v_cond ) );
-        env->put( "apply_wrap", gcnew<BuiltinVau>( &l_apply_wrap ) );
-        env->put( "apply", gcnew<BuiltinLambda>( &l_apply ) );
-        env->put( "wrap", gcnew<BuiltinLambda>( &l_wrap ) );
-        env->put( "print", gcnew<BuiltinLambda>( &l_print ) );
-        env->put( "add", gcnew<BuiltinLambda>( &l_add ) );
-        env->put( "mul", gcnew<BuiltinLambda>( &l_mul ) );
-        env->put( "div", gcnew<BuiltinLambda>( &l_div ) );
-        env->put( "sub", gcnew<BuiltinLambda>( &l_sub ) );
-        env->put( "normalize", gcnew<BuiltinLambda>( &l_normalize ) );
-        env->put( "eq?", gcnew<BuiltinLambda>( &l_eq ) );
-        env->put( "lt?", gcnew<BuiltinLambda>( &l_lt ) );
-        env->put( "map", gcnew<BuiltinLambda>(&l_map));
-        env->put( "list", gcnew<BuiltinLambda>(&l_list));
-        env->put( "range", gcnew<BuiltinLambda>(&l_range));
-        env->put( "vec_new", gcnew<BuiltinLambda>( &l_vec_new ) );
-        env->put( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
-        env->put( "vec_set!", gcnew<BuiltinLambda>(&l_vec_set));
-        env->put( "vec_size", gcnew<BuiltinLambda>(&l_vec_size));
-        env->put( "Num", &Type::s_num );
-        env->put( "true", &Bool::s_true );
-        env->put( "false", &Bool::s_false );
-        env->put( "argv", argv );
-        v_eval( env, Callable::ArgList( &prog, &prog + 1 ) );
-        return 0;
-    }
-    return 1;
+Result initBuiltins( State* state ) {
+    state->let( "eval", gcnew<BuiltinVau>( &v_eval ) );
+    state->let( "begin", gcnew<VauBegin>( ) );
+    state->let( "module", gcnew<VauModule>( ) );
+    state->let( "quote", gcnew<VauQuote>( ) );
+    state->let( "define", gcnew<BuiltinVau>( &v_define ) );
+    state->let( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
+    state->let( "vau", gcnew<BuiltinVau>( &v_vau ) );
+    state->let( "let", gcnew<BuiltinVau>( &v_let ) );
+    state->let( "cond", gcnew<BuiltinVau>( &v_cond ) );
+    state->let( "apply_wrap", gcnew<BuiltinVau>( &l_apply_wrap ) );
+    state->let( "apply", gcnew<BuiltinLambda>( &l_apply ) );
+    state->let( "wrap", gcnew<BuiltinLambda>( &l_wrap ) );
+    state->let( "print", gcnew<BuiltinLambda>( &l_print ) );
+    state->let( "add", gcnew<BuiltinLambda>( &l_add ) );
+    state->let( "mul", gcnew<BuiltinLambda>( &l_mul ) );
+    state->let( "div", gcnew<BuiltinLambda>( &l_div ) );
+    state->let( "sub", gcnew<BuiltinLambda>( &l_sub ) );
+    state->let( "normalize", gcnew<BuiltinLambda>( &l_normalize ) );
+    state->let( "eq?", gcnew<BuiltinLambda>( &l_eq ) );
+    state->let( "lt?", gcnew<BuiltinLambda>( &l_lt ) );
+    state->let( "map", gcnew<BuiltinLambda>( &l_map ) );
+    state->let( "list", gcnew<BuiltinLambda>( &l_list ) );
+    state->let( "range", gcnew<BuiltinLambda>( &l_range ) );
+    state->let( "vec_new", gcnew<BuiltinLambda>( &l_vec_new ) );
+    state->let( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
+    state->let( "vec_set!", gcnew<BuiltinLambda>( &l_vec_set ) );
+    state->let( "vec_size", gcnew<BuiltinLambda>( &l_vec_size ) );
+    state->let( "Num", &Type::s_num );
+    state->let( "true", &Bool::s_true );
+    state->let( "false", &Bool::s_false );
+    return R_OK;
 }
 
 int main( int argc, const char* argv[] ) {
@@ -1022,13 +1139,28 @@ int main( int argc, const char* argv[] ) {
         return 1;
     }
     try {
-        List* args = gcnew<List>();
-        static SourceManager::FileInfo cmdline{ "cmdline" };
-        for( int i = 2; i < argc; ++i ) {
-            SourceManager::Input in( argv[i], argv[i] + strlen( argv[i] ), &cmdline );
-            args->append( parse_string( in ) );
+        State* state = new State();
+        initBuiltins(state);
+
+        SourceManager sm;
+        state->getGlobal( "module" );
+        if( parse_file( state, sm, argv[1]).isOk() ) {
+            state->call( 1, 1 );
+            state->getGlobal( "main" );
+            state->newList();
+            state->newSymbol( "quote" );
+            state->listAppend( -2 );
+            static SourceManager::FileInfo cmdline{ "cmdline" };
+            for( int i = 2; i < argc; ++i ) {
+                SourceManager::Input in( argv[i], argv[i] + strlen( argv[i] ), &cmdline );
+                if( parse_string( state, in ).isOk() ) {
+                    state->listAppend( -2 );
+                }
+            }
+            state->call( 1, 1 );
+            int ret = state->popInteger(-1);
+            return ret;
         }
-        return evaluate( argv[1], args );
     }
     catch( float ) {
         return 1;

@@ -8,4 +8,6 @@
         (true
             (ack (sub m 1) (ack m (sub n 1)))))))
 
-(map (lambda (x) (print "Ack" 3 x (ack 3 x))) argv)
+(define main (lambda (argv)
+    (map (lambda (x) (print "Ack" 3 x (ack 3 x))) argv)))
+
