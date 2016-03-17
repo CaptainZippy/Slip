@@ -291,6 +291,16 @@ struct Env : Value {
     void put( const char* sym, Atom* val ) {
         m_tab.emplace( sym, val );
     }
+    void update( const char* sym, Atom* val ) {
+        for( Env* e = this; e; e = e->m_parent ) {
+            auto it = e->m_tab.find( sym );
+            if( it != e->m_tab.end() ) {
+                it->second = val;
+                return;
+            }
+        }
+        assert( 0 );
+    }
     Env* m_parent;
     typedef std::unordered_map<std::string, Atom*> Table;
     Table m_tab;
@@ -303,12 +313,14 @@ Atom* Symbol::_eval( Env* env ) {
 
 struct Callable : Value {
     typedef array_view<Atom*> ArgList;
+    Callable( List* arg_names ) : m_arg_names(arg_names) {}
     Atom* call( Env* env, Atom* arg0, ArgList args ) {
         return _call( env, arg0, args );
     }
     void _print() const override {
         printf( "<callable>" );
     }
+    List* m_arg_names;
 protected:
     virtual Atom* _call( Env* env, Atom* arg0, ArgList args ) = 0;
 };
@@ -353,7 +365,7 @@ struct List : Atom {
             Symbol* sym;
             {
                 char buf[256];
-                sprintf( buf, "t%i", lets.size() );
+                sprintf( buf, "t%zi", lets.size() );
                 sym = gcnew<Symbol>( strdup( buf ) );
             }
             List* let = gcnew<List>();
@@ -405,13 +417,15 @@ protected:
 };
 
 struct Lambda : Callable {
+    static Bool s_trampoline;
     Lambda( Env* lex_env, List* arg_names, Atom* body )
-        : m_lex_env( lex_env ), m_arg_names( gcnew<List>() ), m_body( body ) {
+        : Callable( arg_names), m_lex_env( lex_env ), m_body( body ) {
         for( auto a : *arg_names ) {
             if( auto bs = cast( Symbol, a ) ) {
-                m_arg_names->append( bs );
+             //   m_arg_names->append( bs );
             }
             else {
+                assert( 0 );
                 auto ts = a->eval( lex_env );
                 m_arg_names->append( ts );
             }
@@ -434,7 +448,12 @@ struct Lambda : Callable {
             }
             e->put( s->m_sym, a );
         }
-        return m_body->eval( e );
+        while( 1 ) {
+            Atom* ret = m_body->eval( e );
+            if( ret != &s_trampoline ) {
+                return ret;
+            }
+        }
     }
     Atom* _normalize() override {
         Atom* body = m_body->normalize();
@@ -451,22 +470,22 @@ struct Lambda : Callable {
 
     }
     Env* m_lex_env;
-    List* m_arg_names;
     Atom* m_body;
 };
+Bool Lambda::s_trampoline(false);
 
 struct Vau : Callable {
     Env* m_lex_env;
-    List* m_arg_names;
     Atom* m_env_sym;
     Atom* m_body;
     Vau( Env* lex_env, List* arg_names, Atom* symbol, Atom* body )
-        : m_lex_env( lex_env ), m_arg_names( gcnew<List>() ), m_env_sym( symbol ), m_body( body ) {
+        : Callable(arg_names), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
         for( auto a : *arg_names ) {
             if( auto bs = cast( Symbol, a ) ) {
-                m_arg_names->append( bs );
+                //m_arg_names->append( bs );
             }
             else {
+                assert( 0 );
                 auto ts = a->eval( lex_env );
                 m_arg_names->append( ts );
             }
@@ -490,7 +509,7 @@ struct Vau : Callable {
 
 struct BuiltinLambda : Callable {
     typedef Atom* ( *Func )( Env* env, ArgList args );
-    BuiltinLambda( Func f ) : m_func( f ) {}
+    BuiltinLambda( Func f ) : Callable(nullptr), m_func( f ) {}
     Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         std::vector<Atom*> args;
         for( auto arg : arg_vals ) {
@@ -505,9 +524,33 @@ struct BuiltinLambda : Callable {
     Func m_func;
 };
 
+struct LambdaTail : Callable {
+    LambdaTail() : Callable( nullptr ) {}
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        assert( args.size() >= 1 );
+        Callable* c = cast( Callable, args[0]->eval(env) );
+        assert( c->m_arg_names );
+        ArgList fwd = args.ltrim( 1 );
+        assert( fwd.size() == c->m_arg_names->size() );
+        std::vector<Atom*> newa;
+        for( unsigned i = 0; i < fwd.size(); ++i ) {
+            Atom* a = fwd[i]->eval( env );
+            newa.push_back( a );
+        }
+        for( unsigned i = 0; i < fwd.size(); ++i ) {
+            env->update( cast( Symbol, c->m_arg_names->at( i ) )->m_sym, newa[i] );
+        }
+        return &Lambda::s_trampoline;
+    }
+    Atom* _normalize() override {
+        return this;
+    }
+};
+
+
 struct BuiltinVau : Callable {
     typedef Atom* ( *Func )( Env*, ArgList );
-    BuiltinVau( Func f ) : m_func( f ) {}
+    BuiltinVau( Func f ) : Callable(nullptr), m_func( f ) {}
     Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
         return ( *m_func )( env, arg_vals );
     }
@@ -588,7 +631,7 @@ struct State {
             m_stack.erase( m_stack.end()-1, m_stack.end() );
         }
         int size() const {
-            return m_stack.size();
+            return (int)m_stack.size();
         }
         std::vector<Atom*> m_stack;
     };
@@ -620,6 +663,7 @@ Atom* v_type(Env* env, Callable::ArgList args) {
 }
 
 struct VauBegin : public Callable {
+    VauBegin() : Callable(nullptr) {}
     Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         Atom* r = nullptr;
         for( auto a : args ) {
@@ -633,6 +677,7 @@ struct VauBegin : public Callable {
 };
 
 struct VauModule : public Callable {
+    VauModule() : Callable(nullptr) {}
     Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         assert( args.size() == 1 );
         Env* r = env;// gcnew<Env>( env );
@@ -649,12 +694,31 @@ struct VauModule : public Callable {
 };
 
 struct VauQuote: public Callable {
+    VauQuote() : Callable(nullptr) {}
     Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         List* l = gcnew<List>( );
         for( auto a : args ) {
             l->append( a );
         }
         return l;
+    }
+    Atom* _normalize() override {
+        return this;
+    }
+};
+
+struct VauInc : public Callable {
+    VauInc() : Callable( nullptr ) {}
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        assert( args.size() == 1 );
+        Symbol* s = cast( Symbol, args[0] );
+        assert( s );
+        Atom* a = env->get( s );
+        assert( a );
+        Num* n = cast( Num, a );
+        assert( n );
+        n->m_num += 1;
+        return n;
     }
     Atom* _normalize() override {
         return this;
@@ -1104,6 +1168,8 @@ Result initBuiltins( State* state ) {
     state->let( "begin", gcnew<VauBegin>( ) );
     state->let( "module", gcnew<VauModule>( ) );
     state->let( "quote", gcnew<VauQuote>( ) );
+    state->let( "inc!", gcnew<VauInc>( ) );
+    state->let( "tail", gcnew<LambdaTail>( ) );
     state->let( "define", gcnew<BuiltinVau>( &v_define ) );
     state->let( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
     state->let( "vau", gcnew<BuiltinVau>( &v_vau ) );

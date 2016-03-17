@@ -1,0 +1,4 @@
+
+(define main (lambda (argv)
+    (print "hello world\n")))
+

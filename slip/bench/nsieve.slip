@@ -1,0 +1,14 @@
+
+(define loop (vau (n expr) denv
+    (cond ((lt? n 1) nil)
+           (true (aux n expr)))))
+
+(define main (lambda (argv) (begin
+    (let ((x 0)
+          (n argv))
+        (loop n
+            (loop n
+                (loop n
+                    (loop n
+                        (loop n
+                            (loop n))))))))))

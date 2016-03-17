@@ -5,7 +5,7 @@
             ((eq? i 0) 0)
             (true (let ((j (sub i 1))) (begin
                 (vec_set! v j fill)
-                (aux v j fill)))))))
+                (tail aux v j fill)))))))
     (let ((n (vec_size vec))) (aux vec n fill)))))
 
 (define repeat (vau (count expr) denv
@@ -23,7 +23,7 @@
                 ((lt? n 0) 0)
                 (true (begin
                     (vec_set! a n (add (vec_idx a n) (vec_idx b n)))
-                    (aux a b (sub n 1)))))))
+                    (tail aux a b (sub n 1)))))))
         (aux y x (sub (vec_size y) 1)))))
 
 (define ary (lambda (n) 
@@ -37,4 +37,4 @@
       ;(list (vec_idx x 0) (vec_idx x (sub n 1)))
     ))))
 
-(let ((n 10)) (print (ary n)))
+(let ((n 1000)) (print (ary n)))
