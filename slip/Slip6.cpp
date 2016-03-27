@@ -211,11 +211,13 @@ struct Type : public Value {
     }
     static Type s_bool;
     static Type s_string;
-    static Type s_num;
+    static Type s_int;
+    static Type s_float;
     static Type s_list;
 };
 
-Type Type::s_num;
+Type Type::s_int;
+Type Type::s_float;
 Type Type::s_string;
 
 struct Bool : Value {
@@ -234,11 +236,19 @@ Bool Bool::s_true{ true };
 
 
 struct Int : Value {
-    Int( int n ) : m_num( n ) { m_type = &Type::s_num; }
+    Int( int n ) : m_num( n ) { m_type = &Type::s_int; }
     void _print() const override {
         printf( "%i", m_num );
     }
     int m_num;
+};
+
+struct Float : Value {
+    Float( double d ) : m_num( d ) { m_type = &Type::s_float; }
+    void _print() const override {
+        printf( "%lf", m_num );
+    }
+    double m_num;
 };
 
 struct String : Value {
@@ -578,6 +588,9 @@ struct State {
     void newInteger( int value ) {
         m_stack.push_back( gcnew<Int>( value ) );
     }
+    void newFloat( double value ) {
+        m_stack.push_back( gcnew<Float>( value ) );
+    }
     void newString( const char* s ) {
         m_stack.push_back( gcnew<String>( s ) );
     }
@@ -875,6 +888,22 @@ Atom* l_lt(Env* env, Callable::ArgList args) {
     return &Bool::s_false;
 }
 
+Atom* l_le( Env* env, Callable::ArgList args ) {
+    if( args.size() != 2 ) {
+        Error( "Expected list of size 2" );
+    }
+    if( args[0] < args[1] ) { return &Bool::s_true; }
+    if( !( args[0] && args[1] ) ) { return &Bool::s_false; }
+
+    if( Int* n0 = cast( Int, args[0] ) ) { // hack
+        if( Int* n1 = cast( Int, args[1] ) ) { // hack
+            return n0->m_num <= n1->m_num ? &Bool::s_true : &Bool::s_false;
+        }
+    }
+    Error( "fixme" );
+    return &Bool::s_false;
+}
+
 Atom* l_vec_new( Env* env, Callable::ArgList args ) {
     if( args.size() != 1 ) {
         Error( "Expected list of size 1" );
@@ -901,6 +930,20 @@ Atom* l_vec_size(Env* env, Callable::ArgList args) {
         return gcnew<Int>( int(l->size()) );
     }
     Error("Expected a list");
+    return nullptr;
+}
+
+Atom* l_float( Env* env, Callable::ArgList args ) {
+    if( args.size() != 1 ) {
+        Error( "Expected 1 argument" );
+    }
+    if( Float* f = cast( Float, args[0] ) ) {
+        return f;
+    }
+    else if( Int* i = cast( Int, args[0] ) ) {
+        return gcnew<Float>( double( i->m_num) );
+    }
+    Error( "Expected a number" );
     return nullptr;
 }
 
@@ -984,12 +1027,24 @@ Atom* l_range(Env* env, Callable::ArgList args) {
 
 Atom* l_add( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
-    int acc = 0;
-    for( auto arg : args ) {
-        Int* a = cast( Int, arg );
-        acc += a->m_num;
+    if( Int* i = cast( Int, args[0] ) ) {
+        int acc = 0;
+        for( auto arg : args ) {
+            Int* a = cast( Int, arg );
+            acc += a->m_num;
+        }
+        return gcnew<Int>( acc );
     }
-    return gcnew<Int>( acc );
+    else if( Float* i = cast( Float, args[0] ) ) {
+        double acc = 0;
+        for( auto arg : args ) {
+            Float* a = cast( Float, arg );
+            acc += a->m_num;
+        }
+        return gcnew<Float>( acc );
+    }
+    Error( "add" );
+    return nullptr;
 }
 
 Atom* l_sub( Env* env, Callable::ArgList args ) {
@@ -1014,12 +1069,24 @@ Atom* l_mul( Env* env, Callable::ArgList args ) {
 
 Atom* l_div( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
-    int acc = cast( Int, args[0] )->m_num;
-    for( auto arg : args.ltrim( 1 ) ) {
-        Int* a = cast( Int, arg );
-        acc /= a->m_num;
+    if( Int* i = cast( Int, args[0] ) ) {
+        int acc = i->m_num;
+        for( auto arg : args.ltrim( 1 ) ) {
+            Int* a = cast( Int, arg );
+            acc /= a->m_num;
+        }
+        return gcnew<Int>( acc );
     }
-    return gcnew<Int>( acc );
+    else if( Float* f = cast( Float, args[0] ) ) {
+        double acc = f->m_num;
+        for( auto arg : args.ltrim( 1 ) ) {
+            Float* a = cast( Float, arg );
+            acc /= a->m_num;
+        }
+        return gcnew<Float>( acc );
+    }
+    Error( "Fixme" );
+    return nullptr;
 }
 
 Atom* l_print( Env* env, Callable::ArgList args ) {
@@ -1081,16 +1148,30 @@ Result parse_one( State* state, SourceManager::Input& in ) {
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9': {
                 auto loc = in.location();
-                int value = in.next() - '0';
+                const char* s = in.peekbuf();
+                bool isFloat = false;
                 while( int c = in.peek() ) {
                     //if(isdigit(c) || isalpha(c) || c == '_'){
                     if( isdigit( c ) ) {
-                        value = value * 10 + c - '0';
+                        in.next();
+                    }
+                    else if( c == '.' && isFloat == false ) {
+                        isFloat = true;
                         in.next();
                     }
                     else break;
                 }
-                state->newInteger( value );
+                int len = int(in.peekbuf() - s);
+                char buf[128]; strncpy( buf, s, len );
+                buf[len] = 0;
+                if( isFloat ) {
+                    double d = atof( buf );
+                    state->newFloat( d );
+                }
+                else {
+                    int i = atoi( buf );
+                    state->newInteger( i );
+                }
                 //ret->m_loc = loc;
                 return R_OK;
             }
@@ -1186,6 +1267,7 @@ Result initBuiltins( State* state ) {
     state->let( "normalize", gcnew<BuiltinLambda>( &l_normalize ) );
     state->let( "eq?", gcnew<BuiltinLambda>( &l_eq ) );
     state->let( "lt?", gcnew<BuiltinLambda>( &l_lt ) );
+    state->let( "le?", gcnew<BuiltinLambda>( &l_le ) );
     state->let( "map", gcnew<BuiltinLambda>( &l_map ) );
     state->let( "list", gcnew<BuiltinLambda>( &l_list ) );
     state->let( "range", gcnew<BuiltinLambda>( &l_range ) );
@@ -1193,7 +1275,9 @@ Result initBuiltins( State* state ) {
     state->let( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
     state->let( "vec_set!", gcnew<BuiltinLambda>( &l_vec_set ) );
     state->let( "vec_size", gcnew<BuiltinLambda>( &l_vec_size ) );
-    state->let( "Int", &Type::s_num );
+    state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
+    state->let( "Int", &Type::s_int );
+    state->let( "Float", &Type::s_float );
     state->let( "true", &Bool::s_true );
     state->let( "false", &Bool::s_false );
     return R_OK;

@@ -1,0 +1,10 @@
+
+(define harmonic (lambda (n) (begin
+    (define aux (lambda (i acc)
+        (cond ((le? i 0) acc)
+            (true (tail aux (sub i 1) (add (div 1.0 (float i)) acc))))))
+    (aux n 0.0))))
+    
+(define main (lambda (argv)
+    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
+

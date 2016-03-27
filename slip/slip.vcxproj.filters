@@ -27,6 +27,9 @@
     <None Include="bench\nsieve.slip">
       <Filter>bench</Filter>
     </None>
+    <None Include="bench\harmonic.slip">
+      <Filter>bench</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">
