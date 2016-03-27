@@ -37,4 +37,5 @@
       ;(list (vec_idx x 0) (vec_idx x (sub n 1)))
     ))))
 
-(let ((n 1000)) (print (ary n)))
+(define main (lambda (args)
+    (let ((n 1000)) (print (ary n)))))

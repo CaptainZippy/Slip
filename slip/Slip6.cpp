@@ -233,8 +233,8 @@ Bool Bool::s_false{ false };
 Bool Bool::s_true{ true };
 
 
-struct Num : Value {
-    Num( int n ) : m_num( n ) { m_type = &Type::s_num; }
+struct Int : Value {
+    Int( int n ) : m_num( n ) { m_type = &Type::s_num; }
     void _print() const override {
         printf( "%i", m_num );
     }
@@ -576,14 +576,14 @@ struct State {
         m_stack.push_back( gcnew<Symbol>(sym) );
     }
     void newInteger( int value ) {
-        m_stack.push_back( gcnew<Num>( value ) );
+        m_stack.push_back( gcnew<Int>( value ) );
     }
     void newString( const char* s ) {
         m_stack.push_back( gcnew<String>( s ) );
     }
     int popInteger( int idx ) {
         int r = 0;
-        if( Num* n = cast( Num, m_stack[idx] ) ) {
+        if( Int* n = cast( Int, m_stack[idx] ) ) {
             r = n->m_num;
             m_stack.pop(1);
         }
@@ -612,7 +612,7 @@ struct State {
             Atom* r = c->call( m_env, c, Callable::ArgList(begin+size-narg, begin+size));
             m_stack.pop( narg + 1 );
             m_stack.push_back( r );
-            assert( nret == 1 && r );
+            assert( nret == 1 );
             return R_OK;
         }
         return Result::ERR;
@@ -715,7 +715,7 @@ struct VauInc : public Callable {
         assert( s );
         Atom* a = env->get( s );
         assert( a );
-        Num* n = cast( Num, a );
+        Int* n = cast( Int, a );
         assert( n );
         n->m_num += 1;
         return n;
@@ -829,7 +829,7 @@ Atom* l_vec_set(Env* env, Callable::ArgList args) {
         Error("3 args");
     }
     if(List* l = cast(List, args[0])) {
-        if(Num* n = cast(Num, args[1])) {
+        if(Int* n = cast(Int, args[1])) {
             auto i = unsigned(n->m_num);
             if(i >= l->size()) {
                 Error("bad index");
@@ -850,8 +850,8 @@ Atom* l_eq( Env* env, Callable::ArgList args ) {
     if( args[0] == args[1] ) { return &Bool::s_true; }
     if( !(args[0] && args[1]) ) { return &Bool::s_false; }
 
-    if( Num* n0 = cast( Num, args[0] ) ) { // hack
-        if( Num* n1 = cast( Num, args[1] ) ) { // hack
+    if( Int* n0 = cast( Int, args[0] ) ) { // hack
+        if( Int* n1 = cast( Int, args[1] ) ) { // hack
             return n0->m_num == n1->m_num ? &Bool::s_true : &Bool::s_false;
         }
     }
@@ -866,8 +866,8 @@ Atom* l_lt(Env* env, Callable::ArgList args) {
     if(args[0] < args[1]) { return &Bool::s_true; }
     if(!(args[0] && args[1])) { return &Bool::s_false; }
 
-    if(Num* n0 = cast(Num, args[0])) { // hack
-        if(Num* n1 = cast(Num, args[1])) { // hack
+    if(Int* n0 = cast(Int, args[0])) { // hack
+        if(Int* n1 = cast(Int, args[1])) { // hack
             return n0->m_num < n1->m_num ? &Bool::s_true : &Bool::s_false;
         }
     }
@@ -879,7 +879,7 @@ Atom* l_vec_new( Env* env, Callable::ArgList args ) {
     if( args.size() != 1 ) {
         Error( "Expected list of size 1" );
     }
-    if( Num* num = cast( Num, args[0] ) ) {
+    if( Int* num = cast( Int, args[0] ) ) {
         int n = num->m_num;
         if( n < 0 ) {
             Error_At( num->m_loc, "Expected n > 0" );
@@ -898,7 +898,7 @@ Atom* l_vec_size(Env* env, Callable::ArgList args) {
         Error("Expected 1 argument");
     }
     if(List* l = cast(List, args[0])) {
-        return gcnew<Num>( int(l->size()) );
+        return gcnew<Int>( int(l->size()) );
     }
     Error("Expected a list");
     return nullptr;
@@ -909,7 +909,7 @@ Atom* l_vec_idx( Env* env, Callable::ArgList args ) {
         Error( "Expected list of size 2" );
     }
     if( List* lst = cast( List, args[0] ) ) {
-        if( Num* num = cast( Num, args[1] ) ) {
+        if( Int* num = cast( Int, args[1] ) ) {
             auto n = unsigned(num->m_num);
             if( unsigned(n) < lst->size() ) {
                 return lst->at( n );
@@ -962,7 +962,7 @@ Atom* l_range(Env* env, Callable::ArgList args) {
     int nums[3];
     int nn = 0;
     for(auto& a : args) {
-        if(Num* n = cast(Num, a)) {
+        if(Int* n = cast(Int, a)) {
             nums[nn++] = n->m_num;
         }
     }
@@ -977,7 +977,7 @@ Atom* l_range(Env* env, Callable::ArgList args) {
     List* l = gcnew<List>();
     l->resize(hi - lo);
     for(int i = 0; i < hi-lo; i += 1) {
-        l->set(i, gcnew<Num>(lo + i * lo));
+        l->set(i, gcnew<Int>(lo + i * lo));
     }
     return l;
 }
@@ -986,40 +986,40 @@ Atom* l_add( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
     int acc = 0;
     for( auto arg : args ) {
-        Num* a = cast( Num, arg );
+        Int* a = cast( Int, arg );
         acc += a->m_num;
     }
-    return gcnew<Num>( acc );
+    return gcnew<Int>( acc );
 }
 
 Atom* l_sub( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
-    int acc = cast( Num, args[0] )->m_num;
+    int acc = cast( Int, args[0] )->m_num;
     for( auto arg : args.ltrim( 1 ) ) {
-        Num* a = cast( Num, arg );
+        Int* a = cast( Int, arg );
         acc -= a->m_num;
     }
-    return gcnew<Num>( acc );
+    return gcnew<Int>( acc );
 }
 
 Atom* l_mul( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
     int acc = 1;
     for( auto arg : args ) {
-        Num* a = cast( Num, arg );
+        Int* a = cast( Int, arg );
         acc *= a->m_num;
     }
-    return gcnew<Num>( acc );
+    return gcnew<Int>( acc );
 }
 
 Atom* l_div( Env* env, Callable::ArgList args ) {
     assert( args.size() >= 1 );
-    int acc = cast( Num, args[0] )->m_num;
+    int acc = cast( Int, args[0] )->m_num;
     for( auto arg : args.ltrim( 1 ) ) {
-        Num* a = cast( Num, arg );
+        Int* a = cast( Int, arg );
         acc /= a->m_num;
     }
-    return gcnew<Num>( acc );
+    return gcnew<Int>( acc );
 }
 
 Atom* l_print( Env* env, Callable::ArgList args ) {
@@ -1193,7 +1193,7 @@ Result initBuiltins( State* state ) {
     state->let( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
     state->let( "vec_set!", gcnew<BuiltinLambda>( &l_vec_set ) );
     state->let( "vec_size", gcnew<BuiltinLambda>( &l_vec_size ) );
-    state->let( "Num", &Type::s_num );
+    state->let( "Int", &Type::s_num );
     state->let( "true", &Bool::s_true );
     state->let( "false", &Bool::s_false );
     return R_OK;
