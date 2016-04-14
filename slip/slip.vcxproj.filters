@@ -30,6 +30,9 @@
     <None Include="bench\harmonic.slip">
       <Filter>bench</Filter>
     </None>
+    <None Include="bench\moments.slip">
+      <Filter>bench</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

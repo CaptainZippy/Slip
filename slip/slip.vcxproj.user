@@ -9,11 +9,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>bench/harmonic.slip 1 2 3 4</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>bench/moments.slip</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>bench/harmonic.slip 1 2 3 4</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>bench/moments.slip</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

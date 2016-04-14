@@ -1,0 +1,8 @@
+
+(define main (lambda (argv) (begin
+        (print (eq_f? 3.3 1.1))
+        (print (map (lambda (x) (add_i x 100)) (list 1 2 3)))
+        (print (eq_i? 33 11))
+        (print (lt_i? 3 11)))
+    ))
+
