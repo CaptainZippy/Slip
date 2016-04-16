@@ -46,6 +46,7 @@ struct view_ptr {
 
 template<typename T>
 struct array_view {
+    typedef T* iterator;
     array_view( ) : m_begin( nullptr ), m_end( nullptr ) {}
     array_view( const T* s, const T* e ) : m_begin( s ), m_end( e ) {}
     array_view( const std::vector<T>& a ) : m_begin( a.data() ), m_end( m_begin + a.size() ) {}
@@ -346,7 +347,7 @@ protected:
 template<typename T>
 struct Optional {
     Optional() : m_ptr( nullptr) {}
-    Optional( const T& t ) {
+    explicit Optional( const T& t ) {
         m_ptr = new( m_buf ) T( t );
     }
     ~Optional() {
@@ -355,8 +356,12 @@ struct Optional {
     void reset() {
         if( m_ptr ) m_ptr->~T();
     }
-    const T* get() const {
-        return m_ptr;
+    explicit operator bool() const {
+        return m_ptr != nullptr;
+    }
+    T operator*() {
+        assert( m_ptr );
+        return *m_ptr;
     }
     void set( const T& t ) {
         reset();
@@ -369,35 +374,73 @@ private:
     T* m_ptr;
 };
 
-namespace XXX {
-    struct bind {
+namespace Args {
+    template<typename T>
+    struct Unevaluated {
+        void operator=( const T& t ) {
+            m_value = t;
+        }
+        operator T&( ) { return m_value; }
+        T& operator->() { return m_value; }
+        T m_value;
+    };
+    template<typename T>
+    using Star = std::vector<T>;
+
+    namespace Detail {
+        struct ArgIter {
+            bool more() const {
+                return m_cur != m_end;
+            }
+            bool next() {
+                ++m_cur;
+                return more();
+            }
+            Atom* cur() const {
+                return *m_cur;
+            }
+            Atom*const* m_cur;
+            Atom*const* m_end;
+        };
         template<typename T>
-        void operator() ( T** out, Env* env, Callable::ArgList& args ) {
-            Atom* a = args[0]->eval( env );
-            T* t = cast( T, a );
-            assert2( t, "Wrong argument type" );
-            *out = t;
-            args = args.ltrim( 1 );
+        void bind( T*& out, Env* env, ArgIter& iter) {
+            assert( iter.more() );
+            Atom* b = iter.cur()->eval( env );
+            out = cast( T, b );
+            assert2( out, "Wrong argument type" );
+            iter.next();
         }
         template<typename T>
-        void operator()( std::vector<T*>* out, Env* env, Callable::ArgList& args ) {
-            for( auto a : args ) {
-                Atom* e = a->eval( env );
-                T* t = cast( T, e );
-                assert( t );
-                out->push_back( t );
+        void bind( Star<T>& out, Env* env, ArgIter& iter ) {
+            for( ; iter.more(); ) {
+                T t;
+                bind( t, env, iter );
+                out.push_back( t );
             }
-            args = Callable::ArgList();
         }
         template<typename T>
-        void operator()( Optional<T*>* out, Env* env, Callable::ArgList& args ) {
-            if( args.size() ) {
-                Atom* e = args[0]->eval( env );
-                T* t = cast( T, e );
-                assert( t );
-                out->set(t);
-                args = args.ltrim(1);
+        void bind( Unevaluated<T>& out, Env* env, ArgIter& iter ) {
+            assert( iter.more() );
+            out = dynamic_cast<T>(iter.cur());
+            assert2( out, "Wrong argument type" );
+            iter.next();
+        }
+        template<typename T>
+        void bind( Optional<T>& out, Env* env, ArgIter& args ) {
+            if( args.more() ) {
+                T t;
+                bind(t, env, args);
+                out.set( t );
+                args.next();
             }
+        }
+    }
+
+    struct Binder {
+        template<typename T>
+        void operator() ( T& out, Env* env, Callable::ArgList& args ) {
+            Detail::ArgIter iter{args.begin(), args.end()};
+            Detail::bind(out, env, iter);
         }
     };
 }
@@ -407,7 +450,7 @@ struct BuiltinCallable : Callable {
     
     virtual Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         CALL call;
-        XXX::bind binder;
+        Args::Binder binder;
         call.visit( binder, env, args );
         return call.call( env );
     }
@@ -568,11 +611,20 @@ struct Lambda : Callable {
 };
 Bool Lambda::s_trampoline(false);
 
-struct Vau : Callable {
-    List* m_arg_names;
+struct BuiltinVau2 : BuiltinCallable<BuiltinVau2> {
     Env* m_lex_env;
-    Atom* m_env_sym;
-    Atom* m_body;
+    Args::Star<Symbol*> m_arg_names;
+    Args::Unevaluated<Symbol*> m_env_sym;
+    Args::Unevaluated<Atom*> m_body;
+
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_arg_names, visitargs... );
+        visit( m_env_sym, visitargs... );
+        visit( m_body, visitargs... );
+    }
+
+    #if 0
     Vau( Env* lex_env, List* arg_names, Atom* symbol, Atom* body )
         : m_arg_names(arg_names), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
         for( auto a : *arg_names ) {
@@ -586,70 +638,28 @@ struct Vau : Callable {
             }
         }
     }
+    #endif
 
-    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+    Atom* call( Env* env ) {
         Env* e = gcnew<Env>( m_lex_env );
-        e->put( cast(Symbol,m_env_sym)->m_sym, env);
-        assert( args.size() == m_arg_names->size() );
-        for( unsigned i = 0; i < args.size(); ++i ) {
-            e->put( cast( Symbol, m_arg_names->at( i ) )->m_sym, args[i]);
-        }
+        e->put( m_env_sym->m_sym, env);
+        //assert( m_args.size() == m_arg_names.size() );
+        //for( unsigned i = 0; i < args.size(); ++i ) {
+        //   e->put( m_arg_names[i]->m_sym, args[i]);
+        //}
         return m_body->eval( e );
     }
 };
 
-#if 0
-template<typename T>
-static Callable::ArgList bind_arg( Env* env, Callable::ArgList args, T** out ) {
-    Atom* a = args[0]->eval( env );
-    T* t = cast( T, a );
-    assert2( t, "Wrong argument type" );
-    *out = t;
-    return args.ltrim(1);
-}
-
-template<typename T>
-static Callable::ArgList bind_arg( Env* env, Callable::ArgList args, std::vector<T*>* out ) {
-    for( auto a : args ) {
-        Atom* e = a->eval( env );
-        T* t = cast( T, e );
-        assert( t );
-        out->push_back(t);
-    }
-    return Callable::ArgList();
-}
-
-static Result bind1( Env* env, Callable::ArgList args) {
-    assert( args.size() == 0 );
-    return Result::OK;
-}
-template<typename T, typename... REST>
-static Result bind1( Env* env, Callable::ArgList args, T* out, REST... rest ) {
-    auto args2 = bind_arg( env, args, out );
-    return bind1( env, args2, rest... );
-}
-
-template<typename... VARS>
-static Result bind( Env* env, Callable::ArgList args, T* out, VARS... vars ) {
-    if( vars.size() == 0 ) {
-        assert( args.size() == 0 );
-        return Result::OK;
-    }
-    assert( args.size() );
-    args = bind_arg(env, args, vars)
-    return bind( env, args, vars... );
-}
-#endif
-
 struct BuiltinPrint : BuiltinCallable<BuiltinPrint> {
+    Args::Star<Atom*> m_args;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &args, visitargs... );
+        visit( m_args, visitargs... );
     }
-    std::vector<Atom*> args;
     Atom* call(Env* env) {
         const char* sep = "";
-        for( auto arg : args ) {
+        for( auto arg : m_args ) {
             printf( "%s", sep );
             arg->print();
             sep = " ";
@@ -774,18 +784,24 @@ struct State {
 };
 
 
-Atom* v_eval(Env* env, Callable::ArgList args) {
-    if(args.size() == 1) {
-        return args[0]->eval(env);
+struct BuiltinEval : public BuiltinCallable<BuiltinEval> {
+    Args::Unevaluated<Atom*> m_expr;
+    Optional<Env*> m_env;
+
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_expr, visitargs... );
+        visit( m_env, visitargs... );
     }
-    else if(args.size() == 2) {
-        Env* e = cast(Env, args[0]->eval(env));
-        Atom* a = args[1]->eval(env);
-        return a->eval(e);
+    Atom* call( Env* env ) {
+        if( m_env ) {
+            return m_expr->eval( *m_env );
+        }
+        else {
+            return m_expr->eval( env );
+        }
     }
-    Error("too many arguments");
-    return nullptr;
-}
+};
 
 Atom* v_type(Env* env, Callable::ArgList args) {
     assert(args.size() == 2);
@@ -797,33 +813,45 @@ Atom* v_type(Env* env, Callable::ArgList args) {
     return s;
 }
 
-struct VauBegin : public Callable {
-    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+struct BuiltinBegin: public BuiltinCallable<BuiltinBegin> {
+    Args::Star<Atom*> m_exprs;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_exprs, visitargs... );
+    }
+    Atom* call( Env* env ) {
         Atom* r = nullptr;
-        for( auto a : args ) {
+        for( auto a : m_exprs ) {
             r = a->eval( env );
         }
         return r;
     }
 };
 
-struct VauModule : public Callable {
-    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
-        assert( args.size() == 1 );
-        Env* r = env;// gcnew<Env>( env );
-        List* l = cast( List, args[0]);
-        assert( l );
-        for( auto a : *l ) {
-            a->eval( r );
+struct BuiltinModule : public BuiltinCallable<BuiltinModule> {
+    Args::Unevaluated< List* > m_exprs;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_exprs, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        Atom* r = nullptr;
+        for( auto a : *m_exprs ) {
+            r = a->eval( env );
         }
         return r;
     }
 };
 
-struct VauQuote : public Callable {
-    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+struct BuiltinQuote : public BuiltinCallable<BuiltinQuote> {
+    Args::Star< Args::Unevaluated<Atom*> > m_args;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_args, visitargs... );
+    }
+    Atom* call( Env* env ) {
         List* l = gcnew<List>( );
-        for( auto a : args ) {
+        for( auto a : m_args ) {
             l->append( a );
         }
         return l;
@@ -861,16 +889,6 @@ Atom* v_lambda( Env* env, Callable::ArgList args ) {
         auto r = gcnew<Lambda>( env, names, args[1] );
         r->m_loc = args[0]->m_loc;
         return r;
-    }
-    return nullptr;
-}
-
-Atom* v_vau( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 3 );
-    assert( cast( List, args[0] ) );
-    assert( cast( Symbol, args[1] ) );
-    if( List* names = cast( List, args[0] ) ) {
-        return gcnew<Vau>( env, names, args[1], args[2] );
     }
     return nullptr;
 }
@@ -920,9 +938,9 @@ struct BuiltinApply : public BuiltinCallable<BuiltinApply > {
     Env* m_env;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &m_callable, visitargs... );
-        visit( &m_args, visitargs... );
-        visit( &m_env, visitargs... );
+        visit( m_callable, visitargs... );
+        visit( m_args, visitargs... );
+        visit( m_env, visitargs... );
     }
 
     Atom* call( Env* env ) {
@@ -936,8 +954,8 @@ struct BuiltinApplyWrap : public BuiltinCallable<BuiltinApplyWrap> {
     Env* m_env;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &m_args, visitargs... );
-        visit( &m_env, visitargs... );
+        visit( m_args, visitargs... );
+        visit( m_env, visitargs... );
     }
     Atom* call( Env* env ) {
         List* dlst = gcnew<List>( );
@@ -985,8 +1003,8 @@ struct BuiltinBinOp : BuiltinCallable< BuiltinBinOp<OPER, ATOM> > {
     ATOM* second;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &first, visitargs... );
-        visit( &second, visitargs... );
+        visit( first, visitargs... );
+        visit( second, visitargs... );
     }
     Atom* call( Env* env ) {
         OPER oper;
@@ -1067,8 +1085,8 @@ struct BuiltinMap : BuiltinCallable<BuiltinMap> {
     List* list;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &func, visitargs... );
-        visit( &list, visitargs... );
+        visit( func, visitargs... );
+        visit( list, visitargs... );
     }
 
     Atom* call( Env* env ) {
@@ -1084,7 +1102,7 @@ struct BuiltinList : BuiltinCallable<BuiltinList> {
     std::vector<Atom*> args;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &args, visitargs... );
+        visit( args, visitargs... );
     }
      
     Atom* call( Env* env ) {
@@ -1102,19 +1120,19 @@ struct BuiltinRange : public BuiltinCallable<BuiltinRange> {
     Optional<Int*> step;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &first, visitargs... );
-        visit( &second, visitargs... );
-        visit( &step, visitargs... );
+        visit( first, visitargs... );
+        visit( second, visitargs... );
+        visit( step, visitargs... );
     }
 
     Atom* call( Env* env ) {
         int lo=0, hi=first->m_num, st=1;
-        if( auto s = second.get() ) {
+        if( second ) {
             lo = hi;
-            hi = s[0]->m_num;
+            hi = (*second)->m_num;
         }
-        if( auto s = step.get() ) {
-            st = s[0]->m_num;
+        if( step ) {
+            st = (*step)->m_num;
         }
         if( hi < lo ) Error( "" );
         if( st < 1 ) Error( "" );
@@ -1130,11 +1148,11 @@ struct BuiltinRange : public BuiltinCallable<BuiltinRange> {
 template<typename REDUCE, typename ATOM>
 struct ReduceCallable : BuiltinCallable< ReduceCallable<REDUCE,ATOM> > {
     ATOM* first;
-    std::vector<ATOM*> rest;
+    Args::Star<ATOM*> rest;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( &first, visitargs... );
-        visit( &rest, visitargs... );
+        visit( first, visitargs... );
+        visit( rest, visitargs... );
     }
     Atom* call( Env* env ) {
         ATOM* acc = gcnew<ATOM>( first->m_num );
@@ -1313,15 +1331,15 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
-    state->let( "eval", gcnew<BuiltinVau>( &v_eval ) );
-    state->let( "begin", gcnew<VauBegin>( ) );
-    state->let( "module", gcnew<VauModule>( ) );
-    state->let( "quote", gcnew<VauQuote>( ) );
+    state->let( "eval", gcnew<BuiltinEval>() );
+    state->let( "begin", gcnew<BuiltinBegin>( ) );
+    state->let( "module", gcnew<BuiltinModule>( ) );
+    state->let( "quote", gcnew<BuiltinQuote>( ) );
     state->let( "inc!", gcnew<VauInc>( ) );
     //state->let( "tail", gcnew<LambdaTail>( ) );
     state->let( "define", gcnew<BuiltinVau>( &v_define ) );
     state->let( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
-    state->let( "vau", gcnew<BuiltinVau>( &v_vau ) );
+    state->let( "vau", gcnew<BuiltinVau2>() );
     state->let( "let", gcnew<BuiltinVau>( &v_let ) );
     state->let( "cond", gcnew<BuiltinVau>( &v_cond ) );
 //    state->let( "apply_wrap", gcnew<BuiltinVau>( &v_apply_wrap ) );
