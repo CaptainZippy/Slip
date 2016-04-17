@@ -6,7 +6,7 @@ void error( const char* msg ) {
 }
 template<typename T>
 void assert2( T t, const char* msg ) {
-    if( !t ) Detail::_Error( msg );
+    if( !t ) Slip::Detail::_Error( msg );
 }
 #define assert(A) assert2(A, #A)
 #define cast(T,a) dynamic_cast<T*>(a)
@@ -19,19 +19,21 @@ struct Result {
 };
 #define R_OK Result::OK
 
-#define Error( fmt, ... ) Detail::_Error("%s(%i,%i): error " fmt, __FILE__, __LINE__, 0, __VA_ARGS__)
-#define Error_At( loc, fmt, ... ) Detail::_Error("%s(%i,%i): error " fmt, loc.filename(), loc.line(), loc.col(), __VA_ARGS__)
+#define Error( fmt, ... ) Slip::Detail::_Error("%s(%i,%i): error " fmt, __FILE__, __LINE__, 0, __VA_ARGS__)
+#define Error_At( loc, fmt, ... ) Slip::Detail::_Error("%s(%i,%i): error " fmt, loc.filename(), loc.line(), loc.col(), __VA_ARGS__)
 
-namespace Detail {
-    void _Error( const char* fmt, ... ) {
-        va_list va;
-        va_start( va, fmt );
-        char buf[2048];
-        vsnprintf( buf, sizeof( buf ), fmt, va );
-        va_end( va );
-        printf( "%s", buf );
-        OutputDebugStringA( buf );
-        throw 0;
+namespace Slip {
+    namespace Detail {
+        void _Error( const char* fmt, ... ) {
+            va_list va;
+            va_start( va, fmt );
+            char buf[2048];
+            vsnprintf( buf, sizeof( buf ), fmt, va );
+            va_end( va );
+            printf( "%s", buf );
+            OutputDebugStringA( buf );
+            throw 0;
+        }
     }
 }
 
@@ -384,13 +386,39 @@ namespace Args {
         T& operator->() { return m_value; }
         T m_value;
     };
+
     template<typename T>
     using Star = std::vector<T>;
+
+    template<typename T>
+    struct ListOf {
+        ListOf() : m_list( gcnew<List>( ) ) {}
+        operator List*( ) {
+            return m_list;
+        }
+        void append( T t ) {
+            m_list->append( t );
+        }
+        List* m_list;
+    };
+
+    template<typename F, typename S>
+    struct PairOf {
+        PairOf() : m_list( gcnew<List>( ) ) {}
+        operator List*( ) {
+            return m_list;
+        }
+        void append( F f, S s ) {
+            m_list->append( f );
+            m_list->append( s );
+        }
+        List* m_list;
+    };
 
     namespace Detail {
         struct ArgIter {
             bool more() const {
-                return m_cur != m_end;
+                return m_cur < m_end;
             }
             bool next() {
                 ++m_cur;
@@ -419,6 +447,30 @@ namespace Args {
             }
         }
         template<typename T>
+        void bind( ListOf<T>& out, Env* env, ArgIter& iter ) {
+            List* lst = cast( List, iter.cur() );
+            assert( lst );
+            iter.next();
+            ArgIter iter2{ lst->view().begin(), lst->view().end() };
+            for( ; iter2.more(); ) {
+                T t;
+                bind( t, env, iter2 );
+                out.append( t );
+            }
+        }
+        template<typename F, typename S>
+        void bind( PairOf<F, S>& out, Env* env, ArgIter& iter ) {
+            List* lst = cast( List, iter.cur() );
+            if(!lst || lst->size()!=2)
+                Error_At( iter.cur()->m_loc, "Expected a pair of items" );
+            iter.next();
+            ArgIter iter2{ lst->view().begin(), lst->view().end() };
+            F f; S s;
+            bind( f, env, iter2 );
+            bind( s, env, iter2 );
+            out.append( f, s );
+        }
+        template<typename T>
         void bind( Unevaluated<T>& out, Env* env, ArgIter& iter ) {
             assert( iter.more() );
             out = dynamic_cast<T>(iter.cur());
@@ -431,15 +483,13 @@ namespace Args {
                 T t;
                 bind(t, env, args);
                 out.set( t );
-                args.next();
             }
         }
     }
 
     struct Binder {
         template<typename T>
-        void operator() ( T& out, Env* env, Callable::ArgList& args ) {
-            Detail::ArgIter iter{args.begin(), args.end()};
+        void operator() ( T& out, Env* env, Detail::ArgIter& iter ) {
             Detail::bind(out, env, iter);
         }
     };
@@ -447,11 +497,11 @@ namespace Args {
 
 template<typename CALL>
 struct BuiltinCallable : Callable {
-    
     virtual Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
         CALL call;
-        Args::Binder binder;
-        call.visit( binder, env, args );
+        Args::Detail::ArgIter iter{ args.begin(), args.end() };
+        call.visit<Args::Binder, Env*, Args::Detail::ArgIter&>( Args::Binder(), env, iter );
+        assert2( iter.more() == false, "Too many arguments" );
         return call.call( env );
     }
 };
@@ -814,7 +864,7 @@ Atom* v_type(Env* env, Callable::ArgList args) {
 }
 
 struct BuiltinBegin: public BuiltinCallable<BuiltinBegin> {
-    Args::Star<Atom*> m_exprs;
+    Args::Star< Args::Unevaluated<Atom* > > m_exprs;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( m_exprs, visitargs... );
@@ -858,12 +908,14 @@ struct BuiltinQuote : public BuiltinCallable<BuiltinQuote> {
     }
 };
 
-struct VauInc : public Callable {
-    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
-        assert( args.size() == 1 );
-        Symbol* s = cast( Symbol, args[0] );
-        assert( s );
-        Atom* a = env->get( s );
+struct BuiltinInc : public BuiltinCallable<BuiltinInc> {
+    Args::Unevaluated< Symbol* > m_sym;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_sym, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        Atom* a = env->get( m_sym->m_sym );
         assert( a );
         Int* n = cast( Int, a );
         assert( n );
@@ -872,65 +924,77 @@ struct VauInc : public Callable {
     }
 };
 
-Atom* v_define( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    if( auto s = cast( Symbol, args[0] ) ) {
-        Atom* v = args[1]->eval( env );
-        env->put( s->m_sym, v );
-        return v;
+struct BuiltinDefine : public BuiltinCallable<BuiltinDefine> {
+    Args::Unevaluated<Symbol*> m_sym;
+    Atom* m_value;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_sym, visitargs... );
+        visit( m_value, visitargs... );
     }
-    error( "define needs a symbol" );
-    return nullptr;
-}
-
-Atom* v_lambda( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    if( List* names = cast( List, args[0] ) ) {
-        auto r = gcnew<Lambda>( env, names, args[1] );
-        r->m_loc = args[0]->m_loc;
-        return r;
+    Atom* call( Env* env ) {
+        env->put( m_sym->m_sym, m_value );
+        return m_value;
     }
-    return nullptr;
-}
+};
 
-Atom* v_let( Env* env, Callable::ArgList args ) {
-    assert( args.size() == 2 );
-    List* lets = cast( List, args[0] );
-    Env* e = gcnew<Env>( env );
-    for( auto item : *lets ) {
-        List* l = cast( List, item );
-        assert( l->size() == 2 );
-        Symbol* s = cast( Symbol, l->at( 0 ) );
-        Atom* a = l->at( 1 )->eval( e );
-        e->put( s->m_sym, a );
+struct BuiltinLambda : public BuiltinCallable<BuiltinLambda> {
+    Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
+    Args::Unevaluated<Atom*> m_body;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_arg_names, visitargs... );
+        visit( m_body, visitargs... );
     }
-    return args[1]->eval( e );
-}
-
-Atom* v_normalize( Env* env, Callable::ArgList args ) {
-    assert( args.size() >= 1 );
-    for( auto arg : args ) {
-
+    Atom* call( Env* env ) {
+        auto r = gcnew<Lambda>(env, m_arg_names, m_body);
+		r->m_loc = m_body->m_loc;
+		return r;
     }
-    return nullptr;
-}
+};
 
-Atom* v_cond( Env* env, Callable::ArgList args ) {
-    for( auto arg : args ) {
-        if( List* l = cast( List, arg ) ) {
-            if( l->size() != 2 ) {
-                Error_At( l->m_loc, "Expected list of size 2" );
-            }
+struct BuiltinLet : public BuiltinCallable<BuiltinLet> {
+    Args::ListOf< Args::PairOf< Args::Unevaluated<Symbol*>, Args::Unevaluated<Atom*> > > m_lets;
+    Args::Unevaluated< Atom* > m_body;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_lets, visitargs... );
+        visit( m_body, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        Env* e = gcnew<Env>( env );
+        for( auto item : *m_lets ) {
+            List* l = cast( List, item );
+            assert( l );
+            Symbol* s = cast( Symbol, l->at( 0 ) );
+            Atom* a = l->at( 1 )->eval( e );
+            e->put( s->m_sym, a );
+        }
+        return m_body->eval( e );
+    }
+
+};
+
+struct BuiltinCond : public BuiltinCallable<BuiltinCond> {
+    Args::Star< Args::PairOf< Args::Unevaluated<Atom*>, Args::Unevaluated<Atom*> > > m_cases;
+    //Args::Optional<Atom*> m_else;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_cases, visitargs... );
+        //visit( m_else, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        for( auto cur : m_cases ) {
+            List* l = cur.m_list;
+            assert( l && l->size() == 2 );
             if( l->at( 0 )->eval( env ) != &Bool::s_false ) {
                 return l->at( 1 )->eval( env );
             }
         }
-        else {
-            Error_At( arg->m_loc, "Expected list of size 2" );
-        }
+        return nullptr;
     }
-    return nullptr;
-}
+};
+
 
 struct BuiltinApply : public BuiltinCallable<BuiltinApply > {
     Callable* m_callable;
@@ -1331,17 +1395,17 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
-    state->let( "eval", gcnew<BuiltinEval>() );
+    state->let( "eval", gcnew<BuiltinEval>( ) );
     state->let( "begin", gcnew<BuiltinBegin>( ) );
     state->let( "module", gcnew<BuiltinModule>( ) );
     state->let( "quote", gcnew<BuiltinQuote>( ) );
-    state->let( "inc!", gcnew<VauInc>( ) );
+    state->let( "inc!", gcnew<BuiltinInc>( ) );
     //state->let( "tail", gcnew<LambdaTail>( ) );
-    state->let( "define", gcnew<BuiltinVau>( &v_define ) );
-    state->let( "lambda", gcnew<BuiltinVau>( &v_lambda ) );
-    state->let( "vau", gcnew<BuiltinVau2>() );
-    state->let( "let", gcnew<BuiltinVau>( &v_let ) );
-    state->let( "cond", gcnew<BuiltinVau>( &v_cond ) );
+    state->let( "define", gcnew<BuiltinDefine>( ) );
+    state->let( "lambda", gcnew<BuiltinLambda>( ) );
+    state->let( "vau", gcnew<BuiltinVau2>( ) );
+    state->let( "let", gcnew<BuiltinLet>( ) );
+    state->let( "cond", gcnew<BuiltinCond>( ) );
 //    state->let( "apply_wrap", gcnew<BuiltinVau>( &v_apply_wrap ) );
 
     state->let( "map", gcnew<BuiltinMap>() );
