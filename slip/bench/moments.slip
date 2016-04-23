@@ -1,16 +1,23 @@
 
-(define main (lambda (argv) (begin
-        (print (eq_f? 3.3 1.1))
-        (print (map (lambda (x) (add_i x 100)) (list 1 2 3)))
-        (print ((lambda (x) (add_i x 100)) 21))
-        (print (eq_i? 33 11))
-        (print (lt_i? 3 11))
-        (print "HELLO1")
-        (let ((x 1) (y 20)) (add_i x y))
-        (print "HELLO2")
-        (print "HELLO3")
-        (print (let ((x 1) (y 20)) (add_i x y x)))
-        (print "HELLO4")
-        (print (cond (false 33) (44 99)))
+(define if (vau (c a b) e
+    (cond
+        ((eval2 c e) (eval2 a e))
+        (true        (eval2 b e))
 )))
+
+(define loop (vau (n s) e (begin
+    (define r (lambda (n) (begin
+        (eval2 s e)
+        (cond ((lt_i? 0 n) (r (sub_i n 1)))))))
+    (r (eval2 n e))
+)))
+    ;(eval2 s e))))
+        ;((gt_i? c 0) (loop2 n s e))
+
+(define main (lambda (argv)
+    ;(print (if false (add_i 3 4) (add_i 100 200)))
+    ;(loop 1000 (print "SK"))
+    (for i (range 10000) (print "SK")))
+    ;    (let ((x 2) (y 3)) (add_i x y) )
+))
 

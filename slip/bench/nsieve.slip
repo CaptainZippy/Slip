@@ -12,3 +12,19 @@
                     (loop n
                         (loop n
                             (loop n))))))))))
+
+(define footer (lambda (argv) (begin
+        (print (eq_f? 3.3 1.1))
+        (print (map (lambda (x) (add_i x 100)) (list 1 2 3)))
+        (print ((lambda (x) (add_i x 100)) 21))
+        (print (eq_i? 33 11))
+        (print (lt_i? 3 11))
+        (print "HELLO1")
+        (let ((x 1) (y 20)) (add_i x y))
+        (print "HELLO2")
+        (print "HELLO3")
+        (print (let ((x 1) (y 20)) (add_i x y x)))
+        (print "HELLO4")
+        (print (cond (false 33) (44 99)))
+)))
+

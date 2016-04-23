@@ -334,14 +334,12 @@ Atom* Symbol::_eval( Env* env ) {
 
 struct Callable : Value {
     typedef array_view<Atom*> ArgList;
-    //Callable( List* arg_names ) : m_arg_names(arg_names) {}
     Atom* call( Env* env, Atom* arg0, ArgList args ) {
         return _call( env, arg0, args );
     }
     void _print() const override {
         printf( "<callable>" );
     }
-    //List* m_arg_names;
 protected:
     virtual Atom* _call( Env* env, Atom* arg0, ArgList args ) = 0;
 };
@@ -602,32 +600,26 @@ protected:
 
 struct Lambda : Callable {
     static Bool s_trampoline;
+    List* m_arg_names;
+    Env* m_lex_env;
+    Atom* m_body;
+
     Lambda( Env* lex_env, List* arg_names, Atom* body )
         : m_arg_names( arg_names), m_lex_env( lex_env ), m_body( body ) {
-        for( auto a : *arg_names ) {
-            if( auto bs = cast( Symbol, a ) ) {
-             //   m_arg_names->append( bs );
-            }
-            else {
-                assert( 0 );
-                auto ts = a->eval( lex_env );
-                m_arg_names->append( ts );
-            }
-        }
     }
-    Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
+
+    Atom* _call( Env* env, Atom* arg0, ArgList args_in ) override {
+        Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
         Env* e = gcnew<Env>( m_lex_env );
-        if( m_arg_names->size() != arg_vals.size() ) {
-            Error_At( arg0->m_loc, "Wrong number of arguments. Expected %i, got %i", m_arg_names->size(), arg_vals.size() );
-        }
         for( unsigned i = 0; i < m_arg_names->size(); ++i ) {
-            Atom* a = arg_vals[i]->eval( env );
+            Atom* cur = iter.cur();
+            Atom* a = cur->eval( env );
             auto s = cast( Symbol, m_arg_names->at( i ) );
             if( s->m_type != nullptr ) {
                 auto nt = s->m_type->eval( env );
                 auto at = a->m_type->eval( env );
                 if( at != nt ) {
-                    Error_At( arg_vals[i]->m_loc, "Mismatched type for argument '%i'", i );
+                    Error_At( cur->m_loc, "Mismatched type for argument '%i'", i );
                 }
             }
             e->put( s->m_sym, a );
@@ -653,17 +645,32 @@ struct Lambda : Callable {
         }
         printf( ") " );
         m_body->print();
-
     }
-    List* m_arg_names;
-    Env* m_lex_env;
-    Atom* m_body;
 };
 Bool Lambda::s_trampoline(false);
 
-struct BuiltinVau2 : BuiltinCallable<BuiltinVau2> {
+struct Vau : public Callable {
+    List* m_arg_names;
     Env* m_lex_env;
-    Args::Star<Symbol*> m_arg_names;
+    Symbol* m_env_sym;
+    Atom* m_body;
+    Vau( Env* lex_env, List* arg_names, Symbol* symbol, Atom* body )
+        : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
+    }
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        Env* e = gcnew<Env>(m_lex_env);
+        e->put( m_env_sym->m_sym, env);
+        assert( args.size() == m_arg_names->size() );
+        for( unsigned i = 0; i < args.size(); ++i ) {
+           e->put( cast(Symbol,m_arg_names->at(i))->m_sym, args[i]);
+        }
+        return m_body->eval( e );
+    }
+
+};
+
+struct BuiltinVau : BuiltinCallable<BuiltinVau> {
+    Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
     Args::Unevaluated<Symbol*> m_env_sym;
     Args::Unevaluated<Atom*> m_body;
 
@@ -674,30 +681,8 @@ struct BuiltinVau2 : BuiltinCallable<BuiltinVau2> {
         visit( m_body, visitargs... );
     }
 
-    #if 0
-    Vau( Env* lex_env, List* arg_names, Atom* symbol, Atom* body )
-        : m_arg_names(arg_names), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
-        for( auto a : *arg_names ) {
-            if( auto bs = cast( Symbol, a ) ) {
-                //m_arg_names->append( bs );
-            }
-            else {
-                assert( 0 );
-                auto ts = a->eval( lex_env );
-                m_arg_names->append( ts );
-            }
-        }
-    }
-    #endif
-
     Atom* call( Env* env ) {
-        Env* e = gcnew<Env>( m_lex_env );
-        e->put( m_env_sym->m_sym, env);
-        //assert( m_args.size() == m_arg_names.size() );
-        //for( unsigned i = 0; i < args.size(); ++i ) {
-        //   e->put( m_arg_names[i]->m_sym, args[i]);
-        //}
-        return m_body->eval( e );
+        return gcnew<Vau>( env, m_arg_names, m_env_sym, m_body );
     }
 };
 
@@ -741,16 +726,6 @@ struct BuiltinPrint : BuiltinCallable<BuiltinPrint> {
 //        return this;
 //    }
 //};
-
-
-struct BuiltinVau : Callable {
-    typedef Atom* ( *Func )( Env*, ArgList );
-    BuiltinVau( Func f ) : m_func( f ) {}
-    Atom* _call( Env* env, Atom* arg0, ArgList arg_vals ) override {
-        return ( *m_func )( env, arg_vals );
-    }
-    Func m_func;
-};
 
 struct State {
     State() {
@@ -836,6 +811,25 @@ struct State {
 
 struct BuiltinEval : public BuiltinCallable<BuiltinEval> {
     Args::Unevaluated<Atom*> m_expr;
+    Optional<Env*> m_env;
+
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( m_expr, visitargs... );
+        visit( m_env, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        if( m_env ) {
+            return m_expr->eval( *m_env );
+        }
+        else {
+            return m_expr->eval( env );
+        }
+    }
+};
+
+struct BuiltinEval2 : public BuiltinCallable<BuiltinEval2> {
+    Atom* m_expr;
     Optional<Env*> m_env;
 
     template<typename VISIT, typename...VISITARGS>
@@ -1209,6 +1203,30 @@ struct BuiltinRange : public BuiltinCallable<BuiltinRange> {
     }
 };
 
+struct BuiltinFor : public BuiltinCallable<BuiltinFor> {
+    Args::Unevaluated<Symbol*> sym;
+    List* iter;
+    Args::Star< Args::Unevaluated< Atom* > > body;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( sym, visitargs... );
+        visit( iter, visitargs... );
+        visit( body, visitargs... );
+    }
+
+    Atom* call( Env* env ) {
+        Env* e = gcnew<Env>( env );
+        Atom* r = nullptr;
+        for( auto* a : *iter ) {
+            e->put( sym->m_sym, a );
+            for( auto& b : body ) {
+                r = b.m_value->eval( e );
+            }
+        }
+        return r;
+    }
+};
+
 template<typename REDUCE, typename ATOM>
 struct ReduceCallable : BuiltinCallable< ReduceCallable<REDUCE,ATOM> > {
     ATOM* first;
@@ -1396,17 +1414,19 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 
 Result initBuiltins( State* state ) {
     state->let( "eval", gcnew<BuiltinEval>( ) );
+    state->let( "eval2", gcnew<BuiltinEval2>( ) );
     state->let( "begin", gcnew<BuiltinBegin>( ) );
     state->let( "module", gcnew<BuiltinModule>( ) );
     state->let( "quote", gcnew<BuiltinQuote>( ) );
     state->let( "inc!", gcnew<BuiltinInc>( ) );
-    //state->let( "tail", gcnew<LambdaTail>( ) );
     state->let( "define", gcnew<BuiltinDefine>( ) );
     state->let( "lambda", gcnew<BuiltinLambda>( ) );
-    state->let( "vau", gcnew<BuiltinVau2>( ) );
+    state->let( "vau", gcnew<BuiltinVau>( ) );
     state->let( "let", gcnew<BuiltinLet>( ) );
     state->let( "cond", gcnew<BuiltinCond>( ) );
+    //state->let( "tail", gcnew<LambdaTail>( ) );
 //    state->let( "apply_wrap", gcnew<BuiltinVau>( &v_apply_wrap ) );
+//    state->let( "wrap", gcnew<BuiltinWrap>() );
 
     state->let( "map", gcnew<BuiltinMap>() );
     state->let( "print", gcnew<BuiltinPrint>() );
@@ -1424,7 +1444,8 @@ Result initBuiltins( State* state ) {
     state->let( "le_f?", gcnew<BuiltinBinOp<BinOps::Le, Float>>( ) );
     state->let( "eq_i?", gcnew<BuiltinBinOp<BinOps::Eq, Int>>( ) );
     state->let( "eq_f?", gcnew<BuiltinBinOp<BinOps::Eq, Float>>( ) );
-    state->let( "range", gcnew<BuiltinRange>() );
+    state->let( "range", gcnew<BuiltinRange>( ) );
+    state->let( "for", gcnew<BuiltinFor>() );
     #if 0
     state->let( "vec_new", gcnew<BuiltinLambda>( &l_vec_new ) );
     state->let( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
@@ -1432,7 +1453,6 @@ Result initBuiltins( State* state ) {
     state->let( "vec_size", gcnew<BuiltinLambda>( &l_vec_size ) );
     state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
     #endif
-//    state->let( "wrap", gcnew<BuiltinWrap>() );
     state->let( "Int", &Type::s_int );
     state->let( "Float", &Type::s_float );
     state->let( "true", &Bool::s_true );
