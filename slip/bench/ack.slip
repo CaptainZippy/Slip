@@ -1,12 +1,12 @@
 
 (define ack (lambda (m n)
     (cond
-        ((eq? m 0)
-            (add n 1))
-        ((eq? n 0)
-            (ack (sub m 1) 1))
+        ((eq_i? m 0)
+            (add_i n 1))
+        ((eq_i? n 0)
+            (ack (sub_i m 1) 1))
         (true
-            (tail ack (sub m 1) (ack m (sub n 1)))))))
+            (ack (sub_i m 1) (ack m (sub_i n 1)))))))
 
 (define main (lambda (argv)
     (map (lambda (x) (print "Ack" 3 x (ack 3 x))) argv)))

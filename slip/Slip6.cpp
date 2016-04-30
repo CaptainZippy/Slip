@@ -1,3 +1,8 @@
+// TODO : inheritance of BuiltinCallable
+// TODO : iterator type
+// TODO : ellipsis
+// TODO : typing
+// TODO : GC
 
 #include "Pch.h"
 
@@ -310,7 +315,7 @@ struct Env : Value {
         printf(">");
     }
     void put( const char* sym, Atom* val ) {
-        m_tab.emplace( sym, val );
+        m_tab[sym] = val;
     }
     void update( const char* sym, Atom* val ) {
         for( Env* e = this; e; e = e->m_parent ) {
@@ -608,21 +613,23 @@ struct Lambda : Callable {
         : m_arg_names( arg_names), m_lex_env( lex_env ), m_body( body ) {
     }
 
-    Atom* _call( Env* env, Atom* arg0, ArgList args_in ) override {
-        Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
+    Atom* _call( Env* env, Atom* arg0, ArgList args ) override {
+        //Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
+        assert( args.size() == m_arg_names->size() );
         Env* e = gcnew<Env>( m_lex_env );
-        for( unsigned i = 0; i < m_arg_names->size(); ++i ) {
-            Atom* cur = iter.cur();
-            Atom* a = cur->eval( env );
-            auto s = cast( Symbol, m_arg_names->at( i ) );
+        unsigned ni = 0;
+        for( auto arg : args ) {
+            Atom* a = arg->eval( env );
+            auto s = cast( Symbol, m_arg_names->at( ni ) );
             if( s->m_type != nullptr ) {
                 auto nt = s->m_type->eval( env );
                 auto at = a->m_type->eval( env );
                 if( at != nt ) {
-                    Error_At( cur->m_loc, "Mismatched type for argument '%i'", i );
+                    Error_At( arg->m_loc, "Mismatched type for argument '%i'", ni );
                 }
             }
             e->put( s->m_sym, a );
+            ni += 1;
         }
         while( 1 ) {
             Atom* ret = m_body->eval( e );
@@ -828,7 +835,7 @@ struct BuiltinEval : public BuiltinCallable<BuiltinEval> {
     }
 };
 
-struct BuiltinEval2 : public BuiltinCallable<BuiltinEval2> {
+struct BuiltinEvSym : public BuiltinCallable<BuiltinEvSym> {
     Atom* m_expr;
     Optional<Env*> m_env;
 
@@ -1037,24 +1044,6 @@ struct BuiltinWrap : public BuiltinCallable<BuiltinWrap> {
 }
 #endif
 
-Atom* l_vec_set(Env* env, Callable::ArgList args) {
-    if(args.size() != 3) {
-        Error("3 args");
-    }
-    if(List* l = cast(List, args[0])) {
-        if(Int* n = cast(Int, args[1])) {
-            auto i = unsigned(n->m_num);
-            if(i >= l->size()) {
-                Error("bad index");
-            }
-            l->set(i, args[2]);
-            return args[2];
-        }
-    }
-    Error("Bad args");
-    return nullptr;
-}
-
 template<typename OPER, typename ATOM>
 struct BuiltinBinOp : BuiltinCallable< BuiltinBinOp<OPER, ATOM> > {
     ATOM* first;
@@ -1070,34 +1059,75 @@ struct BuiltinBinOp : BuiltinCallable< BuiltinBinOp<OPER, ATOM> > {
     }
 };
 
-Atom* l_vec_new( Env* env, Callable::ArgList args ) {
-    if( args.size() != 1 ) {
-        Error( "Expected list of size 1" );
+struct BuiltinVecNew : BuiltinCallable< BuiltinVecNew > {
+    Int* count;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( count, visitargs... );
     }
-    if( Int* num = cast( Int, args[0] ) ) {
-        int n = num->m_num;
+    Atom* call( Env* env ) {
+        int n = count->m_num;
         if( n < 0 ) {
-            Error_At( num->m_loc, "Expected n > 0" );
+            Error_At( count->m_loc, "Expected n > 0" );
         }
-        List* l = gcnew<List>();
-        l->m_loc = num->m_loc;
+        List* l = gcnew<List>( );
+        l->m_loc = count->m_loc;
         l->resize( n );
         return l;
     }
-    Error_At( args[0]->m_loc, "Expected number" );
-    return nullptr;
-}
+};
 
-Atom* l_vec_size(Env* env, Callable::ArgList args) {
-    if(args.size() != 1) {
-        Error("Expected 1 argument");
+struct BuiltinVecSize : BuiltinCallable< BuiltinVecSize > {
+    List* vec;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( vec, visitargs... );
     }
-    if(List* l = cast(List, args[0])) {
-        return gcnew<Int>( int(l->size()) );
+    Atom* call( Env* env ) {
+        return gcnew<Int>( int( vec->size() ) );
     }
-    Error("Expected a list");
-    return nullptr;
-}
+};
+
+struct BuiltinVecIdx : BuiltinCallable< BuiltinVecIdx > {
+    List* vec;
+    Int* idx;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( vec, visitargs... );
+        visit( idx, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        auto n = unsigned( idx->m_num );
+        if( unsigned( n ) < vec->size() ) {
+            return vec->at( n );
+        }
+        else {
+            Error_At( idx->m_loc, "Out of bounds %i (%i)", n, vec->size() );
+            return nullptr;
+        }
+    }
+};
+
+struct BuiltinVecSet : BuiltinCallable< BuiltinVecSet > {
+    List* vec;
+    Int* idx;
+    Atom* val;
+    template<typename VISIT, typename...VISITARGS>
+    void visit( VISIT visit, VISITARGS...visitargs ) {
+        visit( vec, visitargs... );
+        visit( idx, visitargs... );
+        visit( val, visitargs... );
+    }
+    Atom* call( Env* env ) {
+        auto i = unsigned( idx->m_num );
+        if( i >= vec->size() ) {
+            Error( "bad index" );
+        }
+        vec->set( i, val );
+        return val;
+    }
+};
+
 
 Atom* l_float( Env* env, Callable::ArgList args ) {
     if( args.size() != 1 ) {
@@ -1113,29 +1143,7 @@ Atom* l_float( Env* env, Callable::ArgList args ) {
     return nullptr;
 }
 
-Atom* l_vec_idx( Env* env, Callable::ArgList args ) {
-    if( args.size() != 2 ) {
-        Error( "Expected list of size 2" );
-    }
-    if( List* lst = cast( List, args[0] ) ) {
-        if( Int* num = cast( Int, args[1] ) ) {
-            auto n = unsigned(num->m_num);
-            if( unsigned(n) < lst->size() ) {
-                return lst->at( n );
-            }
-            else {
-                Error_At( num->m_loc, "Out of bounds %i (%i)", n, lst->size() );
-            }
-        }
-        else {
-            Error_At( args[1]->m_loc, "Expected num" );
-        }
-    }
-    else {
-        Error_At( args[0]->m_loc, "Expected list" );
-    }
-    return nullptr;
- }
+
 
 
 struct BuiltinMap : BuiltinCallable<BuiltinMap> {
@@ -1414,7 +1422,7 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 
 Result initBuiltins( State* state ) {
     state->let( "eval", gcnew<BuiltinEval>( ) );
-    state->let( "eval2", gcnew<BuiltinEval2>( ) );
+    state->let( "evsym", gcnew<BuiltinEvSym>( ) );
     state->let( "begin", gcnew<BuiltinBegin>( ) );
     state->let( "module", gcnew<BuiltinModule>( ) );
     state->let( "quote", gcnew<BuiltinQuote>( ) );
@@ -1446,11 +1454,11 @@ Result initBuiltins( State* state ) {
     state->let( "eq_f?", gcnew<BuiltinBinOp<BinOps::Eq, Float>>( ) );
     state->let( "range", gcnew<BuiltinRange>( ) );
     state->let( "for", gcnew<BuiltinFor>() );
+    state->let( "vec_new", gcnew<BuiltinVecNew>() );
+    state->let( "vec_idx", gcnew<BuiltinVecIdx>() );
+    state->let( "vec_set!", gcnew<BuiltinVecSet>() );
+    state->let( "vec_size", gcnew<BuiltinVecSize>() );
     #if 0
-    state->let( "vec_new", gcnew<BuiltinLambda>( &l_vec_new ) );
-    state->let( "vec_idx", gcnew<BuiltinLambda>( &l_vec_idx ) );
-    state->let( "vec_set!", gcnew<BuiltinLambda>( &l_vec_set ) );
-    state->let( "vec_size", gcnew<BuiltinLambda>( &l_vec_size ) );
     state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
     #endif
     state->let( "Int", &Type::s_int );

@@ -1,8 +1,8 @@
 
 (define if (vau (c a b) e
     (cond
-        ((eval2 c e) (eval2 a e))
-        (true        (eval2 b e))
+        ((evsym c e) (evsym a e))
+        (true        (evsym b e))
 )))
 
 (define loop (vau (n s) e (begin
@@ -11,13 +11,11 @@
         (cond ((lt_i? 0 n) (r (sub_i n 1)))))))
     (r (eval2 n e))
 )))
-    ;(eval2 s e))))
-        ;((gt_i? c 0) (loop2 n s e))
 
 (define main (lambda (argv)
     ;(print (if false (add_i 3 4) (add_i 100 200)))
     ;(loop 1000 (print "SK"))
-    (for i (range 10000) (print "SK")))
+    (for i (range 10) (print "SK")))
     ;    (let ((x 2) (y 3)) (add_i x y) )
 ))
 
