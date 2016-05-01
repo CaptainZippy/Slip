@@ -1,12 +1,12 @@
 
 (define fib (lambda (n)
     (cond
-        ((lt? n 2)
+        ((lt_i? n 2)
              1)
         (true
-            (add
-                (fib (sub n 1))
-                (fib (sub n 2)))))))
+            (add_i
+                (fib (sub_i n 1))
+                (fib (sub_i n 2)))))))
 
 (define main (lambda (argv)
     (map (lambda (x) (print "Fib" x (fib x))) argv)))
