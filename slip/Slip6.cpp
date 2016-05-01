@@ -676,7 +676,7 @@ struct Vau : public Callable {
 
 };
 
-struct BuiltinVau : BuiltinCallable<BuiltinVau> {
+struct BuiltinVau {
     Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
     Args::Unevaluated<Symbol*> m_env_sym;
     Args::Unevaluated<Atom*> m_body;
@@ -693,7 +693,7 @@ struct BuiltinVau : BuiltinCallable<BuiltinVau> {
     }
 };
 
-struct BuiltinPrint : BuiltinCallable<BuiltinPrint> {
+struct BuiltinPrint {
     Args::Star<Atom*> m_args;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -816,7 +816,7 @@ struct State {
 };
 
 
-struct BuiltinEval : public BuiltinCallable<BuiltinEval> {
+struct BuiltinEval {
     Args::Unevaluated<Atom*> m_expr;
     Optional<Env*> m_env;
 
@@ -835,7 +835,7 @@ struct BuiltinEval : public BuiltinCallable<BuiltinEval> {
     }
 };
 
-struct BuiltinEvSym : public BuiltinCallable<BuiltinEvSym> {
+struct BuiltinEvSym {
     Atom* m_expr;
     Optional<Env*> m_env;
 
@@ -864,7 +864,7 @@ Atom* v_type(Env* env, Callable::ArgList args) {
     return s;
 }
 
-struct BuiltinBegin: public BuiltinCallable<BuiltinBegin> {
+struct BuiltinBegin {
     Args::Star< Args::Unevaluated<Atom* > > m_exprs;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -879,7 +879,7 @@ struct BuiltinBegin: public BuiltinCallable<BuiltinBegin> {
     }
 };
 
-struct BuiltinModule : public BuiltinCallable<BuiltinModule> {
+struct BuiltinModule {
     Args::Unevaluated< List* > m_exprs;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -894,7 +894,7 @@ struct BuiltinModule : public BuiltinCallable<BuiltinModule> {
     }
 };
 
-struct BuiltinQuote : public BuiltinCallable<BuiltinQuote> {
+struct BuiltinQuote {
     Args::Star< Args::Unevaluated<Atom*> > m_args;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -909,7 +909,7 @@ struct BuiltinQuote : public BuiltinCallable<BuiltinQuote> {
     }
 };
 
-struct BuiltinInc : public BuiltinCallable<BuiltinInc> {
+struct BuiltinInc {
     Args::Unevaluated< Symbol* > m_sym;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -925,7 +925,7 @@ struct BuiltinInc : public BuiltinCallable<BuiltinInc> {
     }
 };
 
-struct BuiltinDefine : public BuiltinCallable<BuiltinDefine> {
+struct BuiltinDefine {
     Args::Unevaluated<Symbol*> m_sym;
     Atom* m_value;
     template<typename VISIT, typename...VISITARGS>
@@ -939,7 +939,7 @@ struct BuiltinDefine : public BuiltinCallable<BuiltinDefine> {
     }
 };
 
-struct BuiltinLambda : public BuiltinCallable<BuiltinLambda> {
+struct BuiltinLambda {
     Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
     Args::Unevaluated<Atom*> m_body;
     template<typename VISIT, typename...VISITARGS>
@@ -954,7 +954,7 @@ struct BuiltinLambda : public BuiltinCallable<BuiltinLambda> {
     }
 };
 
-struct BuiltinLet : public BuiltinCallable<BuiltinLet> {
+struct BuiltinLet {
     Args::ListOf< Args::PairOf< Args::Unevaluated<Symbol*>, Args::Unevaluated<Atom*> > > m_lets;
     Args::Unevaluated< Atom* > m_body;
     template<typename VISIT, typename...VISITARGS>
@@ -976,7 +976,7 @@ struct BuiltinLet : public BuiltinCallable<BuiltinLet> {
 
 };
 
-struct BuiltinCond : public BuiltinCallable<BuiltinCond> {
+struct BuiltinCond {
     Args::Star< Args::PairOf< Args::Unevaluated<Atom*>, Args::Unevaluated<Atom*> > > m_cases;
     //Args::Optional<Atom*> m_else;
     template<typename VISIT, typename...VISITARGS>
@@ -997,7 +997,7 @@ struct BuiltinCond : public BuiltinCallable<BuiltinCond> {
 };
 
 
-struct BuiltinApply : public BuiltinCallable<BuiltinApply > {
+struct BuiltinApply {
     Callable* m_callable;
     List* m_args;
     Env* m_env;
@@ -1014,7 +1014,7 @@ struct BuiltinApply : public BuiltinCallable<BuiltinApply > {
 };
 
 #if 0
-struct BuiltinApplyWrap : public BuiltinCallable<BuiltinApplyWrap> {
+struct BuiltinApplyWrap {
     List* m_args;
     Env* m_env;
     template<typename VISIT, typename...VISITARGS>
@@ -1034,7 +1034,7 @@ struct BuiltinApplyWrap : public BuiltinCallable<BuiltinApplyWrap> {
 #endif
 
 #if 0
-struct BuiltinWrap : public BuiltinCallable<BuiltinWrap> { 
+struct BuiltinWrap { 
     assert(args.size() == 1);
     Callable* c = cast(Callable, args[0]);
     //if(cast(Lambda, c) || cast(BuiltinLambda, c)) {
@@ -1045,7 +1045,7 @@ struct BuiltinWrap : public BuiltinCallable<BuiltinWrap> {
 #endif
 
 template<typename OPER, typename ATOM>
-struct BuiltinBinOp : BuiltinCallable< BuiltinBinOp<OPER, ATOM> > {
+struct BuiltinBinOp {
     ATOM* first;
     ATOM* second;
     template<typename VISIT, typename...VISITARGS>
@@ -1059,7 +1059,7 @@ struct BuiltinBinOp : BuiltinCallable< BuiltinBinOp<OPER, ATOM> > {
     }
 };
 
-struct BuiltinVecNew : BuiltinCallable< BuiltinVecNew > {
+struct BuiltinVecNew {
     Int* count;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1077,7 +1077,7 @@ struct BuiltinVecNew : BuiltinCallable< BuiltinVecNew > {
     }
 };
 
-struct BuiltinVecSize : BuiltinCallable< BuiltinVecSize > {
+struct BuiltinVecSize {
     List* vec;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1088,7 +1088,7 @@ struct BuiltinVecSize : BuiltinCallable< BuiltinVecSize > {
     }
 };
 
-struct BuiltinVecIdx : BuiltinCallable< BuiltinVecIdx > {
+struct BuiltinVecIdx {
     List* vec;
     Int* idx;
     template<typename VISIT, typename...VISITARGS>
@@ -1108,7 +1108,7 @@ struct BuiltinVecIdx : BuiltinCallable< BuiltinVecIdx > {
     }
 };
 
-struct BuiltinVecSet : BuiltinCallable< BuiltinVecSet > {
+struct BuiltinVecSet {
     List* vec;
     Int* idx;
     Atom* val;
@@ -1146,7 +1146,7 @@ Atom* l_float( Env* env, Callable::ArgList args ) {
 
 
 
-struct BuiltinMap : BuiltinCallable<BuiltinMap> {
+struct BuiltinMap {
     Callable* func;
     List* list;
     template<typename VISIT, typename...VISITARGS>
@@ -1164,7 +1164,7 @@ struct BuiltinMap : BuiltinCallable<BuiltinMap> {
     }
 };
 
-struct BuiltinList : BuiltinCallable<BuiltinList> {
+struct BuiltinList {
     std::vector<Atom*> args;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1180,7 +1180,7 @@ struct BuiltinList : BuiltinCallable<BuiltinList> {
     }
 };
 
-struct BuiltinRange : public BuiltinCallable<BuiltinRange> {
+struct BuiltinRange {
     Int* first;
     Optional<Int*> second;
     Optional<Int*> step;
@@ -1211,7 +1211,7 @@ struct BuiltinRange : public BuiltinCallable<BuiltinRange> {
     }
 };
 
-struct BuiltinFor : public BuiltinCallable<BuiltinFor> {
+struct BuiltinFor {
     Args::Unevaluated<Symbol*> sym;
     List* iter;
     Args::Star< Args::Unevaluated< Atom* > > body;
@@ -1236,7 +1236,7 @@ struct BuiltinFor : public BuiltinCallable<BuiltinFor> {
 };
 
 template<typename REDUCE, typename ATOM>
-struct ReduceCallable : BuiltinCallable< ReduceCallable<REDUCE,ATOM> > {
+struct ReduceCallable {
     ATOM* first;
     Args::Star<ATOM*> rest;
     template<typename VISIT, typename...VISITARGS>
@@ -1421,43 +1421,43 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
-    state->let( "eval", gcnew<BuiltinEval>( ) );
-    state->let( "evsym", gcnew<BuiltinEvSym>( ) );
-    state->let( "begin", gcnew<BuiltinBegin>( ) );
-    state->let( "module", gcnew<BuiltinModule>( ) );
-    state->let( "quote", gcnew<BuiltinQuote>( ) );
-    state->let( "inc!", gcnew<BuiltinInc>( ) );
-    state->let( "define", gcnew<BuiltinDefine>( ) );
-    state->let( "lambda", gcnew<BuiltinLambda>( ) );
-    state->let( "vau", gcnew<BuiltinVau>( ) );
-    state->let( "let", gcnew<BuiltinLet>( ) );
-    state->let( "cond", gcnew<BuiltinCond>( ) );
+    state->let( "eval", gcnew<BuiltinCallable<BuiltinEval>>( ) );
+    state->let( "evsym", gcnew<BuiltinCallable<BuiltinEvSym>>( ) );
+    state->let( "begin", gcnew<BuiltinCallable<BuiltinBegin>>( ) );
+    state->let( "module", gcnew<BuiltinCallable<BuiltinModule>>( ) );
+    state->let( "quote", gcnew<BuiltinCallable<BuiltinQuote>>( ) );
+    state->let( "inc!", gcnew<BuiltinCallable<BuiltinInc>>( ) );
+    state->let( "define", gcnew<BuiltinCallable<BuiltinDefine>>( ) );
+    state->let( "lambda", gcnew<BuiltinCallable<BuiltinLambda>>( ) );
+    state->let( "vau", gcnew<BuiltinCallable<BuiltinVau>>( ) );
+    state->let( "let", gcnew<BuiltinCallable<BuiltinLet>>( ) );
+    state->let( "cond", gcnew<BuiltinCallable<BuiltinCond>>( ) );
     //state->let( "tail", gcnew<LambdaTail>( ) );
 //    state->let( "apply_wrap", gcnew<BuiltinVau>( &v_apply_wrap ) );
 //    state->let( "wrap", gcnew<BuiltinWrap>() );
 
-    state->let( "map", gcnew<BuiltinMap>() );
-    state->let( "print", gcnew<BuiltinPrint>() );
-    state->let( "list", gcnew<BuiltinList>() );
-    state->let( "add_i", gcnew<ReduceCallable<BinOps::Add, Int>>( ) );
-    state->let( "add_f", gcnew<ReduceCallable<BinOps::Add, Float>>( ) );
-    state->let( "sub_i", gcnew<ReduceCallable<BinOps::Sub, Int>>( ) );
-    state->let( "sub_f", gcnew<ReduceCallable<BinOps::Sub, Float>>( ) );
-    state->let( "div_i", gcnew<ReduceCallable<BinOps::Div, Int>>( ) );
-    state->let( "div_f", gcnew<ReduceCallable<BinOps::Div, Float>>( ) );
-    state->let( "apply", gcnew<BuiltinApply>() );
-    state->let( "lt_i?", gcnew<BuiltinBinOp<BinOps::Lt, Int>>( ) );
-    state->let( "lt_f?", gcnew<BuiltinBinOp<BinOps::Lt, Float>>() );
-    state->let( "le_i?", gcnew<BuiltinBinOp<BinOps::Le, Int>>( ) );
-    state->let( "le_f?", gcnew<BuiltinBinOp<BinOps::Le, Float>>( ) );
-    state->let( "eq_i?", gcnew<BuiltinBinOp<BinOps::Eq, Int>>( ) );
-    state->let( "eq_f?", gcnew<BuiltinBinOp<BinOps::Eq, Float>>( ) );
-    state->let( "range", gcnew<BuiltinRange>( ) );
-    state->let( "for", gcnew<BuiltinFor>() );
-    state->let( "vec_new", gcnew<BuiltinVecNew>() );
-    state->let( "vec_idx", gcnew<BuiltinVecIdx>() );
-    state->let( "vec_set!", gcnew<BuiltinVecSet>() );
-    state->let( "vec_size", gcnew<BuiltinVecSize>() );
+    state->let( "map", gcnew<BuiltinCallable<BuiltinMap>>( ) );
+    state->let( "print", gcnew<BuiltinCallable<BuiltinPrint>>( ) );
+    state->let( "list", gcnew<BuiltinCallable<BuiltinList>>( ) );
+    state->let( "add_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, Int>>>( ) );
+    state->let( "add_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, Float>>>( ) );
+    state->let( "sub_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Int>>>( ) );
+    state->let( "sub_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Float>>>( ) );
+    state->let( "div_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Int>>>( ) );
+    state->let( "div_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Float>>>( ) );
+    state->let( "apply", gcnew<BuiltinCallable<BuiltinApply>>() );
+    state->let( "lt_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Int>>>( ) );
+    state->let( "lt_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Float>>>() );
+    state->let( "le_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, Int>>>( ) );
+    state->let( "le_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, Float>>>( ) );
+    state->let( "eq_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, Int>>>( ) );
+    state->let( "eq_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, Float>>>( ) );
+    state->let( "range", gcnew<BuiltinCallable<BuiltinRange>>( ) );
+    state->let( "for", gcnew<BuiltinCallable<BuiltinFor>>() );
+    state->let( "vec_new", gcnew<BuiltinCallable<BuiltinVecNew>>() );
+    state->let( "vec_idx", gcnew<BuiltinCallable<BuiltinVecIdx>>() );
+    state->let( "vec_set!", gcnew<BuiltinCallable<BuiltinVecSet>>() );
+    state->let( "vec_size", gcnew<BuiltinCallable<BuiltinVecSize>>() );
     #if 0
     state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
     #endif
