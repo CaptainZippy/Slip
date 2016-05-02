@@ -1,4 +1,3 @@
-// TODO : inheritance of BuiltinCallable
 // TODO : iterator type
 // TODO : ellipsis
 // TODO : typing
@@ -74,7 +73,6 @@ namespace array_view_t
     template<typename T, int N>
     array_view<T> make( T( &arr )[N] ) { return array_view<T>( t, t + N ); }
 }
-
 
 template<typename T, typename... P>
 T* gcnew(P... p) {
@@ -1200,11 +1198,12 @@ struct BuiltinRange {
         if( step ) {
             st = (*step)->m_num;
         }
-        if( hi < lo ) Error( "" );
-        if( st < 1 ) Error( "" );
         List* l = gcnew<List>( );
-        l->resize( hi - lo );
-        for( int i = 0; i < hi - lo; i += st ) {
+        if( hi < lo ) return l;
+        if( st < 1 ) Error( "" );
+        int n = ( hi - lo + st - 1) / st;
+        l->resize( n );
+        for( int i = 0; i < n; i += 1 ) {
             l->set( i, gcnew<Int>( lo + i * st ) );
         }
         return l;
@@ -1263,6 +1262,10 @@ struct BinOps {
         template<typename T>
         T operator()( T a, T b ) { return a - b; }
     };
+    struct Mul {
+        template<typename T>
+        T operator()( T a, T b ) { return a * b; }
+    };
     struct Div {
         template<typename T>
         T operator()( T a, T b ) { return a / b; }
@@ -1278,6 +1281,10 @@ struct BinOps {
     struct Eq {
         template<typename T>
         bool operator()( T a, T b ) { return a == b; }
+    };
+    struct Lsh {
+        template<typename T>
+        T operator()( T a, T b ) { return a << b; }
     };
 };
 
@@ -1443,8 +1450,11 @@ Result initBuiltins( State* state ) {
     state->let( "add_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, Float>>>( ) );
     state->let( "sub_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Int>>>( ) );
     state->let( "sub_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Float>>>( ) );
+    state->let( "mul_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, Int>>>( ) );
+    state->let( "mul_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, Float>>>( ) );
     state->let( "div_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Int>>>( ) );
     state->let( "div_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Float>>>( ) );
+    state->let( "lsh", gcnew<BuiltinCallable<ReduceCallable<BinOps::Lsh, Int>>>( ) );
     state->let( "apply", gcnew<BuiltinCallable<BuiltinApply>>() );
     state->let( "lt_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Int>>>( ) );
     state->let( "lt_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Float>>>() );
