@@ -17,4 +17,4 @@
     ))))
 
 (define main (lambda (args)
-    (let ((n 1000)) (print (ary n)))))
+    (let ((n 100)) (print (ary n)))))
