@@ -13,7 +13,10 @@ void assert2( T t, const char* msg ) {
     if( !t ) Slip::Detail::_Error( msg );
 }
 #define assert(A) assert2(A, #A)
-#define cast(T,a) dynamic_cast<T*>(a.aptr)
+//#define cast(T,a) dynamic_cast<T*>(a.aptr)
+
+//#define cast(T,a) ( a.is##T() ? a.as##T() : nullptr )
+#define cast(T,a) ( a.isAtom() ? dynamic_cast<T*>(a.toAtom()) : nullptr )
 
 struct Result {
     enum Code { OK=0, ERR=1 };
@@ -95,6 +98,7 @@ safe_cast_t<T> safe_cast(const T& t) {
 
 struct Atom;
 struct Symbol;
+struct Callable;
 struct Env;
 struct List;
 struct Type;
@@ -194,46 +198,94 @@ namespace Detail {
     }
 }
 
+struct Symbol {
+    const char* m_sym;
+};
+
+bool operator==( Symbol a, Symbol b ) { return a.m_sym == b.m_sym; }
+bool operator!=( Symbol a, Symbol b ) { return a.m_sym != b.m_sym; }
+namespace std {
+    template<>
+    struct hash<Symbol>
+        : public _Bitwise_hash<Symbol> {
+    };
+}
+
 struct Box {
-	enum Kind {
-		KindNil,
-		KindInt,
-		KindFloat,
-		KindSymbol,
-		KindEnvm
+    static const uint64_t VAL_HEAD = 0x7ffcULL << 48;
+    static const uint64_t PTR_HEAD = 0xfffcULL << 48;
+    static const uint64_t MASK_HEAD = 0xffffULL << 48;
+    
+    static inline uint64_t VAL_ENC( uint64_t b2, uint64_t lo ) {
+        return VAL_HEAD | ( b2 << 48 ) | lo;
+    }
+    static inline uint64_t PTR_ENC( const void* ptr ) {
+        return PTR_HEAD | uint64_t(ptr);
+    }
+    #define SIGN_BIT ((uint64_t)1 << 63)
+
+    enum Kind {
+		KindNil = 0,
+		KindInt = 1,
+		KindSymbol = 2,
 	};
-	Box() : kind(KindNil), aptr(nullptr) {}
-	Box(Atom* a) : kind(KindNil), aptr(a) {}
+    static const Box s_true;
+    static const Box s_false;
+	Box() : m_val(VAL_ENC(0,0)) {}
+    Box( Symbol s ) : m_val( VAL_ENC( KindSymbol, uint64_t( s.m_sym ) ) ) {}
+    Box( double d ) { memcpy(&m_val, &d, sizeof( d ) ); }
+    Box( int i ) : m_val( VAL_ENC(KindInt, uint64_t(i)) ) { }
+    Box( Atom* a ) : m_val( PTR_ENC( a ) ) {}
 	explicit operator bool() {
-		return aptr!=nullptr;
-	} // { return kind != KindNil; }
-	template<typename T> T as() const;
+		return m_val!=VAL_ENC(0,0);
+	}
+
+    bool isFloat() const { return (m_val & VAL_HEAD) != VAL_HEAD; }
+    double toFloat() const {
+        double d; memcpy( &d, &m_val, sizeof( d ) ); return d;
+    }
+
+    bool isInt() const { return (m_val & MASK_HEAD) == VAL_ENC( KindInt, 0 ); }
+    int toInt() const { assert( isInt() ); return static_cast<int>( m_val ); }
+
+    bool isSymbol() const;
+    Symbol toSymbol() const;
+
+    bool isBool() const;
+    bool toBool() const; //todo
+
+    bool isAtom() const { return (m_val & PTR_HEAD) == PTR_HEAD; }
+    Atom* toAtom() const { assert( isAtom() ); return reinterpret_cast<Atom*>( m_val & ~PTR_HEAD ); }
+
+    //bool isCallable() const { return toCallable() != nullptr; }
+    //Callable* toCallable() const { return dynamic_cast<Callable*>( toAtom() ); }
+
 	void print() const;// { aptr->print(); }
 	Box eval(Env* env) const;// { aptr->print(); }
-	Kind kind;
-	Atom* aptr;
+    uint64_t m_val;
+	//Kind kind;
+	//Atom* aptr;
 };
 
 struct Atom {
-    void* operator new(size_t) = delete;
-    void* operator new(size_t, void* p){ return p; }
-    virtual ~Atom() {}
-    Box eval(Env* env) {
+    void* operator new( size_t ) = delete;
+    void* operator new( size_t, void* p ){ return p; }
+        virtual ~Atom() {}
+    Box eval( Env* env ) {
         //printf( "\nEVAL " );print();
         return _eval( env );
     }
     void print() const { _print(); }
-    Atom() : m_type( nullptr ) {}
     SourceManager::Location m_loc;
     Atom* m_type;
 protected:
-	virtual Box _eval(Env* env) = 0;
+    virtual Box _eval( Env* env ) = 0;
     virtual void _print() const = 0;
 };
 
 struct Value : Atom {
-	Box _eval(Env* env) override {
-        return Box(this);
+    Box _eval( Env* env ) override {
+        return Box( this );
     }
 };
 
@@ -252,6 +304,7 @@ Type Type::s_int;
 Type Type::s_float;
 Type Type::s_string;
 
+#if 0
 struct Bool : Value {
     Bool( bool v ) : m_val( v ) {}
     void _print() const override {
@@ -265,7 +318,6 @@ struct Bool : Value {
 
 Bool Bool::s_false{ false };
 Bool Bool::s_true{ true };
-
 
 struct Int : Value {
     Int( int n ) : m_num( n ) { m_type = &Type::s_int; }
@@ -288,6 +340,7 @@ struct Float : Value {
     }
     double m_num;
 };
+#endif
 
 struct String : Value {
     String( const char* s = nullptr ) : m_str( s ) { m_type = &Type::s_string; }
@@ -297,6 +350,8 @@ struct String : Value {
     const char* m_str;
 };
 
+#if 0
+
 struct Symbol : Atom {
     Symbol( const char* s ) : m_sym( s ) {}
 	Box _eval(Env* env) override;
@@ -305,38 +360,33 @@ struct Symbol : Atom {
     }
     const char* m_sym;
 };
+#endif
 
 struct Env : Value {
     Env( Env *p ) : m_parent( p ) {}
-    Box get( const Symbol* sym ) {
-        if( Box a = get( sym->m_sym ) ) {
-            return a;
-        }
-        Error_At( sym->m_loc, "Symbol '%s' not found", sym->m_sym );
-        return Box();
-    }
-    Box get( const char* sym ) {
+    Box get( Symbol sym ) {
         for( Env* e = this; e; e = e->m_parent ) {
             auto it = e->m_tab.find( sym );
             if( it != e->m_tab.end() ) {
                 return it->second;
             }
         }
+        //Error_At( sym->m_loc, "Symbol '%s' not found", sym->m_sym );
         return Box();
     }
     void _print() const override {
         printf( "<env" );
         for(auto& e : m_tab) {
-            printf(" %s=", e.first.data());
+            printf(" %s=", e.first.m_sym);
             e.second.print();
         }
         if(m_parent && m_parent->m_parent) m_parent->print();
         printf(">");
     }
-    void put( const char* sym, Box val ) {
+    void put( Symbol sym, Box val ) {
         m_tab[sym] = val;
     }
-    void update( const char* sym, Box val ) {
+    void update( Symbol sym, Box val ) {
         for( Env* e = this; e; e = e->m_parent ) {
             auto it = e->m_tab.find( sym );
             if( it != e->m_tab.end() ) {
@@ -347,13 +397,13 @@ struct Env : Value {
         assert( 0 );
     }
     Env* m_parent;
-    typedef std::unordered_map<std::string, Box> Table;
+    typedef std::unordered_map<Symbol, Box> Table;
     Table m_tab;
 };
 
-Box Symbol::_eval( Env* env ) {
-    return env->get( this );
-}
+//Box Symbol::_eval( Env* env ) {
+//    return env->get( this );
+//}
 
 
 struct Callable : Value {
@@ -368,11 +418,19 @@ protected:
     virtual Box _call( Env* env, Box arg0, ArgList args ) = 0;
 };
 
-template<typename T> T Box::as() const {
-	return dynamic_cast<T>(aptr);
+//template<typename T> T Box::as() const {
+	//return dynamic_cast<T>(aptr);
+  //  return nullptr;
+//}
+void Box::print() const {
+    //if( ( m_val & TAG_NAN ) == TAG_NAN ) {
+
+    //}
+    //aptr->print();
 }
-void Box::print() const { aptr->print(); }
-Box Box::eval(Env* env) const { return aptr->eval(env); }
+Box Box::eval(Env* env) const {
+    return Box();// aptr->eval( env );
+}
 
 template<typename T>
 struct Optional {
@@ -537,6 +595,20 @@ namespace Args {
 			assert2(out, "Wrong argument type");
 			iter.next();
 		}
+        void bind( int& out, Env* env, ArgIter& iter ) {
+            assert( iter.more() );
+            Box b = iter.cur().eval( env );
+            assert2( b.isInt(), "Wrong argument type" );
+            out = b.toInt();
+            iter.next();
+        }
+        void bind( double& out, Env* env, ArgIter& iter ) {
+            assert( iter.more() );
+            Box b = iter.cur().eval( env );
+            assert2( b.isFloat(), "Wrong argument type" );
+            out = b.toFloat();
+            iter.next();
+        }
     }
 
     struct Binder {
@@ -653,7 +725,7 @@ protected:
 };
 
 struct Lambda : Callable {
-    static Bool s_trampoline;
+//    static Bool s_trampoline;
     List* m_arg_names;
     Env* m_lex_env;
     Box m_body;
@@ -669,15 +741,16 @@ struct Lambda : Callable {
         unsigned ni = 0;
         for( auto arg : args ) {
 			Box a = arg.eval(env);
-            auto s = cast( Symbol, m_arg_names->at( ni ) );
-            if( s->m_type != nullptr ) {
+            //auto s = cast( Symbol, m_arg_names->at( ni ) );
+            auto s = m_arg_names->at( ni ).toSymbol();
+            //if( s->m_type != nullptr ) {
                 /*auto nt = s->m_type.eval( env );
                 auto at = a->m_type.eval( env );
                 if( at != nt ) {
                     Error_At( arg->m_loc, "Mismatched type for argument '%i'", ni );
                 }*/
-            }
-            e->put( s->m_sym, a );
+            //}
+            e->put( s, a );
             ni += 1;
         }
         while( 1 ) {
@@ -703,22 +776,22 @@ struct Lambda : Callable {
         m_body.print();
     }
 };
-Bool Lambda::s_trampoline(false);
+//Bool Lambda::s_trampoline(false);
 
 struct Vau : public Callable {
     List* m_arg_names;
     Env* m_lex_env;
-    Symbol* m_env_sym;
+    Symbol m_env_sym;
     Box m_body;
-    Vau( Env* lex_env, List* arg_names, Symbol* symbol, Box body )
+    Vau( Env* lex_env, List* arg_names, Symbol symbol, Box body )
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
     }
     Box _call( Env* env, Box arg0, ArgList args ) override {
         Env* e = gcnew<Env>(m_lex_env);
-        e->put( m_env_sym->m_sym, env);
+        e->put( m_env_sym, env);
         assert( args.size() == m_arg_names->size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
-           e->put( cast(Symbol,m_arg_names->at(i))->m_sym, args[i]);
+           e->put( m_arg_names->at(i).toSymbol(), args[i]);
         }
         return m_body.eval( e );
     }
@@ -726,8 +799,8 @@ struct Vau : public Callable {
 };
 
 struct BuiltinVau {
-    Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
-    Args::Unevaluated<Symbol*> m_env_sym;
+    Args::ListOf< Args::Unevaluated<Symbol> > m_arg_names;
+    Args::Unevaluated<Symbol> m_env_sym;
     Args::Unevaluated<Box> m_body;
 
     template<typename VISIT, typename...VISITARGS>
@@ -789,6 +862,9 @@ struct State {
         m_stack.push_back( m_env );
     }
     Result let( const char* name, Box value ) {
+        return let( Symbol{ name }, value );
+    }
+    Result let( Symbol name, Box value ) {
         m_env->put( name, value );
         return R_OK;
     }
@@ -796,21 +872,22 @@ struct State {
         m_stack.push_back( gcnew<List>( ) );
     }
     void newSymbol(const char* sym) {
-        m_stack.push_back( gcnew<Symbol>(sym) );
+        //m_stack.push_back( gcnew<Symbol>( sym ) );
+        m_stack.push_back( Symbol{ sym } );
     }
     void newInteger( int value ) {
-        m_stack.push_back( gcnew<Int>( value ) );
+        m_stack.push_back( value );
     }
     void newFloat( double value ) {
-        m_stack.push_back( gcnew<Float>( value ) );
+        m_stack.push_back( value );
     }
     void newString( const char* s ) {
         m_stack.push_back( gcnew<String>( s ) );
     }
     int popInteger( int idx ) {
         int r = 0;
-        if( Int* n = cast( Int, m_stack[idx] ) ) {
-            r = n->m_num;
+        if( m_stack[idx].isInt() ) {
+            r = m_stack[idx].toInt();
             m_stack.pop(1);
         }
         return r;
@@ -825,6 +902,9 @@ struct State {
         }
     }
     Result getGlobal( const char* sym ) {
+        return getGlobal( Symbol{ sym } );
+    }
+    Result getGlobal( Symbol sym ) {
         if( Box a = m_env->get( sym ) ) {
             m_stack.push_back( a );
             return R_OK;
@@ -909,8 +989,8 @@ Box v_type(Env* env, Callable::ArgList args) {
     auto s = cast(Symbol, args[0]);
     assert(s);
     assert(t);
-    s->m_type = t;
-    return s;
+    //s->m_type = t;
+    return Box();// s;
 }
 
 struct BuiltinBegin {
@@ -959,23 +1039,22 @@ struct BuiltinQuote {
 };
 
 struct BuiltinInc {
-    Args::Unevaluated< Symbol* > m_sym;
+    Args::Unevaluated< Symbol > m_sym;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( m_sym, visitargs... );
     }
     Box call( Env* env ) {
-        Box a = env->get( m_sym->m_sym );
-        assert( a );
-        Int* n = cast( Int, a );
-        assert( n );
-        n->m_num += 1;
+        Box a = env->get( m_sym );
+        assert(a.isInt());
+        int n = a.toInt() + 1;
+        env->put( m_sym.get(), n );
         return n;
     }
 };
 
 struct BuiltinDefine {
-    Args::Unevaluated<Symbol*> m_sym;
+    Args::Unevaluated<Symbol> m_sym;
     Box m_value;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -983,13 +1062,13 @@ struct BuiltinDefine {
         visit( m_value, visitargs... );
     }
     Box call( Env* env ) {
-        env->put( m_sym->m_sym, m_value );
+        env->put( m_sym, m_value );
         return m_value;
     }
 };
 
 struct BuiltinLambda {
-    Args::ListOf< Args::Unevaluated<Symbol*> > m_arg_names;
+    Args::ListOf< Args::Unevaluated<Symbol> > m_arg_names;
     Args::Unevaluated<Box> m_body;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1004,7 +1083,7 @@ struct BuiltinLambda {
 };
 
 struct BuiltinLet {
-    Args::ListOf< Args::PairOf< Args::Unevaluated<Symbol*>, Args::Unevaluated<Box> > > m_lets;
+    Args::ListOf< Args::PairOf< Args::Unevaluated<Symbol>, Args::Unevaluated<Box> > > m_lets;
     Args::Unevaluated< Box > m_body;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1016,9 +1095,9 @@ struct BuiltinLet {
         for( auto item : *m_lets ) {
             List* l = cast( List, item );
             assert( l );
-            Symbol* s = cast( Symbol, l->at( 0 ) );
+            Symbol s = l->at( 0 ).toSymbol();
             Box a = l->at( 1 ).eval( e );
-            e->put( s->m_sym, a );
+            e->put( s, a );
         }
         return m_body.get().eval( e );
     }
@@ -1037,7 +1116,7 @@ struct BuiltinCond {
         for( auto cur : m_cases ) {
             List* l = cur.m_list;
             assert( l && l->size() == 2 );
-            if( l->at( 0 ).eval( env ).aptr != &Bool::s_false ) {
+            if( l->at( 0 ).eval( env ).toBool() ) {
                 return l->at( 1 ).eval( env );
             }
         }
@@ -1095,8 +1174,8 @@ struct BuiltinWrap {
 
 template<typename OPER, typename ATOM>
 struct BuiltinBinOp {
-	ATOM* first;
-	ATOM* second;
+	ATOM first;
+	ATOM second;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( first, visitargs... );
@@ -1104,23 +1183,23 @@ struct BuiltinBinOp {
     }
     Box call( Env* env ) {
         OPER oper;
-        return oper(first->m_num, second->m_num) ? &Bool::s_true : &Bool::s_false;
+        return oper(first, second) ? Box::s_true : Box::s_false;
     }
 };
 
 struct BuiltinVecNew {
-    Int* count;
+    int count;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( count, visitargs... );
     }
     Box call( Env* env ) {
-        int n = count->m_num;
+        int n = count;
         if( n < 0 ) {
-            Error_At( count->m_loc, "Expected n > 0" );
+            //Error_At( count->m_loc, "Expected n > 0" );
         }
         List* l = gcnew<List>( );
-        l->m_loc = count->m_loc;
+        //l->m_loc = count->m_loc;
         l->resize( n );
         return l;
     }
@@ -1133,25 +1212,25 @@ struct BuiltinVecSize {
         visit( vec, visitargs... );
     }
     Box call( Env* env ) {
-        return gcnew<Int>( int( vec->size() ) );
+        return int( vec->size() );
     }
 };
 
 struct BuiltinVecIdx {
     List* vec;
-    Int* idx;
+    int idx;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( vec, visitargs... );
         visit( idx, visitargs... );
     }
     Box call( Env* env ) {
-        auto n = unsigned( idx->m_num );
-        if( unsigned( n ) < vec->size() ) {
+        auto n = unsigned( idx );
+        if( n < vec->size() ) {
             return vec->at( n );
         }
         else {
-            Error_At( idx->m_loc, "Out of bounds %i (%i)", n, vec->size() );
+            //Error_At( idx->m_loc, "Out of bounds %i (%i)", n, vec->size() );
             return nullptr;
         }
     }
@@ -1159,7 +1238,7 @@ struct BuiltinVecIdx {
 
 struct BuiltinVecSet {
     List* vec;
-    Int* idx;
+    int idx;
     Box val;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
@@ -1168,7 +1247,7 @@ struct BuiltinVecSet {
         visit( val, visitargs... );
     }
     Box call( Env* env ) {
-        auto i = unsigned( idx->m_num );
+        auto i = unsigned( idx );
         if( i >= vec->size() ) {
             Error( "bad index" );
         }
@@ -1182,14 +1261,15 @@ Box l_float( Env* env, Callable::ArgList args ) {
     if( args.size() != 1 ) {
         Error( "Expected 1 argument" );
     }
-    if( Float* f = cast( Float, args[0] ) ) {
-        return f;
+    Box a = args[0];
+    if( a.isFloat() ) {
+        return a;
     }
-    else if( Int* i = cast( Int, args[0] ) ) {
-        return gcnew<Float>( double( i->m_num) );
+    else if( a.isInt() ) {
+        return double( a.toInt() );
     }
     Error( "Expected a number" );
-    return nullptr;
+    return Box();
 }
 
 
@@ -1230,9 +1310,9 @@ struct BuiltinList {
 };
 
 struct BuiltinRange {
-    Int* first;
-    Optional<Int*> second;
-    Optional<Int*> step;
+    int first;
+    Optional<int> second;
+    Optional<int> step;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( first, visitargs... );
@@ -1241,13 +1321,13 @@ struct BuiltinRange {
     }
 
     Box call( Env* env ) {
-        int lo=0, hi=first->m_num, st=1;
+        int lo=0, hi=first, st=1;
         if( second ) {
             lo = hi;
-            hi = (*second)->m_num;
+            hi = *second;
         }
         if( step ) {
-            st = (*step)->m_num;
+            st = *step;
         }
         List* l = gcnew<List>( );
         if( hi < lo ) return l;
@@ -1255,14 +1335,14 @@ struct BuiltinRange {
         int n = ( hi - lo + st - 1) / st;
         l->resize( n );
         for( int i = 0; i < n; i += 1 ) {
-            l->set( i, gcnew<Int>( lo + i * st ) );
+            l->set( i, lo + i * st );
         }
         return l;
     }
 };
 
 struct BuiltinFor {
-    Args::Unevaluated<Symbol*> sym;
+    Args::Unevaluated<Symbol> sym;
     List* iter;
     Args::Star< Args::Unevaluated< Box > > body;
     template<typename VISIT, typename...VISITARGS>
@@ -1276,7 +1356,7 @@ struct BuiltinFor {
         Env* e = gcnew<Env>( env );
         Box r = nullptr;
         for( auto a : *iter ) {
-            e->put( sym->m_sym, a );
+            e->put( sym, a );
             for( auto& b : body ) {
                 r = b.m_value.eval( e );
             }
@@ -1287,18 +1367,18 @@ struct BuiltinFor {
 
 template<typename REDUCE, typename ATOM>
 struct ReduceCallable {
-    ATOM* first;
-    Args::Star<ATOM*> rest;
+    ATOM first;
+    Args::Star<ATOM> rest;
     template<typename VISIT, typename...VISITARGS>
     void visit( VISIT visit, VISITARGS...visitargs ) {
         visit( first, visitargs... );
         visit( rest, visitargs... );
     }
     Box call( Env* env ) {
-        ATOM* acc = gcnew<ATOM>( first->m_num );
+        ATOM acc = first;
         REDUCE reduce;
         for( auto a : rest ) {
-            acc->m_num = reduce(acc->m_num, a->m_num);
+            acc = reduce(acc, a);
         }
         return acc;
     }
@@ -1479,6 +1559,7 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
+    #if 0
     state->let( "eval", gcnew<BuiltinCallable<BuiltinEval>>( ) );
     state->let( "evsym", gcnew<BuiltinCallable<BuiltinEvSym>>( ) );
     state->let( "begin", gcnew<BuiltinCallable<BuiltinBegin>>( ) );
@@ -1497,35 +1578,36 @@ Result initBuiltins( State* state ) {
     state->let( "map", gcnew<BuiltinCallable<BuiltinMap>>( ) );
     state->let( "print", gcnew<BuiltinCallable<BuiltinPrint>>( ) );
     state->let( "list", gcnew<BuiltinCallable<BuiltinList>>( ) );
-    state->let( "add_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, Int>>>( ) );
-    state->let( "add_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, Float>>>( ) );
-    state->let( "sub_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Int>>>( ) );
-    state->let( "sub_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, Float>>>( ) );
-    state->let( "mul_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, Int>>>( ) );
-    state->let( "mul_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, Float>>>( ) );
-    state->let( "div_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Int>>>( ) );
-    state->let( "div_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, Float>>>( ) );
-    state->let( "lsh", gcnew<BuiltinCallable<ReduceCallable<BinOps::Lsh, Int>>>( ) );
+    state->let( "add_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, int>>>( ) );
+    state->let( "add_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, double>>>( ) );
+    state->let( "sub_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, int>>>( ) );
+    state->let( "sub_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, double>>>( ) );
+    state->let( "mul_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, int>>>( ) );
+    state->let( "mul_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, double>>>( ) );
+    state->let( "div_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, int>>>( ) );
+    state->let( "div_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, double>>>( ) );
+    state->let( "lsh", gcnew<BuiltinCallable<ReduceCallable<BinOps::Lsh, int>>>( ) );
     state->let( "apply", gcnew<BuiltinCallable<BuiltinApply>>() );
-    state->let( "lt_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Int>>>( ) );
-    state->let( "lt_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, Float>>>() );
-    state->let( "le_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, Int>>>( ) );
-    state->let( "le_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, Float>>>( ) );
-    state->let( "eq_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, Int>>>( ) );
-    state->let( "eq_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, Float>>>( ) );
+    state->let( "lt_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, int>>>( ) );
+    state->let( "lt_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, double>>>() );
+    state->let( "le_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, int>>>( ) );
+    state->let( "le_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, double>>>( ) );
+    state->let( "eq_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, int>>>( ) );
+    state->let( "eq_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, double>>>( ) );
     state->let( "range", gcnew<BuiltinCallable<BuiltinRange>>( ) );
     state->let( "for", gcnew<BuiltinCallable<BuiltinFor>>() );
     state->let( "vec_new", gcnew<BuiltinCallable<BuiltinVecNew>>() );
     state->let( "vec_idx", gcnew<BuiltinCallable<BuiltinVecIdx>>() );
     state->let( "vec_set!", gcnew<BuiltinCallable<BuiltinVecSet>>() );
     state->let( "vec_size", gcnew<BuiltinCallable<BuiltinVecSize>>() );
+    #endif
     #if 0
     state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
     #endif
     state->let( "Int", &Type::s_int );
     state->let( "Float", &Type::s_float );
-    state->let( "true", &Bool::s_true );
-    state->let( "false", &Bool::s_false );
+    //state->let( "true", &Bool::s_true );
+    //state->let( "false", &Bool::s_false );
     return R_OK;
 }
 

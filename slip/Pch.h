@@ -6,5 +6,6 @@
 #include <string>
 #include <map>
 #include <cstdarg>
+#include <cstdint>
 #include <windows.h>
 #include <unordered_map>
