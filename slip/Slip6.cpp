@@ -532,38 +532,6 @@ private:
 
 namespace Args {
     template<typename T>
-    struct Unevaluated {
-        void operator=( const T& t ) {
-            m_value = t;
-        }
-        T& get() { return m_value; }
-        operator T&( ) { return m_value; }
-        operator Box() { return m_value; }
-        T& operator->() { return m_value; }
-        T m_value;
-    };
-    template<typename T>
-    struct Evaluated {
-        void operator=( const T& t ) {
-            m_value = t;
-        }
-        T& get() { return m_value; }
-        operator T&( ) { return m_value; }
-        operator Box() { return m_value; }
-        T& operator->() { return m_value; }
-        T m_value;
-    };
-    template<>
-    struct Unevaluated<Box> {
-        void operator=( Box t ) {
-            m_value = t;
-        }
-        Box& get() { return m_value; }
-        operator Box() { return m_value; }
-        Box m_value;
-    };
-
-    template<typename T>
     using Star = std::vector<T>;
 
     template<typename T>
@@ -607,35 +575,36 @@ namespace Args {
             Box const* m_end;
         };
         template<typename T>
-        void bind( Evaluated<T>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, T& out, Env* env, ArgIter& iter ) {
             assert( iter.more() );
-            Box b = iter.cur().eval( env );
+            Box c = iter.cur();
+            Box b = eval ? c.eval( env ) : c;
             assert2( b.has<T>(), "Wrong argument type" );
             out = b.unbox<T>();
             iter.next();
         }
         template<typename T>
-        void bind( Star<T>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, Star<T>& out, Env* env, ArgIter& iter ) {
             for( ; iter.more(); ) {
                 T t;
-                bind( t, env, iter );
+                bind( eval, t, env, iter );
                 out.push_back( t );
             }
         }
         template<typename T>
-        void bind( ListOf<T>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, ListOf<T>& out, Env* env, ArgIter& iter ) {
             List* lst = cast( List, iter.cur() );
             assert( lst );
             iter.next();
             ArgIter iter2{ lst->view().begin(), lst->view().end() };
             for( ; iter2.more(); ) {
                 T t;
-                bind( t, env, iter2 );
+                bind( eval, t, env, iter2 );
                 out.append( t );
             }
         }
         template<typename F, typename S>
-        void bind( PairOf<F, S>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, PairOf<F, S>& out, Env* env, ArgIter& iter ) {
             List* lst = cast( List, iter.cur() );
             if( !lst || lst->size() != 2 )
                 Error( "Expected a pair of items" );
@@ -643,22 +612,15 @@ namespace Args {
             iter.next();
             ArgIter iter2{ lst->view().begin(), lst->view().end() };
             F f; S s;
-            bind( f, env, iter2 );
-            bind( s, env, iter2 );
+            bind( eval, f, env, iter2 );
+            bind( eval, s, env, iter2 );
             out.append( f, s );
         }
         template<typename T>
-        void bind( Unevaluated<T>& out, Env* env, ArgIter& iter ) {
-            assert( iter.more() );
-            assert2( iter.cur().has<T>(), "Wrong argument type" );
-            out = iter.cur().unbox<T>();
-            iter.next();
-        }
-        template<typename T>
-        void bind( Optional<T>& out, Env* env, ArgIter& args ) {
+        void bind( unsigned eval, Optional<T>& out, Env* env, ArgIter& args ) {
             if( args.more() ) {
                 T t;
-                bind( t, env, args );
+                bind( eval, t, env, args );
                 out.set( t );
             }
         }
@@ -666,8 +628,8 @@ namespace Args {
 
     struct Binder {
         template<typename T>
-        void operator() ( T& out, Env* env, Detail::ArgIter& iter ) {
-            Detail::bind( out, env, iter );
+        void operator() ( unsigned eval, T& out, Env* env, Detail::ArgIter& iter ) {
+            Detail::bind( eval, out, env, iter );
         }
     };
 }
@@ -852,15 +814,15 @@ struct Vau : public Callable {
 };
 
 struct BuiltinVau {
-    Args::ListOf< Args::Unevaluated<Symbol> > m_arg_names;
-    Args::Unevaluated<Symbol> m_env_sym;
-    Args::Unevaluated<Box> m_body;
+    Args::ListOf< Symbol > m_arg_names;
+    Symbol m_env_sym;
+    Box m_body;
 
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_arg_names, visitargs... );
-        visit( m_env_sym, visitargs... );
-        visit( m_body, visitargs... );
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_arg_names, visitargs... );
+        func( 0, m_env_sym, visitargs... );
+        func( 0, m_body, visitargs... );
     }
 
     Box call( Env* env ) {
@@ -869,16 +831,16 @@ struct BuiltinVau {
 };
 
 struct BuiltinPrint {
-    Args::Star< Args::Evaluated<Box> > m_args;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_args, visitargs... );
+    Args::Star< Box > m_args;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, m_args, visitargs... );
     }
     Box call( Env* env ) {
         const char* sep = "";
         for( auto arg : m_args ) {
             printf( "%s", sep );
-            arg.get().print();
+            arg.print();
             sep = " ";
         }
         printf( "\n" );
@@ -1001,39 +963,39 @@ protected:
 
 
 struct BuiltinEval {
-    Args::Unevaluated<Box> m_expr;
-    Optional< Args::Evaluated<Env*> > m_env;
+    Box m_expr;
+    Optional< Env* > m_env;
 
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_expr, visitargs... );
-        visit( m_env, visitargs... );
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_expr, visitargs... );
+        func( 1, m_env, visitargs... );
     }
     Box call( Env* env ) {
         if( m_env ) {
-            return m_expr.get().eval( *m_env );
+            return m_expr.eval( *m_env );
         }
         else {
-            return m_expr.get().eval( env );
+            return m_expr.eval( env );
         }
     }
 };
 
 struct BuiltinEvSym {
-    Args::Evaluated<Box> m_expr;
-    Optional<Args::Evaluated<Env*>> m_env;
+    Box m_expr;
+    Optional<Env*> m_env;
 
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_expr, visitargs... );
-        visit( m_env, visitargs... );
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, m_expr, visitargs... );
+        func( 1, m_env, visitargs... );
     }
     Box call( Env* env ) {
         if( m_env ) {
-            return m_expr.get().eval( *m_env );
+            return m_expr.eval( *m_env );
         }
         else {
-            return m_expr.get().eval( env );
+            return m_expr.eval( env );
         }
     }
 };
@@ -1051,25 +1013,25 @@ Box v_type( Env* env, Callable::ArgList args ) {
 }
 
 struct BuiltinBegin {
-    Args::Star< Args::Unevaluated<Box > > m_exprs;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_exprs, visitargs... );
+    Args::Star< Box > m_exprs;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_exprs, visitargs... );
     }
     Box call( Env* env ) {
         Box r = nullptr;
         for( auto a : m_exprs ) {
-            r = a.get().eval( env );
+            r = a.eval( env );
         }
         return r;
     }
 };
 
 struct BuiltinModule {
-    Args::Unevaluated< List* > m_exprs;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_exprs, visitargs... );
+    List* m_exprs;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_exprs, visitargs... );
     }
     Box call( Env* env ) {
         Box r = nullptr;
@@ -1081,10 +1043,10 @@ struct BuiltinModule {
 };
 
 struct BuiltinQuote {
-    Args::Star< Args::Unevaluated<Box> > m_args;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_args, visitargs... );
+    Args::Star< Box > m_args;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_args, visitargs... );
     }
     Box call( Env* env ) {
         List* l = gcnew<List>( );
@@ -1096,41 +1058,41 @@ struct BuiltinQuote {
 };
 
 struct BuiltinInc {
-    Args::Unevaluated< Symbol > m_sym;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_sym, visitargs... );
+    Symbol m_sym;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_sym, visitargs... );
     }
     Box call( Env* env ) {
         Box a = env->get( m_sym );
         assert( a.has<int>() );
         int n = a.unbox<int>() + 1;
-        env->put( m_sym.get(), n );
+        env->put( m_sym, n );
         return n;
     }
 };
 
 struct BuiltinDefine {
-    Args::Unevaluated<Symbol> m_sym;
-    Args::Evaluated<Box> m_value;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_sym, visitargs... );
-        visit( m_value, visitargs... );
+    Symbol m_sym;
+    Box m_value;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_sym, visitargs... );
+        func( 1, m_value, visitargs... );
     }
     Box call( Env* env ) {
-        env->put( m_sym, m_value.get() );
-        return m_value.get();
+        env->put( m_sym, m_value );
+        return m_value;
     }
 };
 
 struct BuiltinLambda {
-    Args::ListOf< Args::Unevaluated<Symbol> > m_arg_names;
-    Args::Unevaluated<Box> m_body;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_arg_names, visitargs... );
-        visit( m_body, visitargs... );
+    Args::ListOf< Symbol > m_arg_names;
+    Box m_body;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_arg_names, visitargs... );
+        func( 0, m_body, visitargs... );
     }
     Box call( Env* env ) {
         auto r = gcnew<Lambda>( env, m_arg_names, m_body );
@@ -1140,12 +1102,12 @@ struct BuiltinLambda {
 };
 
 struct BuiltinLet {
-    Args::ListOf< Args::PairOf< Args::Unevaluated<Symbol>, Args::Unevaluated<Box> > > m_lets;
-    Args::Unevaluated< Box > m_body;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_lets, visitargs... );
-        visit( m_body, visitargs... );
+    Args::ListOf< Args::PairOf<Symbol, Box> > m_lets;
+    Box m_body;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_lets, visitargs... );
+        func( 0, m_body, visitargs... );
     }
     Box call( Env* env ) {
         Env* e = gcnew<Env>( env );
@@ -1156,17 +1118,16 @@ struct BuiltinLet {
             Box a = l->at( 1 ).eval( e );
             e->put( s, a );
         }
-        return m_body.get().eval( e );
+        return m_body.eval( e );
     }
-
 };
 
 struct BuiltinCond {
-    Args::Star< Args::PairOf< Args::Unevaluated<Box>, Args::Unevaluated<Box> > > m_cases;
+    Args::Star< Args::PairOf< Box, Box > > m_cases;
     //Args::Optional<Box> m_else;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_cases, visitargs... );
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, m_cases, visitargs... );
         //visit( m_else, visitargs... );
     }
     Box call( Env* env ) {
@@ -1183,14 +1144,14 @@ struct BuiltinCond {
 
 
 struct BuiltinApply {
-    Args::Evaluated<Callable*> m_callable;
-    Args::Evaluated<List*> m_args;
-    Args::Evaluated<Env*> m_env;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( m_callable, visitargs... );
-        visit( m_args, visitargs... );
-        visit( m_env, visitargs... );
+    Callable* m_callable;
+    List* m_args;
+    Env* m_env;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, m_callable, visitargs... );
+        func( 1, m_args, visitargs... );
+        func( 1, m_env, visitargs... );
     }
 
     Box call( Env* env ) {
@@ -1200,24 +1161,24 @@ struct BuiltinApply {
 
 template<typename OPER, typename ATOM>
 struct BuiltinBinOp {
-    Args::Evaluated<ATOM> first;
-    Args::Evaluated<ATOM> second;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( first, visitargs... );
-        visit( second, visitargs... );
+    ATOM first;
+    ATOM second;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, first, visitargs... );
+        func( 1, second, visitargs... );
     }
     Box call( Env* env ) {
         OPER oper;
-        return oper( first.get(), second.get() ) ? Box::s_true : Box::s_false;
+        return oper( first, second ) ? Box::s_true : Box::s_false;
     }
 };
 
 struct BuiltinVecNew {
-    Args::Evaluated<int> count;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( count, visitargs... );
+    int count;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, count, visitargs... );
     }
     Box call( Env* env ) {
         int n = count;
@@ -1232,10 +1193,10 @@ struct BuiltinVecNew {
 };
 
 struct BuiltinVecSize {
-    Args::Evaluated<List*> vec;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( vec, visitargs... );
+    List* vec;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, vec, visitargs... );
     }
     Box call( Env* env ) {
         return int( vec->size() );
@@ -1243,12 +1204,12 @@ struct BuiltinVecSize {
 };
 
 struct BuiltinVecIdx {
-    Args::Evaluated<List*> vec;
-    Args::Evaluated<int> idx;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( vec, visitargs... );
-        visit( idx, visitargs... );
+    List* vec;
+    int idx;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, vec, visitargs... );
+        func( 1, idx, visitargs... );
     }
     Box call( Env* env ) {
         auto n = unsigned( idx );
@@ -1263,22 +1224,22 @@ struct BuiltinVecIdx {
 };
 
 struct BuiltinVecSet {
-    Args::Evaluated<List*> vec;
-    Args::Evaluated<int> idx;
-    Args::Evaluated<Box> val;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( vec, visitargs... );
-        visit( idx, visitargs... );
-        visit( val, visitargs... );
+    List* vec;
+    int idx;
+    Box val;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, vec, visitargs... );
+        func( 1, idx, visitargs... );
+        func( 1, val, visitargs... );
     }
     Box call( Env* env ) {
         auto i = unsigned( idx );
         if( i >= vec->size() ) {
             Error( "bad index" );
         }
-        vec->set( i, val.get() );
-        return val.get();
+        vec->set( i, val );
+        return val;
     }
 };
 
@@ -1299,58 +1260,58 @@ Box l_float( Env* env, Callable::ArgList args ) {
 }
 
 struct BuiltinMap {
-    Args::Evaluated<Callable*> func;
-    Args::Evaluated<List*> list;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( func, visitargs... );
-        visit( list, visitargs... );
+    Callable* callable;
+    List* list;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, callable, visitargs... );
+        func( 1, list, visitargs... );
     }
 
     Box call( Env* env ) {
         List* r = gcnew<List>( );
         for( auto i : *list ) {
-            r->append( func->call( env, func, array_view_t::from_single( i ) ) );
+            r->append( callable->call( env, callable, array_view_t::from_single( i ) ) );
         }
         return r;
     }
 };
 
 struct BuiltinList {
-    std::vector<Args::Evaluated<Box>> args;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( args, visitargs... );
+    std::vector<Box> args;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, args, visitargs... );
     }
 
     Box call( Env* env ) {
         List* l = gcnew<List>( );
         for( auto& a : args ) {
-            l->append( a.get() );
+            l->append( a );
         }
         return l;
     }
 };
 
 struct BuiltinRange {
-    Args::Evaluated<int> first;
-    Optional<Args::Evaluated<int>> second;
-    Optional<Args::Evaluated<int>> step;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( first, visitargs... );
-        visit( second, visitargs... );
-        visit( step, visitargs... );
+    int first;
+    Optional<int> second;
+    Optional<int> step;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, first, visitargs... );
+        func( 1, second, visitargs... );
+        func( 1, step, visitargs... );
     }
 
     Box call( Env* env ) {
         int lo = 0, hi = first, st = 1;
         if( second ) {
             lo = hi;
-            hi = ( *second ).get();
+            hi = *second;
         }
         if( step ) {
-            st = ( *step ).get();
+            st = *step;
         }
         List* l = gcnew<List>( );
         if( hi < lo ) return l;
@@ -1365,14 +1326,14 @@ struct BuiltinRange {
 };
 
 struct BuiltinFor {
-    Args::Unevaluated<Symbol> sym;
-    Args::Evaluated<List*> iter;
-    Args::Star< Args::Unevaluated< Box > > body;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( sym, visitargs... );
-        visit( iter, visitargs... );
-        visit( body, visitargs... );
+    Symbol sym;
+    List* iter;
+    Args::Star< Box > body;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, sym, visitargs... );
+        func( 1, iter, visitargs... );
+        func( 0, body, visitargs... );
     }
 
     Box call( Env* env ) {
@@ -1381,7 +1342,7 @@ struct BuiltinFor {
         for( auto a : *iter ) {
             e->put( sym, a );
             for( auto& b : body ) {
-                r = b.m_value.eval( e );
+                r = b.eval( e );
             }
         }
         return r;
@@ -1390,18 +1351,18 @@ struct BuiltinFor {
 
 template<typename REDUCE, typename ATOM>
 struct ReduceCallable {
-    Args::Evaluated<ATOM> first;
-    Args::Star<Args::Evaluated<ATOM>> rest;
-    template<typename VISIT, typename...VISITARGS>
-    void visit( VISIT visit, VISITARGS...visitargs ) {
-        visit( first, visitargs... );
-        visit( rest, visitargs... );
+    ATOM first;
+    Args::Star<ATOM> rest;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, first, visitargs... );
+        func( 1, rest, visitargs... );
     }
     Box call( Env* env ) {
-        ATOM acc = first.get();
+        ATOM acc = first;
         REDUCE reduce;
         for( auto a : rest ) {
-            acc = reduce( acc, a.get() );
+            acc = reduce( acc, a );
         }
         return acc;
     }
