@@ -316,14 +316,14 @@ const Box Box::s_true( true );
 const Box Box::s_false( true );
 
 namespace Detail {
-    template<typename T> struct Trait;
     template<typename T> struct KindFromType;
     template<> struct KindFromType<int> { enum { Value = Box::KIND_INT }; };
     template<> struct KindFromType<bool> { enum { Value = Box::KIND_BOOL }; };
     template<> struct KindFromType<double> { enum { Value = Box::KIND_FLOAT }; };
     template<> struct KindFromType<Symbol> { enum { Value = Box::KIND_SYMBOL }; };
+    //template<typename T> struct KindFromType<T*> { enum { Value = Box::KIND_ATOM }; };
 
-    template<typename T> struct TraitValue {
+    template<typename T> struct Trait {
         static bool has( Box b ) {
             return b.m_kind == KindFromType<T>::Value;
         }
@@ -333,23 +333,16 @@ namespace Detail {
             return ret;
         }
     };
-    template<> struct Trait<bool> : public TraitValue<bool> {};
-    template<> struct Trait<int> : public TraitValue<int> {};
-    template<> struct Trait<double> : public TraitValue<double> {};
-    template<> struct Trait<Symbol> : public TraitValue<Symbol> {};
 
-    template<typename T> struct TraitAtom {
+    template<typename T> struct Trait<T*> {
         static bool has( Box b ) {
-            return b.m_kind == Box::KIND_ATOM && dynamic_cast<T>( b.m_val.a );
+            return b.m_kind == Box::KIND_ATOM && dynamic_cast<T*>( b.m_val.a );
         }
-        static T unbox( Box b ) {
-            assert( b.has<T>() );
-            return static_cast<T>( b.m_val.a );
+        static T* unbox( Box b ) {
+            assert( b.has<T*>() );
+            return static_cast<T*>( b.m_val.a );
         }
     };
-    template<> struct Trait<Callable*> : TraitAtom<Callable*> {};
-    template<> struct Trait<List*> : TraitAtom<List*> {};
-    template<> struct Trait<Env*> : TraitAtom<Env*> {};
 
     template<> struct Trait<Box> {
         static bool has( Box b ) {
