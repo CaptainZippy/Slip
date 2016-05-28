@@ -16,7 +16,8 @@ void assert2( T t, const char* msg ) {
 //#define cast(T,a) dynamic_cast<T*>(a.aptr)
 
 //#define cast(T,a) ( a.is##T() ? a.as##T() : nullptr )
-#define cast(T,a) ( a.isAtom() ? dynamic_cast<T*>(a.toAtom()) : nullptr )
+#define cast(T,a) _cast<T>(a)
+//#define cast(T,a) ( a.isAtom() ? dynamic_cast<T*>(a.toAtom()) : nullptr )
 
 struct Result {
     enum Code { OK=0, ERR=1 };
@@ -103,6 +104,10 @@ struct Env;
 struct List;
 struct Type;
 struct Box;
+
+template<typename T> T* _cast(Box b) {
+	return b.isAtom() ? dynamic_cast<T*>(b.toAtom()) : nullptr;
+}
 
 struct SourceManager {
     struct FileInfo {
@@ -211,34 +216,47 @@ namespace std {
     };
 }
 
+#if 0
 struct Box {
-    static const uint64_t VAL_HEAD = 0x7ffcULL << 48;
-    static const uint64_t PTR_HEAD = 0xfffcULL << 48;
-    static const uint64_t MASK_HEAD = 0xffffULL << 48;
-    
+	// not NaN, QNaN, SNaN, inf - float
+	// sign bit set - atom*
+	// 
+    static const uint64_t VAL_HEAD = 0x7FFCull << 48;
+    static const uint64_t PTR_HEAD = 0xFFFCull << 48;
+	static const uint64_t MASK_HEAD = 0xFFFFull << 48;
+	static const uint64_t MASK_SINGLE = 0xFFFFFull << 44;
+	
+	enum Kind {
+		Kind32 = 0,
+		KindSymbol = 1,
+	};
+
+	enum Single {
+		SingleNil = 0,
+		SingleTrue = 1,
+		SingleFalse = 2,
+		SingleTrue = 3,
+	};
+
     static inline uint64_t VAL_ENC( uint64_t b2, uint64_t lo ) {
         return VAL_HEAD | ( b2 << 48 ) | lo;
     }
+	static inline uint64_t SINGLE_ENC(uint64_t b2, uint64_t lo) {
+		return VAL_HEAD | (3 << 48) | (b2 << 44) | lo;
+	}
     static inline uint64_t PTR_ENC( const void* ptr ) {
         return PTR_HEAD | uint64_t(ptr);
     }
     #define SIGN_BIT ((uint64_t)1 << 63)
-
-    enum Kind {
-		KindNil = 0,
-		KindInt = 1,
-		KindSymbol = 2,
-	};
+	
     static const Box s_true;
     static const Box s_false;
-	Box() : m_val(VAL_ENC(0,0)) {}
+	Box() : m_val(VAL_ENC(KindSingle,SingleNil)) {}
     Box( Symbol s ) : m_val( VAL_ENC( KindSymbol, uint64_t( s.m_sym ) ) ) {}
     Box( double d ) { memcpy(&m_val, &d, sizeof( d ) ); }
     Box( int i ) : m_val( VAL_ENC(KindInt, uint64_t(i)) ) { }
     Box( Atom* a ) : m_val( PTR_ENC( a ) ) {}
-	explicit operator bool() {
-		return m_val!=VAL_ENC(0,0);
-	}
+	//explicit operator bool() { return m_val!=VAL_ENC(0,0); }
 
     bool isFloat() const { return (m_val & VAL_HEAD) != VAL_HEAD; }
     double toFloat() const {
@@ -248,17 +266,14 @@ struct Box {
     bool isInt() const { return (m_val & MASK_HEAD) == VAL_ENC( KindInt, 0 ); }
     int toInt() const { assert( isInt() ); return static_cast<int>( m_val ); }
 
-    bool isSymbol() const;
-    Symbol toSymbol() const;
+	bool isSymbol() const { return (m_val & MASK_HEAD) == VAL_ENC(KindSymbol, 0); }
+    Symbol toSymbol() const { assert(isSymbol()); return Symbol(reinterpret_cast<const char*>(m_val & ~PTR_HEAD)); }
 
-    bool isBool() const;
-    bool toBool() const; //todo
+	bool isBool() const { return (m_val & MASK_HEAD) == VAL_ENC(KindSingle); }
+	bool toBool() const { assert(isBool()); return false; }
 
     bool isAtom() const { return (m_val & PTR_HEAD) == PTR_HEAD; }
     Atom* toAtom() const { assert( isAtom() ); return reinterpret_cast<Atom*>( m_val & ~PTR_HEAD ); }
-
-    //bool isCallable() const { return toCallable() != nullptr; }
-    //Callable* toCallable() const { return dynamic_cast<Callable*>( toAtom() ); }
 
 	void print() const;// { aptr->print(); }
 	Box eval(Env* env) const;// { aptr->print(); }
@@ -266,6 +281,52 @@ struct Box {
 	//Kind kind;
 	//Atom* aptr;
 };
+#else
+struct Box {
+	enum Kind {
+		KIND_NIL,
+		KIND_BOOL,
+		KIND_INT,
+		KIND_FLOAT,
+		KIND_SYMBOL,
+		KIND_ATOM
+	};
+
+	Box() : m_kind(KIND_NIL) {}
+	Box(Symbol s) : m_kind(KIND_SYMBOL) { m_val.s = s; }
+	Box(double f) : m_kind(KIND_FLOAT) { m_val.f = f; }
+	Box(int i) : m_kind(KIND_INT) { m_val.i = i; }
+	Box(Atom* a) : m_kind(KIND_ATOM) { m_val.a = a; }
+	explicit operator bool() { return m_kind!=KIND_NIL; }
+
+	bool isFloat() const { return m_kind==KIND_FLOAT; }
+	double toFloat() const { assert(isFloat()); return m_val.f; }
+
+	bool isInt() const { return m_kind==KIND_INT; }
+	int toInt() const { assert(isInt()); return m_val.i; }
+
+	bool isSymbol() const { return m_kind==KIND_SYMBOL; }
+	Symbol toSymbol() const { assert(isSymbol()); return m_val.s; }
+
+	bool isBool() const { return m_kind==KIND_BOOL; }
+	bool toBool() const { assert(isBool()); return m_val.i!=0; }
+
+	bool isAtom() const { return m_kind==KIND_ATOM; }
+	Atom* toAtom() const { assert(isAtom()); return m_val.a; }
+
+	void print() const;// { aptr->print(); }
+	Box eval(Env* env) const;// { aptr->print(); }
+
+	Kind m_kind;
+	union Union {
+		Atom* a;
+		int i;
+		double f;
+		Symbol s;
+	};
+	Union m_val;
+};
+#endif
 
 struct Atom {
     void* operator new( size_t ) = delete;
@@ -304,44 +365,6 @@ Type Type::s_int;
 Type Type::s_float;
 Type Type::s_string;
 
-#if 0
-struct Bool : Value {
-    Bool( bool v ) : m_val( v ) {}
-    void _print() const override {
-        printf( m_val ? "true" : "false" );
-    }
-    bool m_val;
-
-    static Bool s_false;
-    static Bool s_true;
-};
-
-Bool Bool::s_false{ false };
-Bool Bool::s_true{ true };
-
-struct Int : Value {
-    Int( int n ) : m_num( n ) { m_type = &Type::s_int; }
-    bool equals( const Int* f ) const {
-        return m_num == f->m_num;
-    }
-    void _print() const override {
-        printf( "%i", m_num );
-    }
-    int m_num;
-};
-
-struct Float : Value {
-    Float( double d ) : m_num( d ) { m_type = &Type::s_float; }
-    bool equals( const Float* f ) const {
-        return m_num == f->m_num;
-    }
-    void _print() const override {
-        printf( "%lf", m_num );
-    }
-    double m_num;
-};
-#endif
-
 struct String : Value {
     String( const char* s = nullptr ) : m_str( s ) { m_type = &Type::s_string; }
     void _print() const override {
@@ -351,7 +374,6 @@ struct String : Value {
 };
 
 #if 0
-
 struct Symbol : Atom {
     Symbol( const char* s ) : m_sym( s ) {}
 	Box _eval(Env* env) override;
@@ -429,7 +451,13 @@ void Box::print() const {
     //aptr->print();
 }
 Box Box::eval(Env* env) const {
-    return Box();// aptr->eval( env );
+	if(isInt()) return toInt();
+	if(isBool()) return toBool();
+	if(isFloat()) return toFloat();
+	if(isSymbol()) return env->get(toSymbol());
+	if(Atom* a = toAtom()) return a->eval(env);
+	assert(0);
+	return Box();
 }
 
 template<typename T>
@@ -571,7 +599,7 @@ namespace Args {
         template<typename T>
         void bind( Unevaluated<T>& out, Env* env, ArgIter& iter ) {
             assert( iter.more() );
-            out = iter.cur().as<T>();
+			out = dynamic_cast<T>(iter.cur().toAtom());
             assert2( out, "Wrong argument type" );
             iter.next();
         }
@@ -905,11 +933,9 @@ struct State {
         return getGlobal( Symbol{ sym } );
     }
     Result getGlobal( Symbol sym ) {
-        if( Box a = m_env->get( sym ) ) {
-            m_stack.push_back( a );
-            return R_OK;
-        }
-        return Result::ERR;
+		Box a = m_env->get(sym);
+        m_stack.push_back( a );
+        return a ? R_OK : Result::ERR;
     }
     Result call( int narg, int nret ) {
         if( Callable* c = cast( Callable, m_stack[-narg - 1] ) ) {
@@ -1559,11 +1585,11 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
-    #if 0
+	state->let( "module", gcnew<BuiltinCallable<BuiltinModule>>( ) );
+#if 0
     state->let( "eval", gcnew<BuiltinCallable<BuiltinEval>>( ) );
     state->let( "evsym", gcnew<BuiltinCallable<BuiltinEvSym>>( ) );
     state->let( "begin", gcnew<BuiltinCallable<BuiltinBegin>>( ) );
-    state->let( "module", gcnew<BuiltinCallable<BuiltinModule>>( ) );
     state->let( "quote", gcnew<BuiltinCallable<BuiltinQuote>>( ) );
     state->let( "inc!", gcnew<BuiltinCallable<BuiltinInc>>( ) );
     state->let( "define", gcnew<BuiltinCallable<BuiltinDefine>>( ) );
