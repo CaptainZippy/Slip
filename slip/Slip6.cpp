@@ -898,12 +898,9 @@ struct State {
     void newString( const char* s ) {
         m_stack.push_back( gcnew<String>( s ) );
     }
-    int popInteger( int idx ) {
-        int r = 0;
-        if( m_stack[idx].unbox<int>() ) {
-            r = m_stack[idx].unbox<int>();
-            m_stack.pop( 1 );
-        }
+    Box pop() {
+        Box r = m_stack[-1];
+        m_stack.pop();
         return r;
     }
     void listAppend( int idx ) {
@@ -1257,21 +1254,37 @@ struct BuiltinVecSet {
     }
 };
 
+struct BuiltinSet {
+    Symbol sym;
+    Box val;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 0, sym, visitargs... );
+        func( 1, val, visitargs... );
+    }
+    Box call( Env* env ) {
+        env->update(sym, val);
+        return val;
+    }
+};
 
-Box l_float( Env* env, Callable::ArgList args ) {
-    if( args.size() != 1 ) {
-        Error( "Expected 1 argument" );
+struct BuiltinFloat {
+    Box val;
+    template<typename FUNC, typename...VISITARGS>
+    void visit( FUNC func, VISITARGS...visitargs ) {
+        func( 1, val, visitargs... );
     }
-    Box a = args[0];
-    if( a.unbox<double>() ) {
-        return a;
+    Box call( Env* env ) {
+        if( val.has<double>() ) {
+            return val;
+        }
+        else if( val.has<int>() ) {
+            return double( val.unbox<int>() );
+        }
+        Error( "Expected a number" );
+        return Box();
     }
-    else if( a.unbox<int>() ) {
-        return double( a.unbox<int>() );
-    }
-    Error( "Expected a number" );
-    return Box();
-}
+};
 
 struct BuiltinMap {
     Callable* callable;
@@ -1385,7 +1398,8 @@ struct ReduceCallable {
 struct BinOps {
     struct Add {
         template<typename T>
-        T operator()( T a, T b ) { return a + b; }
+        T operator()( T a, T b ) { 
+            return a + b; }
     };
     struct Sub {
         template<typename T>
@@ -1397,7 +1411,8 @@ struct BinOps {
     };
     struct Div {
         template<typename T>
-        T operator()( T a, T b ) { return a / b; }
+        T operator()( T a, T b ) {
+            return a / b; }
     };
     struct Lt {
         template<typename T>
@@ -1596,10 +1611,9 @@ Result initBuiltins( State* state ) {
     state->let( "vec_idx", gcnew<BuiltinCallable<BuiltinVecIdx>>( ) );
     state->let( "vec_set!", gcnew<BuiltinCallable<BuiltinVecSet>>( ) );
     state->let( "vec_size", gcnew<BuiltinCallable<BuiltinVecSize>>( ) );
+    state->let( "float", gcnew<BuiltinCallable<BuiltinFloat>>( ) );
+    state->let( "set!", gcnew<BuiltinCallable<BuiltinSet>>( ) );
 
-    #if 0
-    state->let( "float", gcnew<BuiltinLambda>( &l_float ) );
-    #endif
     state->let( "Int", &Type::s_int );
     state->let( "Float", &Type::s_float );
     state->let( "true", Box::s_true );
@@ -1632,7 +1646,19 @@ int main( int argc, const char* argv[] ) {
                 }
             }
             state->call( 1, 1 );
-            int ret = state->popInteger( -1 );
+            int ret = 0;
+            Box r = state->pop();
+            switch( r.m_kind ) {
+                case Box::KIND_INT:
+                    ret = r.unbox<int>();
+                    break;
+                case Box::KIND_NIL:
+                case Box::KIND_ATOM:
+                    ret = 0;
+                    break;
+                default:
+                    Error( "main() must return a value" );
+            }
             return ret;
         }
     }
