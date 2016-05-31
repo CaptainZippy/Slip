@@ -313,7 +313,7 @@ struct Box {
 };
 
 const Box Box::s_true( true );
-const Box Box::s_false( true );
+const Box Box::s_false( false );
 
 namespace Detail {
     template<typename T> struct KindFromType;
