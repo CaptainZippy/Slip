@@ -1398,16 +1398,18 @@ struct ReduceCallable {
 struct BinOps {
     struct Add {
         template<typename T>
-        T operator()( T a, T b ) { 
+        T operator()( T a, T b ) {
             return a + b; }
     };
     struct Sub {
         template<typename T>
-        T operator()( T a, T b ) { return a - b; }
+        T operator()( T a, T b ) {
+            return a - b; }
     };
     struct Mul {
         template<typename T>
-        T operator()( T a, T b ) { return a * b; }
+        T operator()( T a, T b ) {
+            return a * b; }
     };
     struct Div {
         template<typename T>
@@ -1416,19 +1418,23 @@ struct BinOps {
     };
     struct Lt {
         template<typename T>
-        bool operator()( T a, T b ) { return a < b; }
+        bool operator()( T a, T b ) {
+            return a < b; }
     };
     struct Le {
         template<typename T>
-        bool operator()( T a, T b ) { return a <= b; }
+        bool operator()( T a, T b ) {
+            return a <= b; }
     };
     struct Eq {
         template<typename T>
-        bool operator()( T a, T b ) { return a == b; }
+        bool operator()( T a, T b ) {
+            return a == b; }
     };
     struct Lsh {
         template<typename T>
-        T operator()( T a, T b ) { return a << b; }
+        T operator()( T a, T b ) {
+            return a << b; }
     };
 };
 
