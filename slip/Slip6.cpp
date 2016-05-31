@@ -844,7 +844,7 @@ struct BuiltinPrint {
             sep = " ";
         }
         printf( "\n" );
-        return nullptr;
+        return Box();
     }
 };
 
@@ -1019,7 +1019,7 @@ struct BuiltinBegin {
         func( 0, m_exprs, visitargs... );
     }
     Box call( Env* env ) {
-        Box r = nullptr;
+        Box r;
         for( auto a : m_exprs ) {
             r = a.eval( env );
         }
@@ -1034,7 +1034,7 @@ struct BuiltinModule {
         func( 0, m_exprs, visitargs... );
     }
     Box call( Env* env ) {
-        Box r = nullptr;
+        Box r;
         for( auto a : *m_exprs ) {
             r = a.eval( env );
         }
@@ -1134,11 +1134,25 @@ struct BuiltinCond {
         for( auto cur : m_cases ) {
             List* l = cur.m_list;
             assert( l && l->size() == 2 );
-            if( l->at( 0 ).eval( env ).unbox<bool>() ) {
+            Box c = l->at( 0 ).eval( env );
+            bool yes = false;
+            switch(c.m_kind) {
+                case Box::KIND_NIL:
+                    break;
+                case Box::KIND_BOOL:
+                    yes = c.unbox<bool>();
+                    break;
+                case Box::KIND_INT:
+                    yes = c.unbox<int>()!=0;
+                    break;
+                default:
+                    Error( "Can't convert to bool" );
+            }
+            if( yes ) {
                 return l->at( 1 ).eval( env );
             }
         }
-        return nullptr;
+        return Box();
     }
 };
 
@@ -1218,7 +1232,7 @@ struct BuiltinVecIdx {
         }
         else {
             //Error_At( idx->m_loc, "Out of bounds %i (%i)", n, vec->size() );
-            return nullptr;
+            return Box();
         }
     }
 };
@@ -1338,7 +1352,7 @@ struct BuiltinFor {
 
     Box call( Env* env ) {
         Env* e = gcnew<Env>( env );
-        Box r = nullptr;
+        Box r;
         for( auto a : *iter ) {
             e->put( sym, a );
             for( auto& b : body ) {
