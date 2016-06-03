@@ -92,6 +92,7 @@ safe_cast_t<T> safe_cast( const T& t ) {
     return safe_cast_t<T>( t );
 };
 
+struct GcBase;
 struct Atom;
 struct Symbol;
 struct Callable;
@@ -364,11 +365,24 @@ T Box::unbox() const {
     return Detail::Trait<T>::unbox( *this );
 }
 #endif
+struct GcBase {
+    enum { WHITE = 0, BLACK = 2 };
+    GcBase() : m_prev( &s_head ), m_next( nullptr ), flags( WHITE ) { s_head.m_next = this; }
+    virtual ~GcBase() {}
 
-struct Atom {
+    GcBase* m_prev;
+    GcBase* m_next;
+    static GcBase s_head;
+    unsigned flags;
+    GcBase(int) : m_prev( nullptr ), m_next( nullptr ), flags( BLACK ) { }
+};
+GcBase GcBase::s_head(0);
+
+
+struct Atom : public GcBase {
     void* operator new( size_t ) = delete;
     void* operator new( size_t, void* p ){ return p; }
-        virtual ~Atom() {}
+    virtual ~Atom() {}
     Box eval( Env* env ) {
         return _eval( env );
     }
@@ -536,27 +550,22 @@ namespace Args {
 
     template<typename T>
     struct ListOf {
-        ListOf() : m_list( gcnew<List>( ) ) {}
-        operator List*( ) {
-            return m_list;
-        }
+        ListOf() {}
         void append( T t ) {
-            m_list->append( Box( t ) );
+            m_list.push_back( t );
         }
-        List* m_list;
+        std::vector<T> m_list;
     };
 
     template<typename F, typename S>
     struct PairOf {
-        PairOf() : m_list( gcnew<List>( ) ) {}
-        operator List*( ) {
-            return m_list;
-        }
+        PairOf() {}
         void append( F f, S s ) {
-            m_list->append( f );
-            m_list->append( s );
+            first = f;
+            second = s;
         }
-        List* m_list;
+        F first;
+        S second;
     };
 
     namespace Detail {
@@ -659,48 +668,6 @@ struct List : Atom {
         //Error_At( lst[0]->m_loc, "Expected a callable as the first argument" );
         return Box();
     }
-    #if 0
-    Box _normalize() override {
-        std::vector<List*> lets;
-        List* fin = gcnew<List>( );
-        for( auto arg : lst ) {
-            auto a = normalize2( arg, lets );
-            fin->append( a );
-        }
-        List* ret = gcnew<List>( );
-        ret->append( gcnew<Symbol>( "let" ) );
-        List* loc = gcnew<List>( );
-        for( auto l : lets ) {
-            loc->append( l );
-        }
-        ret->append( loc );
-        ret->append( fin );
-        return ret;
-    }
-    static Box normalize2( Box arg, std::vector<List*>& lets ) {
-        if( auto l = cast( List, arg ) ) {
-            List* simp = gcnew<List>( );
-            for( auto a : l->lst ) {
-                Box b = normalize2( a, lets );
-                simp->append( b );
-            }
-            Symbol* sym;
-            {
-                char buf[256];
-                sprintf( buf, "t%zi", lets.size() );
-                sym = gcnew<Symbol>( strdup( buf ) );
-            }
-            List* let = gcnew<List>( );
-            let->append( sym );
-            let->append( simp );
-            lets.push_back( let );
-            return sym;
-        }
-        else {
-            return arg->normalize();
-        }
-    }
-    #endif
 
     vector::const_iterator begin() const {
         return lst.begin();
@@ -741,23 +708,22 @@ protected:
 
 struct Lambda : Callable {
     //    static Bool s_trampoline;
-    List* m_arg_names;
+    std::vector<Symbol> m_arg_names;
     Env* m_lex_env;
     Box m_body;
 
-    Lambda( Env* lex_env, List* arg_names, Box body )
+    Lambda( Env* lex_env, const std::vector<Symbol>& arg_names, Box body )
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_body( body ) {
     }
 
     Box _call( Env* env, Box arg0, ArgList args ) override {
         //Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
-        assert( args.size() == m_arg_names->size() );
+        assert( args.size() == m_arg_names.size() );
         Env* e = gcnew<Env>( m_lex_env );
         unsigned ni = 0;
         for( auto arg : args ) {
             Box a = arg.eval( env );
             //auto s = cast( Symbol, m_arg_names->at( ni ) );
-            auto s = m_arg_names->at( ni ).unbox<Symbol>();
             //if( s->m_type != nullptr ) {
                 /*auto nt = s->m_type.eval( env );
                 auto at = a->m_type.eval( env );
@@ -765,7 +731,7 @@ struct Lambda : Callable {
                     Error_At( arg->m_loc, "Mismatched type for argument '%i'", ni );
                 }*/
                 //}
-            e->put( s, a );
+            e->put( m_arg_names[ni], a );
             ni += 1;
         }
         while( 1 ) {
@@ -775,17 +741,10 @@ struct Lambda : Callable {
             //          }
         }
     }
-    #if 0
-    Box _normalize() override {
-        Box body = m_body->normalize();
-        return gcnew<Lambda>( m_lex_env, m_arg_names, body );
-    }
-    #endif
     void _print() const override {
         printf( "(lambda (" );
-        for( auto a : *m_arg_names ) {
-            a.print();
-            printf( " " );
+        for( auto a : m_arg_names ) {
+            printf( "%s ", a.m_sym );
         }
         printf( ") " );
         m_body.print();
@@ -794,19 +753,19 @@ struct Lambda : Callable {
 //Bool Lambda::s_trampoline(false);
 
 struct Vau : public Callable {
-    List* m_arg_names;
+    std::vector<Symbol> m_arg_names;
     Env* m_lex_env;
     Symbol m_env_sym;
     Box m_body;
-    Vau( Env* lex_env, List* arg_names, Symbol symbol, Box body )
+    Vau( Env* lex_env, const std::vector<Symbol>& arg_names, Symbol symbol, Box body )
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
     }
     Box _call( Env* env, Box arg0, ArgList args ) override {
         Env* e = gcnew<Env>( m_lex_env );
         e->put( m_env_sym, env );
-        assert( args.size() == m_arg_names->size() );
+        assert( args.size() == m_arg_names.size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
-            e->put( m_arg_names->at( i ).unbox<Symbol>(), args[i] );
+            e->put( m_arg_names[i], args[i] );
         }
         return m_body.eval( e );
     }
@@ -826,7 +785,7 @@ struct BuiltinVau {
     }
 
     Box call( Env* env ) {
-        return gcnew<Vau>( env, m_arg_names, m_env_sym, m_body );
+        return gcnew<Vau>( env, m_arg_names.m_list, m_env_sym, m_body );
     }
 };
 
@@ -872,10 +831,16 @@ struct BuiltinPrint {
 //};
 
 struct State {
+    template<typename T, typename...P>
+    T* create(P...p) {
+        return gcnew<T>(p...);
+    }
+
     State() {
-        m_env = gcnew<Env>( nullptr );
+        m_env = create<Env>( nullptr );
         m_stack.push_back( m_env );
     }
+    
     Result let( const char* name, Box value ) {
         return let( Symbol{ intern( name ) }, value );
     }
@@ -1092,7 +1057,7 @@ struct BuiltinLambda {
         func( 0, m_body, visitargs... );
     }
     Box call( Env* env ) {
-        auto r = gcnew<Lambda>( env, m_arg_names, m_body );
+        auto r = gcnew<Lambda>( env, m_arg_names.m_list, m_body );
         //r->m_loc = m_body->m_loc;
         return r;
     }
@@ -1108,12 +1073,9 @@ struct BuiltinLet {
     }
     Box call( Env* env ) {
         Env* e = gcnew<Env>( env );
-        for( auto item : *m_lets ) {
-            List* l = cast( List, item );
-            assert( l );
-            Symbol s = l->at( 0 ).unbox<Symbol>();
-            Box a = l->at( 1 ).eval( e );
-            e->put( s, a );
+        for( auto item : m_lets.m_list ) {
+            Box a = item.second.eval( e );
+            e->put( item.first, a );
         }
         return m_body.eval( e );
     }
@@ -1129,9 +1091,7 @@ struct BuiltinCond {
     }
     Box call( Env* env ) {
         for( auto cur : m_cases ) {
-            List* l = cur.m_list;
-            assert( l && l->size() == 2 );
-            Box c = l->at( 0 ).eval( env );
+            Box c = cur.first.eval( env );
             bool yes = false;
             switch(c.m_kind) {
                 case Box::KIND_NIL:
@@ -1146,7 +1106,7 @@ struct BuiltinCond {
                     Error( "Can't convert to bool" );
             }
             if( yes ) {
-                return l->at( 1 ).eval( env );
+                return cur.second.eval( env );
             }
         }
         return Box();
@@ -1577,48 +1537,48 @@ Result parse_file( State* state, SourceManager& sm, const char* fname ) {
 }
 
 Result initBuiltins( State* state ) {
-    state->let( "module", gcnew<BuiltinCallable<BuiltinModule>>( ) );
-    state->let( "eval", gcnew<BuiltinCallable<BuiltinEval>>( ) );
-    state->let( "evsym", gcnew<BuiltinCallable<BuiltinEvSym>>( ) );
-    state->let( "begin", gcnew<BuiltinCallable<BuiltinBegin>>( ) );
-    state->let( "quote", gcnew<BuiltinCallable<BuiltinQuote>>( ) );
-    state->let( "inc!", gcnew<BuiltinCallable<BuiltinInc>>( ) );
-    state->let( "define", gcnew<BuiltinCallable<BuiltinDefine>>( ) );
-    state->let( "lambda", gcnew<BuiltinCallable<BuiltinLambda>>( ) );
-    state->let( "vau", gcnew<BuiltinCallable<BuiltinVau>>( ) );
-    state->let( "let", gcnew<BuiltinCallable<BuiltinLet>>( ) );
-    state->let( "cond", gcnew<BuiltinCallable<BuiltinCond>>( ) );
+    state->let( "module", state->create<BuiltinCallable<BuiltinModule>>( ) );
+    state->let( "eval", state->create<BuiltinCallable<BuiltinEval>>( ) );
+    state->let( "evsym", state->create<BuiltinCallable<BuiltinEvSym>>( ) );
+    state->let( "begin", state->create<BuiltinCallable<BuiltinBegin>>( ) );
+    state->let( "quote", state->create<BuiltinCallable<BuiltinQuote>>( ) );
+    state->let( "inc!", state->create<BuiltinCallable<BuiltinInc>>( ) );
+    state->let( "define", state->create<BuiltinCallable<BuiltinDefine>>( ) );
+    state->let( "lambda", state->create<BuiltinCallable<BuiltinLambda>>( ) );
+    state->let( "vau", state->create<BuiltinCallable<BuiltinVau>>( ) );
+    state->let( "let", state->create<BuiltinCallable<BuiltinLet>>( ) );
+    state->let( "cond", state->create<BuiltinCallable<BuiltinCond>>( ) );
 
-    //state->let( "tail", gcnew<LambdaTail>( ) );
-//    state->let( "wrap", gcnew<BuiltinWrap>() );
+    //state->let( "tail", state->create<LambdaTail>( ) );
+//    state->let( "wrap", state->create<BuiltinWrap>() );
 
-    state->let( "map", gcnew<BuiltinCallable<BuiltinMap>>( ) );
-    state->let( "print", gcnew<BuiltinCallable<BuiltinPrint>>( ) );
-    state->let( "list", gcnew<BuiltinCallable<BuiltinList>>( ) );
-    state->let( "add_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, int>>>( ) );
-    state->let( "add_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Add, double>>>( ) );
-    state->let( "sub_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, int>>>( ) );
-    state->let( "sub_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Sub, double>>>( ) );
-    state->let( "mul_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, int>>>( ) );
-    state->let( "mul_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Mul, double>>>( ) );
-    state->let( "div_i", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, int>>>( ) );
-    state->let( "div_f", gcnew<BuiltinCallable<ReduceCallable<BinOps::Div, double>>>( ) );
-    state->let( "lsh", gcnew<BuiltinCallable<ReduceCallable<BinOps::Lsh, int>>>( ) );
-    state->let( "apply", gcnew<BuiltinCallable<BuiltinApply>>( ) );
-    state->let( "lt_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, int>>>( ) );
-    state->let( "lt_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Lt, double>>>( ) );
-    state->let( "le_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, int>>>( ) );
-    state->let( "le_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Le, double>>>( ) );
-    state->let( "eq_i?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, int>>>( ) );
-    state->let( "eq_f?", gcnew<BuiltinCallable<BuiltinBinOp<BinOps::Eq, double>>>( ) );
-    state->let( "range", gcnew<BuiltinCallable<BuiltinRange>>( ) );
-    state->let( "for", gcnew<BuiltinCallable<BuiltinFor>>( ) );
-    state->let( "vec_new", gcnew<BuiltinCallable<BuiltinVecNew>>( ) );
-    state->let( "vec_idx", gcnew<BuiltinCallable<BuiltinVecIdx>>( ) );
-    state->let( "vec_set!", gcnew<BuiltinCallable<BuiltinVecSet>>( ) );
-    state->let( "vec_size", gcnew<BuiltinCallable<BuiltinVecSize>>( ) );
-    state->let( "float", gcnew<BuiltinCallable<BuiltinFloat>>( ) );
-    state->let( "set!", gcnew<BuiltinCallable<BuiltinSet>>( ) );
+    state->let( "map", state->create<BuiltinCallable<BuiltinMap>>( ) );
+    state->let( "print", state->create<BuiltinCallable<BuiltinPrint>>( ) );
+    state->let( "list", state->create<BuiltinCallable<BuiltinList>>( ) );
+    state->let( "add_i", state->create<BuiltinCallable<ReduceCallable<BinOps::Add, int>>>( ) );
+    state->let( "add_f", state->create<BuiltinCallable<ReduceCallable<BinOps::Add, double>>>( ) );
+    state->let( "sub_i", state->create<BuiltinCallable<ReduceCallable<BinOps::Sub, int>>>( ) );
+    state->let( "sub_f", state->create<BuiltinCallable<ReduceCallable<BinOps::Sub, double>>>( ) );
+    state->let( "mul_i", state->create<BuiltinCallable<ReduceCallable<BinOps::Mul, int>>>( ) );
+    state->let( "mul_f", state->create<BuiltinCallable<ReduceCallable<BinOps::Mul, double>>>( ) );
+    state->let( "div_i", state->create<BuiltinCallable<ReduceCallable<BinOps::Div, int>>>( ) );
+    state->let( "div_f", state->create<BuiltinCallable<ReduceCallable<BinOps::Div, double>>>( ) );
+    state->let( "lsh", state->create<BuiltinCallable<ReduceCallable<BinOps::Lsh, int>>>( ) );
+    state->let( "apply", state->create<BuiltinCallable<BuiltinApply>>( ) );
+    state->let( "lt_i?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Lt, int>>>( ) );
+    state->let( "lt_f?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Lt, double>>>( ) );
+    state->let( "le_i?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Le, int>>>( ) );
+    state->let( "le_f?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Le, double>>>( ) );
+    state->let( "eq_i?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Eq, int>>>( ) );
+    state->let( "eq_f?", state->create<BuiltinCallable<BuiltinBinOp<BinOps::Eq, double>>>( ) );
+    state->let( "range", state->create<BuiltinCallable<BuiltinRange>>( ) );
+    state->let( "for", state->create<BuiltinCallable<BuiltinFor>>( ) );
+    state->let( "vec_new", state->create<BuiltinCallable<BuiltinVecNew>>( ) );
+    state->let( "vec_idx", state->create<BuiltinCallable<BuiltinVecIdx>>( ) );
+    state->let( "vec_set!", state->create<BuiltinCallable<BuiltinVecSet>>( ) );
+    state->let( "vec_size", state->create<BuiltinCallable<BuiltinVecSize>>( ) );
+    state->let( "float", state->create<BuiltinCallable<BuiltinFloat>>( ) );
+    state->let( "set!", state->create<BuiltinCallable<BuiltinSet>>( ) );
 
     state->let( "Int", &Type::s_int );
     state->let( "Float", &Type::s_float );
