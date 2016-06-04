@@ -92,6 +92,7 @@ safe_cast_t<T> safe_cast( const T& t ) {
     return safe_cast_t<T>( t );
 };
 
+struct State;
 struct GcBase;
 struct Atom;
 struct Symbol;
@@ -100,6 +101,13 @@ struct Env;
 struct List;
 struct Type;
 struct Box;
+
+Box State_getSymbol( State* s, Symbol sym );
+template<typename T, typename...P> T* State_create( State* s, P...p );
+Box State_eval( State* s, Box b, Env* e = nullptr );
+Env* State_getEnv( State* s );
+Box State_defineSymbol( State* s, Symbol sym, Box b );
+void State_updateSymbol( State* s, Symbol sym, Box b );
 
 struct SourceManager {
     struct FileInfo {
@@ -269,7 +277,7 @@ struct Box {
     Atom* toAtom() const { assert( isAtom() ); return reinterpret_cast<Atom*>( m_val & ~PTR_HEAD ); }
 
     void print() const;// { aptr->print(); }
-    Box eval( Env* env ) const;// { aptr->print(); }
+    Box eval( State* state ) const;// { aptr->print(); }
     uint64_t m_val;
     //Kind kind;
     //Atom* aptr;
@@ -298,7 +306,7 @@ struct Box {
     template<typename T> T unbox() const;
 
     void print() const;
-    Box eval( Env* env ) const;
+    Box eval( State* state ) const;
 
     static const Box s_true;
     static const Box s_false;
@@ -367,35 +375,35 @@ T Box::unbox() const {
 #endif
 struct GcBase {
     enum { WHITE = 0, BLACK = 2 };
-    GcBase() : m_prev( &s_head ), m_next( nullptr ), flags( WHITE ) { s_head.m_next = this; }
+    GcBase() : m_gcprev( &s_gchead ), m_gcnext( nullptr ), m_gcflags( WHITE ) { s_gchead.m_gcnext = this; }
     virtual ~GcBase() {}
 
-    GcBase* m_prev;
-    GcBase* m_next;
-    static GcBase s_head;
-    unsigned flags;
-    GcBase(int) : m_prev( nullptr ), m_next( nullptr ), flags( BLACK ) { }
+    GcBase* m_gcprev;
+    GcBase* m_gcnext;
+    unsigned m_gcflags;
+    static GcBase s_gchead;
+    GcBase(int) : m_gcprev( nullptr ), m_gcnext( nullptr ), m_gcflags( BLACK ) { }
 };
-GcBase GcBase::s_head(0);
+GcBase GcBase::s_gchead(0);
 
 
 struct Atom : public GcBase {
     void* operator new( size_t ) = delete;
     void* operator new( size_t, void* p ){ return p; }
     virtual ~Atom() {}
-    Box eval( Env* env ) {
-        return _eval( env );
+    Box eval( State* state ) {
+        return _eval( state );
     }
     void print() const { _print(); }
     SourceManager::Location m_loc;
     Atom* m_type;
 protected:
-    virtual Box _eval( Env* env ) = 0;
+    virtual Box _eval( State* state ) = 0;
     virtual void _print() const = 0;
 };
 
 struct Value : Atom {
-    Box _eval( Env* env ) override {
+    Box _eval( State* state ) override {
         return Box( this );
     }
 };
@@ -464,14 +472,14 @@ struct Env : Value {
 
 struct Callable : Value {
     typedef array_view<Box> ArgList;
-    Box call( Env* env, Box arg0, ArgList args ) {
-        return _call( env, arg0, args );
+    Box call( State* state, Box arg0, ArgList args ) {
+        return _call( state, arg0, args );
     }
     void _print() const override {
         printf( "<callable>" );
     }
 protected:
-    virtual Box _call( Env* env, Box arg0, ArgList args ) = 0;
+    virtual Box _call( State* state, Box arg0, ArgList args ) = 0;
 };
 
 void Box::print() const {
@@ -498,12 +506,12 @@ void Box::print() const {
     }
 }
 
-Box Box::eval( Env* env ) const {
+Box Box::eval( State* state ) const {
     switch( m_kind ) {
         case KIND_SYMBOL:
-            return env->get( m_val.s );
+            return State_getSymbol( state, m_val.s );
         case KIND_ATOM:
-            return m_val.a->eval( env );
+            return m_val.a->eval( state );
         default:
             return *this;
     }
@@ -532,10 +540,12 @@ struct Optional {
         assert( m_ptr );
         return *m_ptr;
     }
-
     void set( const T& t ) {
         reset();
         m_ptr = new( m_buf ) T( t );
+    }
+    T get() {
+        return *m_ptr;
     }
 private:
     Optional( const Optional& o );
@@ -584,36 +594,36 @@ namespace Args {
             Box const* m_end;
         };
         template<typename T>
-        void bind( unsigned eval, T& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, T& out, State* state, ArgIter& iter ) {
             assert( iter.more() );
             Box c = iter.cur();
-            Box b = eval ? c.eval( env ) : c;
+            Box b = eval ? State_eval(state, c) : c;
             assert2( b.has<T>(), "Wrong argument type" );
             out = b.unbox<T>();
             iter.next();
         }
         template<typename T>
-        void bind( unsigned eval, Star<T>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, Star<T>& out, State* state, ArgIter& iter ) {
             for( ; iter.more(); ) {
                 T t;
-                bind( eval, t, env, iter );
+                bind( eval, t, state, iter );
                 out.push_back( t );
             }
         }
         template<typename T>
-        void bind( unsigned eval, ListOf<T>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, ListOf<T>& out, State* state, ArgIter& iter ) {
             List* lst = cast( List, iter.cur() );
             assert( lst );
             iter.next();
             ArgIter iter2{ lst->view().begin(), lst->view().end() };
             for( ; iter2.more(); ) {
                 T t;
-                bind( eval, t, env, iter2 );
+                bind( eval, t, state, iter2 );
                 out.append( t );
             }
         }
         template<typename F, typename S>
-        void bind( unsigned eval, PairOf<F, S>& out, Env* env, ArgIter& iter ) {
+        void bind( unsigned eval, PairOf<F, S>& out, State* state, ArgIter& iter ) {
             List* lst = cast( List, iter.cur() );
             if( !lst || lst->size() != 2 )
                 Error( "Expected a pair of items" );
@@ -621,15 +631,15 @@ namespace Args {
             iter.next();
             ArgIter iter2{ lst->view().begin(), lst->view().end() };
             F f; S s;
-            bind( eval, f, env, iter2 );
-            bind( eval, s, env, iter2 );
+            bind( eval, f, state, iter2 );
+            bind( eval, s, state, iter2 );
             out.append( f, s );
         }
         template<typename T>
-        void bind( unsigned eval, Optional<T>& out, Env* env, ArgIter& args ) {
+        void bind( unsigned eval, Optional<T>& out, State* state, ArgIter& args ) {
             if( args.more() ) {
                 T t;
-                bind( eval, t, env, args );
+                bind( eval, t, state, args );
                 out.set( t );
             }
         }
@@ -637,33 +647,33 @@ namespace Args {
 
     struct Binder {
         template<typename T>
-        void operator() ( unsigned eval, T& out, Env* env, Detail::ArgIter& iter ) {
-            Detail::bind( eval, out, env, iter );
+        void operator() ( unsigned eval, T& out, State* state, Detail::ArgIter& iter ) {
+            Detail::bind( eval, out, state, iter );
         }
     };
 }
 
 template<typename CALL>
 struct BuiltinCallable : Callable {
-    virtual Box _call( Env* env, Box arg0, ArgList args ) override {
+    virtual Box _call( State* state, Box arg0, ArgList args ) override {
         CALL call;
         Args::Detail::ArgIter iter{ args.begin(), args.end() };
-        call.visit<Args::Binder, Env*, Args::Detail::ArgIter&>( Args::Binder(), env, iter );
+        call.visit<Args::Binder, State*, Args::Detail::ArgIter&>( Args::Binder(), state, iter );
         assert2( iter.more() == false, "Too many arguments" );
-        return call.call( env );
+        return call.call( state );
     }
 };
 
 
 struct List : Atom {
     typedef std::vector<Box> vector;
-    Box _eval( Env* env ) override {
+    Box _eval( State* state ) override {
         if( lst.empty() ) {
             Error_At( m_loc, "Empty list is illegal" );
         }
-        Box atom = lst[0].eval( env );
+        Box atom = lst[0].eval( state );
         if( auto call = cast( Callable, atom ) ) {
-            return call->call( env, lst[0], Callable::ArgList( lst ).ltrim( 1 ) );
+            return call->call( state, lst[0], Callable::ArgList( lst ).ltrim( 1 ) );
         }
         //Error_At( lst[0]->m_loc, "Expected a callable as the first argument" );
         return Box();
@@ -716,13 +726,13 @@ struct Lambda : Callable {
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_body( body ) {
     }
 
-    Box _call( Env* env, Box arg0, ArgList args ) override {
+    Box _call( State* state, Box arg0, ArgList args ) override {
         //Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
         assert( args.size() == m_arg_names.size() );
-        Env* e = gcnew<Env>( m_lex_env );
+        Env* e = State_create<Env>(state, m_lex_env );
         unsigned ni = 0;
         for( auto arg : args ) {
-            Box a = arg.eval( env );
+            Box a = arg.eval( state );
             //auto s = cast( Symbol, m_arg_names->at( ni ) );
             //if( s->m_type != nullptr ) {
                 /*auto nt = s->m_type.eval( env );
@@ -734,12 +744,7 @@ struct Lambda : Callable {
             e->put( m_arg_names[ni], a );
             ni += 1;
         }
-        while( 1 ) {
-            Box ret = m_body.eval( e );
-            //            if( ret != &s_trampoline ) {
-            return ret;
-            //          }
-        }
+        return State_eval(state, m_body, e );
     }
     void _print() const override {
         printf( "(lambda (" );
@@ -760,16 +765,15 @@ struct Vau : public Callable {
     Vau( Env* lex_env, const std::vector<Symbol>& arg_names, Symbol symbol, Box body )
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
     }
-    Box _call( Env* env, Box arg0, ArgList args ) override {
+    Box _call( State* state, Box arg0, ArgList args ) override {
         Env* e = gcnew<Env>( m_lex_env );
-        e->put( m_env_sym, env );
+        e->put( m_env_sym, State_getEnv(state) );
         assert( args.size() == m_arg_names.size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
             e->put( m_arg_names[i], args[i] );
         }
-        return m_body.eval( e );
+        return State_eval(state, m_body, e);
     }
-
 };
 
 struct BuiltinVau {
@@ -784,8 +788,8 @@ struct BuiltinVau {
         func( 0, m_body, visitargs... );
     }
 
-    Box call( Env* env ) {
-        return gcnew<Vau>( env, m_arg_names.m_list, m_env_sym, m_body );
+    Box call( State* state ) {
+        return gcnew<Vau>( State_getEnv(state), m_arg_names.m_list, m_env_sym, m_body );
     }
 };
 
@@ -795,7 +799,7 @@ struct BuiltinPrint {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, m_args, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         const char* sep = "";
         for( auto arg : m_args ) {
             printf( "%s", sep );
@@ -809,7 +813,7 @@ struct BuiltinPrint {
 
 //struct LambdaTail : Callable {
 //    LambdaTail() {}
-//    Box _call( Env* env, Box arg0, ArgList args ) override {
+//    Box _call( State* state, Box arg0, ArgList args ) override {
 //        assert( args.size() >= 1 );
 //        Callable* c = cast( Callable, args[0].eval(env) );
 //        assert( c->m_arg_names );
@@ -842,7 +846,7 @@ struct State {
     }
     
     Result let( const char* name, Box value ) {
-        return let( Symbol{ intern( name ) }, value );
+       return let( Symbol{ intern( name ) }, value );
     }
     Result let( Symbol name, Box value ) {
         m_env->put( name, value );
@@ -877,6 +881,28 @@ struct State {
             throw 0;
         }
     }
+    Box eval( Box b, Env* e = nullptr ) {
+        if( e ) {
+            m_envStack.push_back( m_env );
+            m_env = e;
+            Box r = b.eval( this );
+            assert( e == nullptr || e == m_env );
+            m_env = m_envStack.back();
+            m_envStack.pop_back();
+            return r;
+        }
+        else {
+            return b.eval( this );
+        }
+    }
+    Box getSymbol( Symbol sym ) {
+        Box a = m_env->get( sym );
+        assert(a);
+        return a;
+    }
+    void updateSymbol( Symbol sym, Box b ) {
+        m_env->update( sym, b );
+    }
     Result getGlobal( const char* sym ) {
         return getGlobal( Symbol{ intern( sym ) } );
     }
@@ -889,7 +915,7 @@ struct State {
         if( Callable* c = cast( Callable, m_stack[-narg - 1] ) ) {
             Box* begin = m_stack.m_stack.data();
             int size = m_stack.size();
-            Box r = c->call( m_env, c, Callable::ArgList( begin + size - narg, begin + size ) );
+            Box r = c->call( this, c, Callable::ArgList( begin + size - narg, begin + size ) );
             m_stack.pop( narg + 1 );
             m_stack.push_back( r );
             assert( nret == 1 );
@@ -899,6 +925,8 @@ struct State {
     }
 
     Env* m_env;
+    std::vector<Env*> m_envStack;
+
     struct Stack {
         Box operator[]( int i ) const {
             return i >= 0 ? m_stack[i] : m_stack[m_stack.size() + i];
@@ -923,6 +951,26 @@ protected:
     }
 };
 
+Box State_getSymbol( State* s, Symbol sym ) {
+    return s->getSymbol( sym );
+}
+template<typename T, typename...P> T* State_create( State* s, P...p ) {
+    return s->create<T>( p... );
+}
+Box State_eval( State* s, Box b, Env* e ) {
+    return s->eval( b, e );
+}
+Box State_defineSymbol( State* s, Symbol sym, Box b ) {
+    Result r = s->let( sym, b );
+    assert( r.isOk() );
+    return b;
+}
+Env* State_getEnv( State* s ) {
+    return s->m_env;
+}
+void State_updateSymbol( State* s, Symbol sym, Box b ) {
+    s->updateSymbol( sym, b );
+}
 
 struct BuiltinEval {
     Box m_expr;
@@ -933,13 +981,8 @@ struct BuiltinEval {
         func( 0, m_expr, visitargs... );
         func( 1, m_env, visitargs... );
     }
-    Box call( Env* env ) {
-        if( m_env ) {
-            return m_expr.eval( *m_env );
-        }
-        else {
-            return m_expr.eval( env );
-        }
+    Box call( State* state ) {
+        return State_eval( state, m_expr, m_env.get() );
     }
 };
 
@@ -952,17 +995,12 @@ struct BuiltinEvSym {
         func( 1, m_expr, visitargs... );
         func( 1, m_env, visitargs... );
     }
-    Box call( Env* env ) {
-        if( m_env ) {
-            return m_expr.eval( *m_env );
-        }
-        else {
-            return m_expr.eval( env );
-        }
+    Box call( State* state ) {
+        return State_eval( state, m_expr, m_env.get() );
     }
 };
 
-Box v_type( Env* env, Callable::ArgList args ) {
+Box v_type( State* state, Callable::ArgList args ) {
     #if 0
     assert( args.size() == 2 );
     auto t = cast( Type, args[1].eval( env ) );
@@ -980,10 +1018,10 @@ struct BuiltinBegin {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 0, m_exprs, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         Box r;
         for( auto a : m_exprs ) {
-            r = a.eval( env );
+            r = a.eval( state );
         }
         return r;
     }
@@ -995,10 +1033,10 @@ struct BuiltinModule {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 0, m_exprs, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         Box r;
         for( auto a : *m_exprs ) {
-            r = a.eval( env );
+            r = a.eval( state );
         }
         return r;
     }
@@ -1010,7 +1048,7 @@ struct BuiltinQuote {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 0, m_args, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         List* l = gcnew<List>( );
         for( auto a : m_args ) {
             l->append( a );
@@ -1025,11 +1063,11 @@ struct BuiltinInc {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 0, m_sym, visitargs... );
     }
-    Box call( Env* env ) {
-        Box a = env->get( m_sym );
+    Box call( State* state ) {
+        Box a = state->getSymbol( m_sym );
         assert( a.has<int>() );
         int n = a.unbox<int>() + 1;
-        env->put( m_sym, n );
+        state->updateSymbol( m_sym, n );
         return n;
     }
 };
@@ -1042,8 +1080,8 @@ struct BuiltinDefine {
         func( 0, m_sym, visitargs... );
         func( 1, m_value, visitargs... );
     }
-    Box call( Env* env ) {
-        env->put( m_sym, m_value );
+    Box call( State* state ) {
+        State_defineSymbol(state, m_sym, m_value );
         return m_value;
     }
 };
@@ -1056,8 +1094,8 @@ struct BuiltinLambda {
         func( 0, m_arg_names, visitargs... );
         func( 0, m_body, visitargs... );
     }
-    Box call( Env* env ) {
-        auto r = gcnew<Lambda>( env, m_arg_names.m_list, m_body );
+    Box call( State* state ) {
+        auto r = gcnew<Lambda>( state->m_env, m_arg_names.m_list, m_body );
         //r->m_loc = m_body->m_loc;
         return r;
     }
@@ -1071,13 +1109,13 @@ struct BuiltinLet {
         func( 0, m_lets, visitargs... );
         func( 0, m_body, visitargs... );
     }
-    Box call( Env* env ) {
-        Env* e = gcnew<Env>( env );
+    Box call( State* state ) {
+        Env* e = gcnew<Env>( state->m_env );
         for( auto item : m_lets.m_list ) {
-            Box a = item.second.eval( e );
+            Box a = State_eval(state, item.second, e );
             e->put( item.first, a );
         }
-        return m_body.eval( e );
+        return State_eval( state, m_body, e );
     }
 };
 
@@ -1089,9 +1127,9 @@ struct BuiltinCond {
         func( 0, m_cases, visitargs... );
         //visit( m_else, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         for( auto cur : m_cases ) {
-            Box c = cur.first.eval( env );
+            Box c = State_eval(state, cur.first );
             bool yes = false;
             switch(c.m_kind) {
                 case Box::KIND_NIL:
@@ -1106,7 +1144,7 @@ struct BuiltinCond {
                     Error( "Can't convert to bool" );
             }
             if( yes ) {
-                return cur.second.eval( env );
+                return State_eval(state, cur.second);
             }
         }
         return Box();
@@ -1125,8 +1163,10 @@ struct BuiltinApply {
         func( 1, m_env, visitargs... );
     }
 
-    Box call( Env* env ) {
-        return m_callable->call( m_env, m_callable, m_args->view() );
+    Box call( State* state ) {
+        assert( 0 );
+        //return m_callable->call( m_env, m_callable, m_args->view() );
+        return Box();
     }
 };
 
@@ -1139,7 +1179,7 @@ struct BuiltinBinOp {
         func( 1, first, visitargs... );
         func( 1, second, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         OPER oper;
         return oper( first, second ) ? Box::s_true : Box::s_false;
     }
@@ -1151,7 +1191,7 @@ struct BuiltinVecNew {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, count, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         int n = count;
         if( n < 0 ) {
             //Error_At( count->m_loc, "Expected n > 0" );
@@ -1169,7 +1209,7 @@ struct BuiltinVecSize {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, vec, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         return int( vec->size() );
     }
 };
@@ -1182,7 +1222,7 @@ struct BuiltinVecIdx {
         func( 1, vec, visitargs... );
         func( 1, idx, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         auto n = unsigned( idx );
         if( n < vec->size() ) {
             return vec->at( n );
@@ -1204,7 +1244,7 @@ struct BuiltinVecSet {
         func( 1, idx, visitargs... );
         func( 1, val, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         auto i = unsigned( idx );
         if( i >= vec->size() ) {
             Error( "bad index" );
@@ -1222,8 +1262,8 @@ struct BuiltinSet {
         func( 0, sym, visitargs... );
         func( 1, val, visitargs... );
     }
-    Box call( Env* env ) {
-        env->update(sym, val);
+    Box call( State* state ) {
+        State_updateSymbol(state, sym, val);
         return val;
     }
 };
@@ -1234,7 +1274,7 @@ struct BuiltinFloat {
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, val, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         if( val.has<double>() ) {
             return val;
         }
@@ -1255,10 +1295,10 @@ struct BuiltinMap {
         func( 1, list, visitargs... );
     }
 
-    Box call( Env* env ) {
+    Box call( State* state ) {
         List* r = gcnew<List>( );
         for( auto i : *list ) {
-            r->append( callable->call( env, callable, array_view_t::from_single( i ) ) );
+            r->append( callable->call( state, callable, array_view_t::from_single( i ) ) );
         }
         return r;
     }
@@ -1271,7 +1311,7 @@ struct BuiltinList {
         func( 1, args, visitargs... );
     }
 
-    Box call( Env* env ) {
+    Box call( State* state ) {
         List* l = gcnew<List>( );
         for( auto& a : args ) {
             l->append( a );
@@ -1291,7 +1331,7 @@ struct BuiltinRange {
         func( 1, step, visitargs... );
     }
 
-    Box call( Env* env ) {
+    Box call( State* state ) {
         int lo = 0, hi = first, st = 1;
         if( second ) {
             lo = hi;
@@ -1323,13 +1363,13 @@ struct BuiltinFor {
         func( 0, body, visitargs... );
     }
 
-    Box call( Env* env ) {
-        Env* e = gcnew<Env>( env );
+    Box call( State* state ) {
+        Env* e = gcnew<Env>( State_getEnv(state) );
         Box r;
         for( auto a : *iter ) {
             e->put( sym, a );
             for( auto& b : body ) {
-                r = b.eval( e );
+                r = State_eval(state, b, e );
             }
         }
         return r;
@@ -1345,7 +1385,7 @@ struct ReduceCallable {
         func( 1, first, visitargs... );
         func( 1, rest, visitargs... );
     }
-    Box call( Env* env ) {
+    Box call( State* state ) {
         ATOM acc = first;
         REDUCE reduce;
         for( auto a : rest ) {
