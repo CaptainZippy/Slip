@@ -73,12 +73,6 @@ namespace array_view_t {
     array_view<T> make( T( &arr )[N] ) { return array_view<T>( t, t + N ); }
 }
 
-template<typename T, typename... P>
-T* gcnew( P... p ) {
-    void* addr = malloc( sizeof( T ) );
-    return new ( addr ) T( p... );
-}
-
 template<typename S>
 struct safe_cast_t {
     safe_cast_t( const S& s ) : m_s( s ) {}
@@ -766,7 +760,7 @@ struct Vau : public Callable {
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
     }
     Box _call( State* state, Box arg0, ArgList args ) override {
-        Env* e = gcnew<Env>( m_lex_env );
+        Env* e = State_create<Env>(state, m_lex_env );
         e->put( m_env_sym, State_getEnv(state) );
         assert( args.size() == m_arg_names.size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
@@ -789,7 +783,7 @@ struct BuiltinVau {
     }
 
     Box call( State* state ) {
-        return gcnew<Vau>( State_getEnv(state), m_arg_names.m_list, m_env_sym, m_body );
+        return State_create<Vau>(state, State_getEnv(state), m_arg_names.m_list, m_env_sym, m_body );
     }
 };
 
@@ -835,6 +829,13 @@ struct BuiltinPrint {
 //};
 
 struct State {
+private:
+    template<typename T, typename... P>
+    T* gcnew( P... p ) {
+        void* addr = malloc( sizeof( T ) );
+        return new ( addr ) T( p... );
+    }
+public:
     template<typename T, typename...P>
     T* create(P...p) {
         return gcnew<T>(p...);
@@ -1049,7 +1050,7 @@ struct BuiltinQuote {
         func( 0, m_args, visitargs... );
     }
     Box call( State* state ) {
-        List* l = gcnew<List>( );
+        List* l = state->create<List>( );
         for( auto a : m_args ) {
             l->append( a );
         }
@@ -1095,7 +1096,7 @@ struct BuiltinLambda {
         func( 0, m_body, visitargs... );
     }
     Box call( State* state ) {
-        auto r = gcnew<Lambda>( state->m_env, m_arg_names.m_list, m_body );
+        auto r = state->create<Lambda>( state->m_env, m_arg_names.m_list, m_body );
         //r->m_loc = m_body->m_loc;
         return r;
     }
@@ -1110,7 +1111,7 @@ struct BuiltinLet {
         func( 0, m_body, visitargs... );
     }
     Box call( State* state ) {
-        Env* e = gcnew<Env>( state->m_env );
+        Env* e = state->create<Env>( state->m_env );
         for( auto item : m_lets.m_list ) {
             Box a = State_eval(state, item.second, e );
             e->put( item.first, a );
@@ -1196,7 +1197,7 @@ struct BuiltinVecNew {
         if( n < 0 ) {
             //Error_At( count->m_loc, "Expected n > 0" );
         }
-        List* l = gcnew<List>( );
+        List* l = state->create<List>( );
         //l->m_loc = count->m_loc;
         l->resize( n );
         return l;
@@ -1296,7 +1297,7 @@ struct BuiltinMap {
     }
 
     Box call( State* state ) {
-        List* r = gcnew<List>( );
+        List* r = state->create<List>( );
         for( auto i : *list ) {
             r->append( callable->call( state, callable, array_view_t::from_single( i ) ) );
         }
@@ -1312,7 +1313,7 @@ struct BuiltinList {
     }
 
     Box call( State* state ) {
-        List* l = gcnew<List>( );
+        List* l = state->create<List>( );
         for( auto& a : args ) {
             l->append( a );
         }
@@ -1340,7 +1341,7 @@ struct BuiltinRange {
         if( step ) {
             st = *step;
         }
-        List* l = gcnew<List>( );
+        List* l = state->create<List>( );
         if( hi < lo ) return l;
         if( st < 1 ) Error( "" );
         int n = ( hi - lo + st - 1 ) / st;
@@ -1364,7 +1365,7 @@ struct BuiltinFor {
     }
 
     Box call( State* state ) {
-        Env* e = gcnew<Env>( State_getEnv(state) );
+        Env* e = state->create<Env>( State_getEnv(state) );
         Box r;
         for( auto a : *iter ) {
             e->put( sym, a );
