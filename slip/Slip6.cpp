@@ -722,8 +722,8 @@ namespace Gc {
         }
         template<typename T>
         void walk( Optional<T>& o, GcWalkable::GcWalker w ) {
-            if( T t = o.get() ) {
-                walk( t, w );
+            if( o ) {
+                walk( o.get(), w );
             }
         }
         template<typename T>
@@ -986,6 +986,9 @@ private:
         return ret;
     }
     static void gcwalk( GcBase* gc ) {
+        if( gc == nullptr ) {
+            return;
+        }
         if( gc->m_gcflags & GcBase::SEEN ) {
             return;
         }
