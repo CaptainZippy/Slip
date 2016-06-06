@@ -98,7 +98,7 @@ struct Box;
 
 Box State_getSymbol( State* s, Symbol sym );
 template<typename T, typename...P> T* State_create( State* s, P...p );
-Box State_eval( State* s, Box b, Env* e = nullptr );
+Box State_eval( State* s, Box b, Env* e );
 Env* State_getEnv( State* s );
 Box State_defineSymbol( State* s, Symbol sym, Box b );
 void State_updateSymbol( State* s, Symbol sym, Box b );
@@ -288,7 +288,7 @@ struct Box {
         KIND_ATOM
     };
 
-    Box() : m_kind( KIND_NIL ) {}
+    Box() : m_kind( KIND_NIL ) { m_val.a = nullptr; }
     Box( Symbol s ) : m_kind( KIND_SYMBOL ) { m_val.s = s; }
     Box( double f ) : m_kind( KIND_FLOAT ) { m_val.f = f; }
     Box( bool b ) : m_kind( KIND_BOOL ) { m_val.i = b; }
@@ -298,6 +298,8 @@ struct Box {
 
     template<typename T> bool has() const;
     template<typename T> T unbox() const;
+
+    Atom* asAtom() const { return m_kind == KIND_ATOM ? m_val.a : nullptr; }
 
     void print() const;
     Box eval( State* state ) const;
@@ -367,18 +369,58 @@ T Box::unbox() const {
     return Detail::Trait<T>::unbox( *this );
 }
 #endif
-struct GcBase {
-    enum { WHITE = 0, BLACK = 2 };
-    GcBase() : m_gcprev( &s_gchead ), m_gcnext( nullptr ), m_gcflags( WHITE ) { s_gchead.m_gcnext = this; }
+struct GcBase;
+
+// Interface for things which may hold references to gc objects
+struct GcWalkable {
+    virtual ~GcWalkable() {}
+
+    typedef void( *GcWalker )( GcBase* );
+    virtual void gcWalk( GcWalker w ) = 0;
+};
+
+// Base class of things which are garbage collected
+struct GcBase : public GcWalkable {
+    enum { WHITE = 0, BLACK = 0x2, SEEN=0xf0 };
+    GcBase() : m_gcprev( nullptr ), m_gcnext( s_gchead  ), m_gcflags( WHITE ) {
+        if( s_gchead ) {
+            s_gchead->m_gcprev = this;
+        }
+        s_gchead = this;
+    }
     virtual ~GcBase() {}
+    void unhook() {
+        if( m_gcprev ) {
+            m_gcprev->m_gcnext = m_gcnext;
+        }
+        else {
+            assert( s_gchead == this );
+            s_gchead = m_gcnext;
+        }
+
+        if( m_gcnext ) {
+            m_gcnext->m_gcprev = m_gcprev;
+        }
+    }
 
     GcBase* m_gcprev;
     GcBase* m_gcnext;
-    unsigned m_gcflags;
-    static GcBase s_gchead;
-    GcBase(int) : m_gcprev( nullptr ), m_gcnext( nullptr ), m_gcflags( BLACK ) { }
+    unsigned short m_gcsize;
+    unsigned short m_gcflags;
+    static GcBase* s_gchead;
 };
-GcBase GcBase::s_gchead(0);
+GcBase* GcBase::s_gchead;
+
+// Utility which holds on to a single gc object for its lifetime
+struct GcAnchor : private GcWalkable {
+    State* m_s;
+    GcBase* m_obj;
+    GcAnchor( State* s, GcBase* b );
+    ~GcAnchor();
+    void gcWalk( GcWalker w ) {
+        ( *w )( m_obj );
+    }
+};
 
 
 struct Atom : public GcBase {
@@ -406,22 +448,28 @@ struct Type : public Value {
     void _print() const override {
         printf( "type" );
     }
+    #if 0
     static Type s_bool;
     static Type s_string;
     static Type s_int;
     static Type s_float;
     static Type s_list;
+    Type Type::s_int;
+    Type Type::s_float;
+    Type Type::s_string;
+
+    #endif
 };
 
-Type Type::s_int;
-Type Type::s_float;
-Type Type::s_string;
 
 struct String : Value {
-    String( const char* s = nullptr ) : m_str( s ) { m_type = &Type::s_string; }
+    String( const char* s = nullptr ) : m_str( s ) { /*m_type = &Type::s_string;*/ }
     void _print() const override {
         printf( "%s", m_str );
     }
+    void gcWalk( GcWalker w ) override {
+    }
+
     const char* m_str;
 };
 
@@ -458,6 +506,13 @@ struct Env : Value {
             }
         }
         assert( 0 );
+    }
+    void gcWalk( GcWalker w ) override {
+        for( auto& item : m_tab ) {
+            if( Atom* a = item.second.asAtom() ) {
+                ( *w )( a );
+            }
+        }
     }
     Env* m_parent;
     typedef std::unordered_map<Symbol, Box> Table;
@@ -591,7 +646,7 @@ namespace Args {
         void bind( unsigned eval, T& out, State* state, ArgIter& iter ) {
             assert( iter.more() );
             Box c = iter.cur();
-            Box b = eval ? State_eval(state, c) : c;
+            Box b = eval ? State_eval(state, c, nullptr) : c;
             assert2( b.has<T>(), "Wrong argument type" );
             out = b.unbox<T>();
             iter.next();
@@ -647,14 +702,80 @@ namespace Args {
     };
 }
 
+namespace Gc {
+    namespace Detail{
+        void walk( GcBase* gc, GcWalkable::GcWalker w ) {
+            ( *w )( gc );
+        }
+        void walk( bool b, GcWalkable::GcWalker w ) {
+        }
+        void walk( int b, GcWalkable::GcWalker w ) {
+        }
+        void walk( double b, GcWalkable::GcWalker w ) {
+        }
+        void walk( Symbol s, GcWalkable::GcWalker w ) {
+        }
+        void walk( Box b, GcWalkable::GcWalker w ) {
+            if( Atom* a = b.asAtom() ) {
+                ( *w )( a );
+            }
+        }
+        template<typename T>
+        void walk( Optional<T>& o, GcWalkable::GcWalker w ) {
+            if( T t = o.get() ) {
+                walk( t, w );
+            }
+        }
+        template<typename T>
+        void walk( std::vector<T>& o, GcWalkable::GcWalker w ) {
+            for( auto& i : o ) {
+                walk( i, w );
+            }
+        }
+        template<typename T>
+        void walk( Args::ListOf<T>& o, GcWalkable::GcWalker w ) {
+            for( auto& i : o.m_list ) {
+                walk( i, w );
+            }
+        }
+        template<typename F, typename S>
+        void walk( Args::PairOf<F,S>& o, GcWalkable::GcWalker w ) {
+            walk( o.first, w );
+            walk( o.second, w );
+        }
+    }
+}
+
 template<typename CALL>
 struct BuiltinCallable : Callable {
+    // Prevents GC freeing its arguments
+    struct ArgsAnchor : GcWalkable {
+        ArgsAnchor(State* s, CALL* call) : m_s(s), m_call(call) {
+            m_s->m_anchors.push_back( this );
+        }
+        ~ArgsAnchor() {
+            assert( m_s->m_anchors.back() == this );
+            m_s->m_anchors.pop_back();
+        }
+        void gcWalk( GcWalker w ) override {
+            m_call->visit<ArgsAnchor&, GcWalker>( *this, w );
+        }
+        template<typename T>
+        void operator() ( unsigned eval, T& out, GcWalker w ) {
+            Gc::Detail::walk( out, w );
+        }
+        State* m_s;
+        CALL* m_call;
+    };
     virtual Box _call( State* state, Box arg0, ArgList args ) override {
         CALL call;
+        ArgsAnchor anchor( state, &call );
         Args::Detail::ArgIter iter{ args.begin(), args.end() };
         call.visit<Args::Binder, State*, Args::Detail::ArgIter&>( Args::Binder(), state, iter );
         assert2( iter.more() == false, "Too many arguments" );
         return call.call( state );
+    }
+    void gcWalk( GcWalker w ) override {
     }
 };
 
@@ -706,14 +827,22 @@ struct List : Atom {
         lst.resize( n );
     }
     array_view<Box> view() const { return lst; }
+
+    void gcWalk( GcWalker w ) override {
+        for( auto& item : lst ) {
+            if( Atom* a = item.asAtom() ) {
+                ( *w )( a );
+            }
+        }
+    }
+
 protected:
     std::vector<Box> lst;
 };
 
 struct Lambda : Callable {
-    //    static Bool s_trampoline;
     std::vector<Symbol> m_arg_names;
-    Env* m_lex_env;
+    Env* m_lex_env = nullptr;
     Box m_body;
 
     Lambda( Env* lex_env, const std::vector<Symbol>& arg_names, Box body )
@@ -724,6 +853,7 @@ struct Lambda : Callable {
         //Args::Detail::ArgIter iter{ args_in.begin(), args_in.end() };
         assert( args.size() == m_arg_names.size() );
         Env* e = State_create<Env>(state, m_lex_env );
+        GcAnchor anchor( state, e );
         unsigned ni = 0;
         for( auto arg : args ) {
             Box a = arg.eval( state );
@@ -748,25 +878,38 @@ struct Lambda : Callable {
         printf( ") " );
         m_body.print();
     }
+    void gcWalk( GcWalker w ) override {
+        ( *w )( m_lex_env );
+        if( Atom* a = m_body.asAtom() ) {
+            ( *w )( a );
+        }
+    }
 };
 //Bool Lambda::s_trampoline(false);
 
 struct Vau : public Callable {
     std::vector<Symbol> m_arg_names;
-    Env* m_lex_env;
+    Env* m_lex_env = nullptr;
     Symbol m_env_sym;
     Box m_body;
     Vau( Env* lex_env, const std::vector<Symbol>& arg_names, Symbol symbol, Box body )
         : m_arg_names( arg_names ), m_lex_env( lex_env ), m_env_sym( symbol ), m_body( body ) {
     }
     Box _call( State* state, Box arg0, ArgList args ) override {
-        Env* e = State_create<Env>(state, m_lex_env );
-        e->put( m_env_sym, State_getEnv(state) );
+        Env* e = State_create<Env>( state, m_lex_env );
+        GcAnchor anchor( state, e );
+        e->put( m_env_sym, State_getEnv( state ) );
         assert( args.size() == m_arg_names.size() );
         for( unsigned i = 0; i < args.size(); ++i ) {
             e->put( m_arg_names[i], args[i] );
         }
-        return State_eval(state, m_body, e);
+        return State_eval( state, m_body, e );
+    }
+    void gcWalk( GcWalker w ) override {
+        ( *w )( m_lex_env );
+        if( Atom* a = m_body.asAtom() ) {
+            ( *w )( a );
+        }
     }
 };
 
@@ -783,7 +926,7 @@ struct BuiltinVau {
     }
 
     Box call( State* state ) {
-        return State_create<Vau>(state, State_getEnv(state), m_arg_names.m_list, m_env_sym, m_body );
+        return State_create<Vau>( state, State_getEnv( state ), m_arg_names.m_list, m_env_sym, m_body );
     }
 };
 
@@ -832,16 +975,76 @@ struct State {
 private:
     template<typename T, typename... P>
     T* gcnew( P... p ) {
+        if( sizeof( T ) + m_heapStats.allocated >= m_heapStats.limit ) {
+            garbageCollect();
+        }
+        m_heapStats.allocated += sizeof( T );
         void* addr = malloc( sizeof( T ) );
-        return new ( addr ) T( p... );
+        //void* addr = VirtualAlloc( nullptr, sizeof( T ), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE );
+        T* ret = new ( addr ) T( p... );
+        ret->m_gcsize = sizeof( T );
+        return ret;
     }
+    static void gcwalk( GcBase* gc ) {
+        if( gc->m_gcflags & GcBase::SEEN ) {
+            return;
+        }
+        gc->m_gcflags |= GcBase::SEEN | GcBase::BLACK;
+        gc->gcWalk( &gcwalk );
+    }
+    void garbageCollect() {
+        //printf( ">\n" );
+        // clear
+        for( GcBase* gc = GcBase::s_gchead; gc; gc = gc->m_gcnext ) {
+            gc->m_gcflags = GcBase::WHITE;
+        }
+
+        // mark
+        gcwalk( m_env );
+        for( auto& env : m_envStack ) {
+            gcwalk( env );
+        }
+        for( auto& item : m_stack.m_stack ) {
+            if( item.m_kind == Box::KIND_ATOM ) {
+                gcwalk( item.unbox<Atom*>() );
+            }
+        }
+
+        for( auto& item : m_anchors ) {
+            item->gcWalk(gcwalk);
+        }
+
+        // sweep
+        for( GcBase* gc = GcBase::s_gchead; gc; ) {
+            GcBase* next = gc->m_gcnext;
+            if( gc->m_gcflags & GcBase::BLACK ) {
+                //printf( "KEEP %p %ull\n", gc, gc->m_gcflags );
+            }
+            else {
+                gc->unhook();
+                int size = gc->m_gcsize;
+                m_heapStats.allocated -= size;
+                //printf( "COLL %p %ull\n", gc, gc->m_gcflags );
+                gc->~GcBase();
+                memset( gc, -1, size );
+                //DWORD old; VirtualProtect( gc, size, PAGE_NOACCESS, &old);
+                free( gc );
+            }
+            gc = next;
+        }
+        m_heapStats.limit = m_heapStats.allocated * 2;
+        //printf( "< alloc=%i limit=%i\n\n", m_heapStats.allocated, m_heapStats.limit );
+    }
+
 public:
+    
     template<typename T, typename...P>
     T* create(P...p) {
         return gcnew<T>(p...);
     }
 
     State() {
+        m_heapStats.limit = 1024;
         m_env = create<Env>( nullptr );
         m_stack.push_back( m_env );
     }
@@ -927,6 +1130,7 @@ public:
 
     Env* m_env;
     std::vector<Env*> m_envStack;
+    std::vector<GcWalkable*> m_anchors;
 
     struct Stack {
         Box operator[]( int i ) const {
@@ -945,12 +1149,30 @@ public:
     };
     Stack m_stack;
 protected:
+    struct HeapStats {
+        HeapStats() {
+            memset( this, 0, sizeof( *this ) );
+        }
+        long allocated;
+        long limit;
+    };
+    HeapStats m_heapStats;
     std::unordered_set<std::string> m_interns;
     const char* intern( const char* s ) {
         auto it = m_interns.insert( s );
         return it.first->c_str();
     }
 };
+
+GcAnchor::GcAnchor( State* s, GcBase* b ) {
+    m_s = s;
+    m_obj = b;
+    s->m_anchors.push_back( this );
+}
+GcAnchor::~GcAnchor() {
+    assert( m_s->m_anchors.back() == this );
+    m_s->m_anchors.pop_back();
+}
 
 Box State_getSymbol( State* s, Symbol sym ) {
     return s->getSymbol( sym );
@@ -1029,7 +1251,7 @@ struct BuiltinBegin {
 };
 
 struct BuiltinModule {
-    List* m_exprs;
+    List* m_exprs = nullptr;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 0, m_exprs, visitargs... );
@@ -1112,6 +1334,7 @@ struct BuiltinLet {
     }
     Box call( State* state ) {
         Env* e = state->create<Env>( state->m_env );
+        GcAnchor anchor( state, e );
         for( auto item : m_lets.m_list ) {
             Box a = State_eval(state, item.second, e );
             e->put( item.first, a );
@@ -1130,7 +1353,7 @@ struct BuiltinCond {
     }
     Box call( State* state ) {
         for( auto cur : m_cases ) {
-            Box c = State_eval(state, cur.first );
+            Box c = State_eval(state, cur.first, nullptr );
             bool yes = false;
             switch(c.m_kind) {
                 case Box::KIND_NIL:
@@ -1145,7 +1368,7 @@ struct BuiltinCond {
                     Error( "Can't convert to bool" );
             }
             if( yes ) {
-                return State_eval(state, cur.second);
+                return State_eval(state, cur.second, nullptr);
             }
         }
         return Box();
@@ -1154,9 +1377,9 @@ struct BuiltinCond {
 
 
 struct BuiltinApply {
-    Callable* m_callable;
-    List* m_args;
-    Env* m_env;
+    Callable* m_callable = nullptr;
+    List* m_args = nullptr;
+    Env* m_env = nullptr;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, m_callable, visitargs... );
@@ -1205,7 +1428,7 @@ struct BuiltinVecNew {
 };
 
 struct BuiltinVecSize {
-    List* vec;
+    List* vec = nullptr;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, vec, visitargs... );
@@ -1216,8 +1439,8 @@ struct BuiltinVecSize {
 };
 
 struct BuiltinVecIdx {
-    List* vec;
-    int idx;
+    List* vec = nullptr;
+    int idx = -1;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, vec, visitargs... );
@@ -1229,15 +1452,15 @@ struct BuiltinVecIdx {
             return vec->at( n );
         }
         else {
-            //Error_At( idx->m_loc, "Out of bounds %i (%i)", n, vec->size() );
+            Error( "Out of bounds %i (%i)", n, vec->size() );
             return Box();
         }
     }
 };
 
 struct BuiltinVecSet {
-    List* vec;
-    int idx;
+    List* vec = nullptr;
+    int idx = -1;
     Box val;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
@@ -1288,8 +1511,8 @@ struct BuiltinFloat {
 };
 
 struct BuiltinMap {
-    Callable* callable;
-    List* list;
+    Callable* callable = nullptr;
+    List* list = nullptr;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
         func( 1, callable, visitargs... );
@@ -1355,7 +1578,7 @@ struct BuiltinRange {
 
 struct BuiltinFor {
     Symbol sym;
-    List* iter;
+    List* iter = nullptr;
     Args::Star< Box > body;
     template<typename FUNC, typename...VISITARGS>
     void visit( FUNC func, VISITARGS...visitargs ) {
@@ -1366,6 +1589,7 @@ struct BuiltinFor {
 
     Box call( State* state ) {
         Env* e = state->create<Env>( State_getEnv(state) );
+        GcAnchor anchor( state, e );
         Box r;
         for( auto a : *iter ) {
             e->put( sym, a );
@@ -1621,10 +1845,13 @@ Result initBuiltins( State* state ) {
     state->let( "float", state->create<BuiltinCallable<BuiltinFloat>>( ) );
     state->let( "set!", state->create<BuiltinCallable<BuiltinSet>>( ) );
 
-    state->let( "Int", &Type::s_int );
-    state->let( "Float", &Type::s_float );
     state->let( "true", Box::s_true );
     state->let( "false", Box::s_false );
+    #if 0
+    state->let( "Int", &Type::s_int );
+    state->let( "Float", &Type::s_float );
+    
+    #endif
     return R_OK;
 }
 
