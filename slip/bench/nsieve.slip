@@ -12,11 +12,12 @@
                     (inc! count)
                     (for k (range (mul_i i 2) m i)
                         (vec_set! is_prime k false)))
-                0)
-        count))))))
+                0))
+        count)))))
 
 (define main (lambda (argv) (begin
     (define n (cond ((le_i? (vec_size argv) 0) 1) (true (vec_idx argv 0)) ))
     (for i (range 3)
-        (let ((m (lsh 1 (sub_i n i))))
-            (print "Primes up to " m (nsieve m)))))))
+        (let ((m (lsh 2 (sub_i n i))))
+            (print "Primes up to " m (nsieve m))))
+    )))
