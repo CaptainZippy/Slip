@@ -33,6 +33,7 @@
     <None Include="bench\moments.slip">
       <Filter>bench</Filter>
     </None>
+    <None Include="test.py" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">
