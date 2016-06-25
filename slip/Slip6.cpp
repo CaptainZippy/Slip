@@ -1,7 +1,7 @@
 // TODO : iterator type
 // TODO : ellipsis
 // TODO : typing
-// TODO : GC
+// TODO : debugger
 
 #include "Pch.h"
 
@@ -211,73 +211,6 @@ namespace std {
     };
 }
 
-#if 0
-struct Box {
-    // not NaN, QNaN, SNaN, inf - float
-    // sign bit set - atom*
-    // 
-    static const uint64_t VAL_HEAD = 0x7FFCull << 48;
-    static const uint64_t PTR_HEAD = 0xFFFCull << 48;
-    static const uint64_t MASK_HEAD = 0xFFFFull << 48;
-    static const uint64_t MASK_SINGLE = 0xFFFFFull << 44;
-
-    enum Kind {
-        Kind32 = 0,
-        KindSymbol = 1,
-    };
-
-    enum Single {
-        SingleNil = 0,
-        SingleTrue = 1,
-        SingleFalse = 2,
-        SingleTrue = 3,
-    };
-
-    static inline uint64_t VAL_ENC( uint64_t b2, uint64_t lo ) {
-        return VAL_HEAD | ( b2 << 48 ) | lo;
-    }
-    static inline uint64_t SINGLE_ENC( uint64_t b2, uint64_t lo ) {
-        return VAL_HEAD | ( 3 << 48 ) | ( b2 << 44 ) | lo;
-    }
-    static inline uint64_t PTR_ENC( const void* ptr ) {
-        return PTR_HEAD | uint64_t( ptr );
-    }
-    #define SIGN_BIT ((uint64_t)1 << 63)
-
-    static const Box s_true;
-    static const Box s_false;
-    Box() : m_val( VAL_ENC( KindSingle, SingleNil ) ) {}
-    Box( Symbol s ) : m_val( VAL_ENC( KindSymbol, uint64_t( s.m_sym ) ) ) {}
-    Box( double d ) { memcpy( &m_val, &d, sizeof( d ) ); }
-    Box( int i ) : m_val( VAL_ENC( KindInt, uint64_t( i ) ) ) {}
-    Box( Atom* a ) : m_val( PTR_ENC( a ) ) {}
-    //explicit operator bool() { return m_val!=VAL_ENC(0,0); }
-
-    bool isFloat() const { return ( m_val & VAL_HEAD ) != VAL_HEAD; }
-    double toFloat() const {
-        double d; memcpy( &d, &m_val, sizeof( d ) ); return d;
-    }
-
-    bool unbox<int>() const { return ( m_val & MASK_HEAD ) == VAL_ENC( KindInt, 0 ); }
-    int unbox<int>() const { assert( unbox<int>() ); return static_cast<int>( m_val ); }
-
-    bool isSymbol() const { return ( m_val & MASK_HEAD ) == VAL_ENC( KindSymbol, 0 ); }
-    Symbol toSymbol() const { assert( isSymbol() ); return Symbol( reinterpret_cast<const char*>( m_val & ~PTR_HEAD ) ); }
-
-    bool isBool() const { return ( m_val & MASK_HEAD ) == VAL_ENC( KindSingle ); }
-    bool unbox<bool>() const { assert( isBool() ); return false; }
-
-    bool isAtom() const { return ( m_val & PTR_HEAD ) == PTR_HEAD; }
-    Atom* toAtom() const { assert( isAtom() ); return reinterpret_cast<Atom*>( m_val & ~PTR_HEAD ); }
-
-    void print() const;// { aptr->print(); }
-    Box eval( State* state ) const;// { aptr->print(); }
-    uint64_t m_val;
-    //Kind kind;
-    //Atom* aptr;
-};
-#else
-
 struct Box {
     enum Kind {
         KIND_NIL,
@@ -368,7 +301,7 @@ template<typename T>
 T Box::unbox() const {
     return Detail::Trait<T>::unbox( *this );
 }
-#endif
+
 struct GcBase;
 
 // Interface for things which may hold references to gc objects
