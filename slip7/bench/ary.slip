@@ -1,0 +1,20 @@
+
+(define fill_vec! (lambda (vec fill)
+    (for i (range (vec_size vec))
+        (vec_set! vec i fill))))
+
+(define add_to_vec! (lambda (y x)
+    (for i (range (vec_size y))
+        (vec_set! y i (add_i (vec_idx y i) (vec_idx x i))))))
+
+(define ary (lambda (n) 
+  (let ((x (range 1 (add_i n 1)))
+        (y (vec_new n)))
+    (begin
+      (fill_vec! y 0)
+      (for i (range n) (add_to_vec! y x))
+      (list (vec_idx y 0) (vec_idx y (sub_i n 1)))
+    ))))
+
+(define main (lambda (args)
+    (let ((n 100)) (print (ary n)))))

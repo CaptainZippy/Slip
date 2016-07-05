@@ -1,0 +1,13 @@
+
+(define main (lambda (argv)
+    (let ((x 0)
+          (n (cond ((le_i? (vec_size argv) 0) 1)
+                (true (vec_idx argv 0)))))
+        (begin
+            (for a (range n)
+                (for b (range n)
+                    (for c (range n)
+                        (for d (range n)
+                            (for e (range n)
+                                (for f (range n) (inc! x)))))))
+            (print x)))))

@@ -1,0 +1,23 @@
+(define if (vau (c t f) e
+    (cond ((evsym c e) (evsym t e))
+        (true (evsym f e)))))
+
+(define nsieve (lambda (m) (begin
+    (let ((is_prime (vec_new m))
+          (count (add_i 0 0))) (begin
+        (for i (range m) (vec_set! is_prime i true))
+        (for i (range 2 m)
+            (if (vec_idx is_prime i)
+                (begin
+                    (inc! count)
+                    (for k (range (mul_i i 2) m i)
+                        (vec_set! is_prime k false)))
+                0))
+        count)))))
+
+(define main (lambda (argv) (begin
+    (define n (cond ((le_i? (vec_size argv) 0) 1) (true (vec_idx argv 0)) ))
+    (for i (range 3)
+        (let ((m (lsh 2 (sub_i n i))))
+            (print "Primes up to " m (nsieve m))))
+    )))
