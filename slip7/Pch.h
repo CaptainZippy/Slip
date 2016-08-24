@@ -12,12 +12,50 @@
 #include <unordered_set>
 #include <memory>
 
+#define Error Slip::Detail::_Error{__FILE__, __LINE__}
+
+namespace Slip {
+    namespace Detail {
+        struct _Error {
+            const char* file;
+            int line;
+            int col;
+            _Error& fmt( const char* fmt, ... ) {
+                va_list va;
+                va_start( va, fmt );
+                char buf[512];
+                int cnt = snprintf( buf, sizeof( buf ), "%s(%i,%i) : error", file, line, col );
+                vsnprintf( &buf[cnt], sizeof( buf )-cnt, fmt, va );
+                va_end( va );
+                print( buf );
+                return *this;
+            }
+            _Error& at( const char* f, int l, int c=0) {
+                file = f;
+                line = l;
+                col = c;
+                return *this;
+            }
+            template<typename LOC>
+            _Error& at( const LOC& loc ) {
+                return at( loc.filename(), loc.line(), loc.col() );
+            }
+        protected:
+            void print( const char* s ) {
+                printf( "%s", s );
+                OutputDebugStringA( s );
+            }
+        };
+    }
+}
+
+
 inline void error( const char* msg ) {
     __debugbreak();
 }
 template<typename T>
 void assert2( T t, const char* msg ) {
-    if( !t ) Slip::Detail::_Error( msg );
+    if( !t ) Error.fmt( msg );
 }
 #define assert(A) assert2(A, #A)
 #define cast(T,a) a.unbox<T*>()

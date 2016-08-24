@@ -1,38 +1,7 @@
 
 #include "Pch.h"
-
-#define Error( fmt, ... ) Slip::Detail::_Error("%s(%i,%i): error " fmt, __FILE__, __LINE__, 0, __VA_ARGS__)
-#define Error_At( loc, fmt, ... ) Slip::Detail::_Error("%s(%i,%i): error " fmt, loc.filename(), loc.line(), loc.col(), __VA_ARGS__)
-
 #include "SourceManager.h"
 #include "Syntax.h"
-
-namespace Slip {
-    namespace Detail {
-        void _Error( const char* fmt, ... ) {
-            va_list va;
-            va_start( va, fmt );
-            char buf[2048];
-            vsnprintf( buf, sizeof( buf ), fmt, va );
-            va_end( va );
-            printf( "%s", buf );
-            OutputDebugStringA( buf );
-            throw 0;
-        }
-    }
-}
-
-
-
-namespace Detail {
-    void _Error_At( SourceManager::Location loc, char* fmt, ... ) {
-        va_list va;
-        va_start( va, fmt );
-        vprintf( fmt, va );
-        va_end( va );
-    }
-}
-
 
 Atom* parse_one( SourceManager::Input& in ) {
     while( 1 ) {
@@ -58,7 +27,7 @@ Atom* parse_one( SourceManager::Input& in ) {
                     c.push_back( a );
                 }
                 if( in.next() != ')' ) {
-                    Error_At( in.location(start, in.tell()), "Missing ')' for list begun here" );
+                    Error.at( in.location(start, in.tell()) ).fmt("Missing ')' for list begun here");
                     throw 0;
                 }
                 List* l = new List(in.location(start, in.tell()));
@@ -93,7 +62,7 @@ Atom* parse_one( SourceManager::Input& in ) {
                     switch( int c = in.next() ) {
                         case -1:
                         case 0:
-                            Error_At( in.location(), "End of input while parsing quoted string" );
+                            Error.at( in.location() ).fmt("End of input while parsing quoted string" );
                             return nullptr;
                         case '"':
                         {
@@ -147,14 +116,14 @@ List* parse_file( SourceManager& sm, const char* fname ) {
         return l;
     }
     else {
-        Error( "Unable to open '%s'", fname );
+        Error.fmt( "Unable to open '%s'", fname );
         return nullptr;
     }
 }
 
 int main( int argc, const char* argv[] ) {
     if( argc < 2 ) {
-        Error( "Need a script to run" );
+        Error.fmt( "Need a script to run" );
         return 1;
     }
     try {
