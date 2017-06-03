@@ -25,11 +25,11 @@ namespace Slip {
                 va_list va;
                 va_start( va, fmt );
                 int cnt = snprintf( buf, sizeof( buf ), "%s(%i,%i) : error", file, line, col );
-                vsnprintf( &buf[cnt], sizeof( buf )-cnt, fmt, va );
+                vsnprintf( &buf[cnt], sizeof( buf ) - cnt, fmt, va );
                 va_end( va );
                 return *this;
             }
-            _Error& at( const char* f, int l, int c=0) {
+            _Error& at( const char* f, int l, int c = 0 ) {
                 file = f;
                 line = l;
                 col = c;
