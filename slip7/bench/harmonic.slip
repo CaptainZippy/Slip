@@ -1,10 +1,13 @@
 
-(define harmonic (lambda (n)
-    (let ((acc 0.0)) (begin
-        (for i (range 1 n)
-            (set! acc (add_f (div_f 1.0 (float i)) acc)))
-        acc))))
+(define harmonic (lambda (n : double)
+    (let ((acc n : double)) acc)))
     
-(define main (lambda (argv)
-    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
+    ;begin
+     ;   (for i (range 1 n)
+      ;      (set! acc (add_f (div_f 1.0 (float i)) acc)))
+       ; acc))))
+    
+;(define main (lambda (argv)
+;    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
 
+(harmonic 4)

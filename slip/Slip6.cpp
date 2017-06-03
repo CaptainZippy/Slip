@@ -1012,6 +1012,9 @@ public:
         m_stack.pop();
         return r;
     }
+    Box peek() {
+        return m_stack[-1];
+    }
     void listAppend( int idx ) {
         if( List* l = cast( List, m_stack[idx] ) ) {
             l->append( m_stack[-1] );
@@ -1607,6 +1610,8 @@ const char* strndup( const char* s, const char* e ) {
     return p;
 }
 
+Result parse_string( State* state, SourceManager::Input& in );
+
 Result parse_one( State* state, SourceManager::Input& in ) {
     while( 1 ) {
         switch( in.peek() ) {
@@ -1627,7 +1632,7 @@ Result parse_one( State* state, SourceManager::Input& in ) {
                 state->newList();
                 //lst->m_loc = in.location();
                 in.next();
-                while( parse_one( state, in ).isOk() ) {
+                while( parse_string( state, in ).isOk() ) {
                     state->listAppend( -2 );
                 }
                 if( in.next() != ')' ) {
@@ -1712,11 +1717,13 @@ Result parse_one( State* state, SourceManager::Input& in ) {
 Result parse_string( State* state, SourceManager::Input& in ) {
     if( parse_one( state, in ).isOk() ) {
         in.eatwhite();
-        if( 0 ) if( in.peek() == ':' ) {
+        Box lhs = state->peek();
+        if( in.peek() == ':' ) {
             in.next();
-            //Box rhs = parse_one( state, in );
-            //rhs->m_type = ret;
-            //ret = rhs;
+            if( parse_one( state, in ).isOk() ) {
+                //rhs->m_type = ret;
+            }
+            Error()
         }
         return R_OK;
     }
@@ -1805,8 +1812,8 @@ int main( int argc, const char* argv[] ) {
         if( parse_file( state, sm, argv[1] ).isOk() ) {
             state->call( 1, 1 );
             state->getGlobal( "main" );
-            state->newList();
-            state->newSymbol( "quote" );
+            //state->newList();
+            /*state->newSymbol( "quote" );
             state->listAppend( -2 );
             static SourceManager::FileInfo cmdline{ "cmdline" };
             for( int i = 2; i < argc; ++i ) {
@@ -1814,8 +1821,8 @@ int main( int argc, const char* argv[] ) {
                 if( parse_string( state, in ).isOk() ) {
                     state->listAppend( -2 );
                 }
-            }
-            state->call( 1, 1 );
+            }*/
+            state->call( 0, 1 );
             int ret = 0;
             Box r = state->pop();
             switch( r.m_kind ) {

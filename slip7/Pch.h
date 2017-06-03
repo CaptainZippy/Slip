@@ -20,14 +20,13 @@ namespace Slip {
             const char* file;
             int line;
             int col;
+            char buf[512];
             _Error& fmt( const char* fmt, ... ) {
                 va_list va;
                 va_start( va, fmt );
-                char buf[512];
                 int cnt = snprintf( buf, sizeof( buf ), "%s(%i,%i) : error", file, line, col );
                 vsnprintf( &buf[cnt], sizeof( buf )-cnt, fmt, va );
                 va_end( va );
-                print( buf );
                 return *this;
             }
             _Error& at( const char* f, int l, int c=0) {
@@ -39,6 +38,9 @@ namespace Slip {
             template<typename LOC>
             _Error& at( const LOC& loc ) {
                 return at( loc.filename(), loc.line(), loc.col() );
+            }
+            ~_Error() {
+                print( buf );
             }
         protected:
             void print( const char* s ) {
@@ -58,7 +60,8 @@ void assert2( T t, const char* msg ) {
     if( !t ) Error.fmt( msg );
 }
 #define assert(A) assert2(A, #A)
-#define cast(T,a) a.unbox<T*>()
+#define cast(T,a) dynamic_cast<T*>(a)
+#define verify(A) assert2(A, #A)
 
 struct Result {
     enum Code { OK = 0, ERR = 1 };
@@ -72,6 +75,7 @@ struct view_ptr {
     view_ptr() : m_ptr( nullptr ) {}
     view_ptr( T* p ) : m_ptr( p ) {}
     operator T*( ) const { return m_ptr; }
+    void operator=( T* t ) { m_ptr = t; }
     T* operator->() const { return m_ptr; }
     T* m_ptr;
 };
@@ -82,6 +86,10 @@ struct array_view {
     array_view() : m_begin( nullptr ), m_end( nullptr ) {}
     array_view( const T* s, const T* e ) : m_begin( s ), m_end( e ) {}
     array_view( const std::vector<T>& a ) : m_begin( a.data() ), m_end( m_begin + a.size() ) {}
+    void operator=( const array_view<T>& a ) {
+        m_begin = a.m_begin;
+        m_end = a.m_end;
+    }
 
     size_t size() const { return m_end - m_begin; }
     const T& operator[]( unsigned i ) const { assert( i < size() ); return m_begin[i]; }
@@ -148,3 +156,5 @@ private:
     void* m_buf[( sizeof( T ) + sizeof( void* ) - 1 ) / sizeof( void* )];
     T* m_ptr;
 };
+
+#include "Reflect.h"

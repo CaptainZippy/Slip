@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-	<Type Name="Symbol">
+  <Type Name="Symbol">
     <DisplayString>sym={m_sym,s}</DisplayString>
-	</Type>
+  </Type>
   <Type Name="String">
     <DisplayString>str={m_str}</DisplayString>
-	</Type>
+  </Type>
   <Type Name="List">
     <Expand>
       <ExpandedItem>lst</ExpandedItem>
@@ -26,7 +26,7 @@
     <Expand>
       <ExpandedItem Condition="m_kind==5">*m_val.a</ExpandedItem>
     </Expand>
-	</Type>
+  </Type>
   <Type Name="array_view&lt;*&gt;">
     <Expand>
       <ArrayItems>

@@ -53,3 +53,5 @@ Release
 *.opensdf
 *.ipch
 *.vcxproj
+*.db
+*.opendb

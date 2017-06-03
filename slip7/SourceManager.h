@@ -12,6 +12,8 @@ struct SourceManager {
         long m_start;
         long m_end;
 
+        Location() : m_start( 0 ), m_end( 0 ) {
+        }
         Location( const FileInfo* f, long s, long e=-1 ) : m_file( f ), m_start( s ), m_end( e ) {
         }
 
