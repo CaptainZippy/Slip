@@ -25,7 +25,7 @@ namespace Slip {
             _Error& fmt( const char* fmt, ... ) {
                 va_list va;
                 va_start( va, fmt );
-                int cnt = snprintf( buf, sizeof( buf ), "%s(%i,%i) : error", file, line, col );
+                int cnt = snprintf( buf, sizeof( buf ), "%s(%i,%i):error:", file, line, col );
                 vsnprintf( &buf[cnt], sizeof( buf ) - cnt, fmt, va );
                 va_end( va );
                 return *this;
@@ -163,6 +163,15 @@ private:
 
 template<typename T>
 struct Iter {
+    Iter() = default;
+
+    template<typename T>
+    Iter( std::vector<T>& v ) {
+        T* t = v.size() ? &v[0] : nullptr;
+        m_begin = t;
+        m_end = t + v.size();
+    }
+
     T cur() const {
         assert( size() );
         return *m_begin;
@@ -194,6 +203,6 @@ struct Iter {
         return false;
     }
 
-    T* m_begin;
-    T* m_end;
+    T* m_begin{ nullptr };
+    T* m_end{ nullptr };
 };

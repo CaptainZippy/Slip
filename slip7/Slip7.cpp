@@ -11,12 +11,15 @@ namespace Sema {
     struct Node;
     struct Type;
     struct State;
+    struct FunctionCall;
+    struct FunctionDecl;
+    struct Number;
 
     typedef Iter<Syntax::Atom*> Args;
 
     struct Node {
         virtual ~Node() {}
-        virtual Node* eval( State* state, Args& args ) {
+        virtual Node* eval( State* state, Args& args ) const {
             verify( false );
             return nullptr;
         }
@@ -26,14 +29,15 @@ namespace Sema {
     //const Reflect::Field Node::s_reflectFields[] = {};
     //const Reflect::Type Node::s_reflectType = { Reflect::Kind::Record, nullptr, "Node" };
 
-    struct Sema {
-
-    };
-
     struct Type : Node {
     };
 
     struct Decl : Node {
+    };
+
+    struct Number : Node {
+        Number( Syntax::Number* n) : m_num(n) {}
+        Syntax::Number* m_num;
     };
 
     struct Module : Node {
@@ -54,14 +58,18 @@ namespace Sema {
                 assert2( it != syms.end(), sym->text().c_str() );
                 return it->second;
             }
-            else if( Syntax::List* list = dynamic_cast<Syntax::List*>( atom ) ) {
+            else if( auto list = dynamic_cast<Syntax::List*>( atom ) ) {
                 assert( list );
                 assert( list->items.size() );
                 auto& items = list->items;
                 Node* n = eval( items[0] );
-                Args args{ &items[1], &items[items.size()-1] };
+                Args args{ items }; args.advance();
                 return n->eval( this, args );
             }
+            else if( auto num = dynamic_cast<Syntax::Number*>( atom ) ) {
+                return new Number( num );
+            }
+
             verify( false );
             return nullptr;
         }
@@ -106,14 +114,15 @@ namespace Sema {
         }
         return it->second;
     }
+    #endif
 
-    struct FunctionCall : public Atom {
-        std::vector< Atom* > m_args;
-        FunctionCall( std::vector< Atom* >& args ) {
-            m_args.swap( args );
+    struct FunctionCall : public Node {
+        const FunctionDecl* m_func{ nullptr };
+        std::vector< Node* > m_args;
+        FunctionCall( const FunctionDecl* func, std::vector< Node* >&& args )
+            : m_func(func), m_args(args) {
         }
     };
-    #endif
 
 
     struct Symbol : public Node {
@@ -155,15 +164,24 @@ namespace Sema {
             m_body = body;
         }
 
-        /*Atom* _parse( State* state, AtomList* args ) {
-        std::vector<Atom*> vals;
-        while( args->size() ) {
-        Atom* arg = args->pop_front();
-        vals.push_back( arg->parse( state ) );
+        Node* eval( State* state, Args& args ) const override {
+            std::vector<Node*> vals;
+            verify( args.size() == m_arg_syms.size() );
+            for( ; args.size(); args.advance() ) {
+                vals.push_back( state->eval(args.cur()) );
+            }
+            return new FunctionCall( this, std::move(vals) );
         }
-        return new FunctionCall( vals );
-        }*/
     };
+
+    struct Sequence : public Node {
+        std::vector<Node*> m_items;
+    };
+
+    struct Scope : public Node {
+        Node* m_child{ nullptr };
+    };
+
 
 
     struct Definition : public Node {
@@ -210,7 +228,7 @@ namespace Sema {
             func( m_value, visitargs... );
         }*/
 
-        Node* eval( State* state, Args& args ) override {
+        Node* eval( State* state, Args& args ) const override {
             auto sym = Symbol::parse( state, args );
             auto val = state->eval( args.cur() );
             args.advance();
@@ -223,18 +241,19 @@ namespace Sema {
 
     struct BuiltinLambda : public Node {
 
-        Node* eval( State* state, Args& args ) override {
+        Node* eval( State* state, Args& args ) const override {
             auto ain = dynamic_cast<Syntax::List*>(args.cur());
             args.advance();
             std::vector< Symbol* > arg_syms;
             for( auto i : ain->items ) {
-                Symbol::parse1( state, i );
+                arg_syms.push_back( Symbol::parse1( state, i ) );
             }
 
             //Args::bind( state, args, &arg_syms );
             Syntax::Atom* rhs = args.cur();
             args.advance();
-            
+            verify( args.used() );
+
             for( auto a : arg_syms ) {
                 state->define( a->m_name.c_str(), a );
             }
@@ -261,27 +280,27 @@ namespace Sema {
     Atom* Symbol::_parse( State* state, AtomList* args ) {
         return new Reference( state->evalSym( *this ) );
     }
+    #endif
 
 
-    struct BuiltinLet : public Atom {
-        Args::ListOf< Args::PairOf<Symbol*, Atom*> > m_lets;
-        Atom* m_body = nullptr;
-        /*template<typename FUNC, typename...VISITARGS>
-        void visit( FUNC func, VISITARGS...visitargs ) {
-            func( m_lets, visitargs... );
-            func( m_body, visitargs... );
-        }*/
-        Atom* _parse( State* state, AtomList* args ) {
-            Atom* body;
-            Args::bind( state, args, &m_lets, &body );
-            for( const auto& pair : m_lets.m_list ) {
-                Atom* a = pair.second->parse( state );
-                state->define( pair.first->text().c_str(), a );
+    struct BuiltinLet : public Node {
+        Node* eval( State* state, Args& args ) const override {
+            auto lets = dynamic_cast<Syntax::List*>( args.cur() );
+            args.advance();
+            auto body = args.cur();
+            args.advance();
+            verify(args.used());
+            auto seq = new Sequence();
+            for( auto pair : lets->items) {
+                auto let = dynamic_cast<Syntax::List*>( pair );
+                verify( let->size() == 2 );
+                //Atom* a = pair.second->parse( state );
+                //state->define( pair.first->text().c_str(), a );
             }
-            m_body = body->parse( state );
-            return this;
+            return new Scope();
         }
     };
+    #if 0
 
     struct BuiltinModule {
         Args::ListOf< List* > m_contents;
@@ -308,20 +327,20 @@ namespace Sema {
     //        printf( "=(%s)%p ", type.name(), addr );
     //    }
     //}
+    #endif
 
     static Type s_intType;
     static Type s_doubleType;
 
-    #endif
 
 
-    Sema* analyse( Syntax::List* syntax ) {
+    Node* analyse( Syntax::List* syntax ) {
         State state;
         state.define( "define", new BuiltinDefine() );
-        //state.define( "lambda", new BuiltinLambda() );
-        //state.define( "let", new BuiltinLet() );
+        state.define( "lambda", new BuiltinLambda() );
+        state.define( "let", new BuiltinLet() );
         //state.define( "int", &s_intType );
-        //state.define( "double", &s_doubleType );
+        state.define( "double", &s_doubleType );
         Module* module = state.module( syntax );
         ////begin for range set! add_d div_d
         //for( Atom* a : syntax->items ) {
@@ -329,7 +348,7 @@ namespace Sema {
         //    b->print( 0 );
         //    b->codegen();
         //}
-        return nullptr;
+        return module;
     }
 }
 
@@ -342,7 +361,7 @@ int main( int argc, const char* argv[] ) {
         Syntax::SourceManager smanager;
         Syntax::List* syntax = Syntax::parse_file( smanager, argv[1] );
         verify( syntax );
-        Sema::Sema* sema = Sema::analyse( syntax );
+        Sema::Node* sema = Sema::analyse( syntax );
         verify( sema );
     }
     catch( float ) {
