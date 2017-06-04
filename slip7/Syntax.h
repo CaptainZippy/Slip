@@ -18,16 +18,14 @@ namespace Syntax {
         Atom( const SourceLocation& loc ) : m_loc( loc ) {}
         virtual ~Atom() {}
         void print( int i ) const { _print( i ); }
-        void setType( Atom* t ) {
-            m_type = t;
-        }
-    protected:
-        virtual void _print( int i ) const = 0;
-        static const char* indent( int i );
 
         SourceLocation m_loc{};
         Atom* m_type = nullptr;
         std::vector<Atom*> m_attrs;
+
+    protected:
+        virtual void _print( int i ) const = 0;
+        static const char* indent( int i );
     };
 
     struct Value : Atom {

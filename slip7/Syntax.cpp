@@ -105,7 +105,7 @@ Syntax::Atom* Syntax::parse_string( Input& in ) {
         in.eatwhite();
         if( in.peek() == ':' ) {
             in.next();
-            a->setType( parse_one( in ) );
+            a->m_type = parse_one( in );
         }
         return a;
     }

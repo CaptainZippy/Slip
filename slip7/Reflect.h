@@ -2,15 +2,57 @@
 
 namespace Reflect {
     struct Type;
+    struct Var;
+    struct Field;
+
+    enum class Kind {
+        Void,
+        Pointer,
+        Record,
+    };
+
     struct Field {
         const char* name;
         const Type* type;
         int offset;
     };
+
+    template<typename T>
+    const Type* getType() {
+        return T::staticType();
+    }
+
+    struct Var {
+        void* addr;
+        const Type* type;
+
+        Var operator[]( const Field& f ) {
+            return Var{ (char*) addr + f.offset, f.type };
+        }
+    };
+
     struct Type {
+        typedef void* (*MakeFunc)( );
+        Kind kind;
         const Type* parent;
         const char* name;
+        MakeFunc make;
         array_view<Field> fields;
+
+        static bool extends( const Type* test, const Type* base ) {
+            for( auto c = test; c; c = c->parent ) {
+                if( c == base ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        bool isPointer() const { return kind == Kind::Pointer; }
+
+        Var newInstance() const {
+            assert( make );
+            return Var{ ( *make )( ), this };
+        }
     };
     template<typename T>
     struct TypeOf {
@@ -21,9 +63,15 @@ namespace Reflect {
     template<typename T>
     struct TypeOf<T*> {
         static const Type* value() {
-            return nullptr;
+            static const Type t{ Kind::Pointer, nullptr, "T*", nullptr, {}, };
+            return &t;
         }
     };
+
+    namespace Detail {
+        template<typename T>
+        void* maker() { return new T(); }
+    }
 }
 
 #define PP_NARG(...)    PP_NARG_(__VA_ARGS__,PP_RSEQ_N())
@@ -43,16 +91,20 @@ namespace Reflect {
     #define PP_FOR_2(MACRO,X,...) MACRO(X) PP_FOR_1(MACRO,__VA_ARGS__)
     #define PP_FOREACH(MACRO,...) PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__))(MACRO, __VA_ARGS__)
 #endif
+    //static const Reflect::Field s_reflectFields[];
 
 #define REFLECT_DECL() \
     static const Reflect::Type s_reflectType; \
-    static const Reflect::Field s_reflectFields[]; \
     static const Reflect::Type* staticType() { return &s_reflectType; } \
-    const Reflect::Type* dynamicType() const override { return &s_reflectType; }
+    const Reflect::Type* dynamicType() const { return &s_reflectType; } \
+    struct Terminator
 
-#define REFLECT_FIELD(DECL,NAME) { #NAME, Reflect::TypeOf<decltype(NAME)>::value(), offsetof(DECL,NAME) }
+#define REFLECT_FIELD(DECL,NAME) { #NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME) }
 
 #define REFLECT_DEFN(NAME, PARENT, ...) \
     const Reflect::Type NAME::s_reflectType = { \
-        &PARENT::s_reflectType, #NAME, \
-        { &NAME::s_reflectFields[0], &NAME::s_reflectFields[sizeof(NAME::s_reflectFields)/sizeof(Reflect::Field)] } }
+        Reflect::Kind::Record, \
+        &PARENT::s_reflectType, #NAME, &Reflect::Detail::maker<NAME>, \
+        { __VA_ARGS__ } }
+
+//&s_reflectFields[0], &NAME::s_reflectFields[sizeof(NAME::s_reflectFields)/sizeof(Reflect::Field)]

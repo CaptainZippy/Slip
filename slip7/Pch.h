@@ -13,6 +13,7 @@
 #include <memory>
 
 #define Error Slip::Detail::_Error{__FILE__, __LINE__}
+typedef unsigned long long uptr;
 
 namespace Slip {
     namespace Detail {
@@ -84,7 +85,10 @@ template<typename T>
 struct array_view {
     typedef T* iterator;
     array_view() : m_begin( nullptr ), m_end( nullptr ) {}
+    template<int N>
+    array_view( const T (&t)[N] ) : m_begin( t ), m_end( m_begin+N ) {}
     array_view( const T* s, const T* e ) : m_begin( s ), m_end( e ) {}
+    array_view( const T* s, uptr n ) : m_begin( s ), m_end( s+n ) {}
     array_view( const std::vector<T>& a ) : m_begin( a.data() ), m_end( m_begin + a.size() ) {}
     void operator=( const array_view<T>& a ) {
         m_begin = a.m_begin;
@@ -157,4 +161,39 @@ private:
     T* m_ptr;
 };
 
-#include "Reflect.h"
+template<typename T>
+struct Iter {
+    T cur() const {
+        assert( size() );
+        return *m_begin;
+    }
+
+    bool advance() {
+        assert( m_begin < m_end );
+        m_begin += 1;
+        return m_begin < m_end;
+    }
+
+    bool used() const {
+        return m_begin == m_end;
+    }
+
+    uptr size() const {
+        return m_end - m_begin;
+    }
+
+    bool match() {
+        return used();
+    }
+    template<typename F, typename...R>
+    bool match(F f, R...r) {
+        f = cur();
+        if( advance() ) {
+            return match( r... );
+        }
+        return false;
+    }
+
+    T* m_begin;
+    T* m_end;
+};
