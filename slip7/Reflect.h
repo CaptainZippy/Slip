@@ -5,10 +5,16 @@ namespace Reflect {
     struct Var;
     struct Field;
 
+    struct AbstractReflected {
+        virtual const Reflect::Type* dynamicType() const = 0;
+        virtual ~AbstractReflected() {}
+    };
+
     enum class Kind {
         Void,
         Pointer,
         Record,
+        Array,
     };
 
     struct Field {
@@ -33,10 +39,12 @@ namespace Reflect {
 
     struct Type {
         typedef void* (*MakeFunc)( );
-        Kind kind;
-        const Type* parent;
-        const char* name;
-        MakeFunc make;
+        Kind kind;// { Kind::Void };
+        const Type* parent;//{ nullptr };
+        const Type* sub;//{ nullptr };
+        const char* name;//{ nullptr };
+        unsigned size;
+        MakeFunc make;//{ nullptr };
         array_view<Field> fields;
 
         static bool extends( const Type* test, const Type* base ) {
@@ -63,7 +71,14 @@ namespace Reflect {
     template<typename T>
     struct TypeOf<T*> {
         static const Type* value() {
-            static const Type t{ Kind::Pointer, nullptr, "T*", nullptr, {}, };
+            static const Type t{ Kind::Pointer, nullptr, TypeOf<T>::value(), "T*", sizeof(T*), nullptr, {}, };
+            return &t;
+        }
+    };
+    template<typename T>
+    struct TypeOf< std::vector<T> > {
+        static const Type* value() {
+            static const Type t{ Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof(std::vector<T>), nullptr,{}, };
             return &t;
         }
     };
@@ -94,6 +109,7 @@ namespace Reflect {
     //static const Reflect::Field s_reflectFields[];
 
 #define REFLECT_DECL() \
+    struct _Auto; friend struct _Auto; \
     static const Reflect::Type s_reflectType; \
     static const Reflect::Type* staticType() { return &s_reflectType; } \
     const Reflect::Type* dynamicType() const { return &s_reflectType; } \

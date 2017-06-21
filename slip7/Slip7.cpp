@@ -6,6 +6,42 @@
 #include "Pch.h"
 #include "SourceManager.h"
 #include "Syntax.h"
+#include "Reflect.h"
+namespace Reflect {
+    void printVar( Var top ) {
+        switch( top.type->kind ) {
+            case Kind::Pointer:
+                printf( "%p", *(void**) top.addr );
+                break;
+            case Kind::Record: {
+                printf( "%s\n", top.type->name );
+                for( auto c = top.type; c; c = c->parent ) {
+                    for( auto f : c->fields ) {
+                        printf( "  %s : ", f.name );
+                        Var v = top[f];
+                        printVar( v );
+                    }
+                }
+                break;
+            }
+            case Kind::Array: {
+                auto et = top.type->sub;
+                char* s = ( (char**) top.addr )[0];
+                char* e = ( (char**) top.addr )[1];
+                unsigned count = ( e - s ) / et->size;
+                for( unsigned i = 0; i < count; ++i ) {
+                    Var e{ s + i * et->size, et };
+                    printVar( e );
+                }
+                break;
+            }
+            default:
+                printf( "???" );
+                break;
+        }
+        printf( "\n" );
+    }
+}
 
 namespace Sema {
     struct Node;
@@ -17,17 +53,26 @@ namespace Sema {
 
     typedef Iter<Syntax::Atom*> Args;
 
-    struct Node {
-        virtual ~Node() {}
+    struct Node : Reflect::AbstractReflected {
+        REFLECT_DECL();
         virtual Node* eval( State* state, Args& args ) const {
             verify( false );
             return nullptr;
         }
+        void print() const {
+            Reflect::Var self{ const_cast<Node*>(this), dynamicType() };
+            Reflect::printVar( self );
+        }
 
         Type* m_type{ nullptr };
     };
-    //const Reflect::Field Node::s_reflectFields[] = {};
-    //const Reflect::Type Node::s_reflectType = { Reflect::Kind::Record, nullptr, "Node" };
+    struct Node::_Auto {
+        static const Reflect::Field fields[];// = { "type", nullptr, offsetof( Node, m_type ) };
+    };
+    const Reflect::Field Node::_Auto::fields[] = { "type", Reflect::TypeOf<Type*>::value(), offsetof( Node, m_type ) };
+    const Reflect::Type Node::s_reflectType = { Reflect::Kind::Record, nullptr, nullptr,
+        "Node", sizeof(Node), &Reflect::Detail::maker<Node>,Node::_Auto::fields };
+    //};
 
     struct Type : Node {
     };
@@ -41,10 +86,17 @@ namespace Sema {
     };
 
     struct Module : Node {
+        REFLECT_DECL();
         std::vector<Node*> items;
     };
 
-
+    struct Module::_Auto {
+        static const Reflect::Field fields[];// = { "type", nullptr, offsetof( Node, m_type ) };
+    };
+    const Reflect::Field Module::_Auto::fields[] = { "items", Reflect::TypeOf<decltype(Module::items)>::value(), offsetof( Module, items ) };
+    const Reflect::Type Module::s_reflectType = { Reflect::Kind::Record, &Node::s_reflectType,
+        nullptr, "Module", sizeof(Module),
+        &Reflect::Detail::maker<Module>, Module::_Auto::fields };
 
     struct State {
         
@@ -148,6 +200,7 @@ namespace Sema {
             args.advance();
             return r;
         }
+
         //    //auto val = Expr::bind( state, args );
         //    //Atom* value = rhs->parse( state );
         //    return new Symbol{ name, sym };
@@ -191,7 +244,6 @@ namespace Sema {
 
         Definition() {}
         Definition( Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
-
 
         #if 0
         virtual void codegen() {
@@ -350,6 +402,9 @@ namespace Sema {
         //}
         return module;
     }
+    Node* typecheck( Node* node ) {
+        return node;
+    }
 }
 
 int main( int argc, const char* argv[] ) {
@@ -363,6 +418,9 @@ int main( int argc, const char* argv[] ) {
         verify( syntax );
         Sema::Node* sema = Sema::analyse( syntax );
         verify( sema );
+        sema->print();
+        auto ok = Sema::typecheck( sema );
+        verify( ok );
     }
     catch( float ) {
         return 1;
