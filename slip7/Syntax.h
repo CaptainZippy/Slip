@@ -16,8 +16,8 @@ namespace Syntax {
 
     struct Atom : public Reflect::AbstractReflected {
     public:
-		REFLECT_DECL();
-		Atom( const SourceLocation& loc ) : m_loc( loc ) {}
+        REFLECT_DECL();
+        Atom( const SourceLocation& loc ) : m_loc( loc ) {}
         virtual ~Atom() {}
         void print( int i ) const { _print( i ); }
 
@@ -25,14 +25,14 @@ namespace Syntax {
         Atom* m_type = nullptr;
         std::vector<Atom*> m_attrs;
 
-		Atom() {}
+        Atom() {}
     protected:
-		virtual void _print(int i) const {}// = 0;
+        virtual void _print(int i) const {}// = 0;
         static const char* indent( int i );
     };
 
     struct Value : Atom {
-		REFLECT_DECL();
+        REFLECT_DECL();
         Value( const SourceLocation& loc ) : Atom( loc ), m_text( text() ) {}
         void _print( int i ) const override {
             auto s = m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
@@ -41,11 +41,11 @@ namespace Syntax {
         std::string text() const {
             return m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
         }
-		Value() {}
+        Value() {}
     protected:
         std::string m_text;
     };
-	
+    
 
 
     struct String : Value {

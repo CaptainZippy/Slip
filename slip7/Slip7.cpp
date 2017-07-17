@@ -8,103 +8,103 @@
 #include "Syntax.h"
 #include "Reflect.h"
 namespace Reflect {
-	namespace Detail {
-		struct Output {
-			void begin(const char* s) {
-				printf("%s", s);
-				m_indent.push_back(' ');
-			}
-			void write(const char* s) {
-				if(s) printf("%s", s);
-			}
-			void field(const char* s) {
-				printf("%s = ", s);
-			}
-			void write(const void* s) {
-				printf("%p", s);
-			}
-			void end(const char* s=nullptr) {
-				m_indent.erase(m_indent.size() - 1);
-				write(s);
-			}
-			void nl() {
-				printf("\n%s", m_indent.c_str());
-			}
-			std::string m_indent;
-		};
-		void printVar( Output& out, Var top ) {
-			if( top.addr == nullptr ) {
-				out.write("null");
-				return;
-			}
-			if (top.type->toString) {
-				out.write( top.type->toString(top.addr).c_str() );
-				return;
-			}
-			switch( top.type->kind ) {
-				case Kind::Pointer: {
-					auto obj = *(void**)top.addr;
-					//out.write(obj);
-					if (obj) {
-						auto sub = top.type->sub;
-						Var e{ obj, sub->dynamicType(obj) };
-						printVar(out, e);
-					}
-					else {
-						out.write("null");
-					}
-					break;
-				}
-				case Kind::Record: {
-					out.begin( top.type->name );
-					out.write("{");
-					std::vector<const Reflect::Type*> chain;
-					for (auto c = top.type; c; c = c->parent) {
-						if (c->fields.size()) {
-							chain.push_back(c);
-						}
-					}
-					for( auto c : reversed(chain) ) {
-						for( auto f : c->fields ) {
-							out.nl();
-							out.field(f.name);
-							Var v = top[f];
-							printVar( out, v );
-						}
-					}
-					out.end("}");
-					break;
-				}
-				case Kind::Array: {
-					auto et = top.type->sub;
-					char* s = ( (char**) top.addr )[0];
-					char* e = ( (char**) top.addr )[1];
-					unsigned count = unsigned(( e - s ) / et->size);
-					out.begin("[");
-					for( unsigned i = 0; i < count; ++i ) {
-						Var e{ s + i * et->size, et };
-						out.nl();
-						printVar( out, e );
-					}
-					out.end("]");
-					break;
-				}
-				case Kind::String: {
-					std::string s = top.type->toString(top.addr);
-					out.write(s.c_str());
-					break;
-				}
-				default:
-					out.write( "???" );
-					break;
-			}
-		}
+    namespace Detail {
+        struct Output {
+            void begin(const char* s) {
+                printf("%s", s);
+                m_indent.push_back(' ');
+            }
+            void write(const char* s) {
+                if(s) printf("%s", s);
+            }
+            void field(const char* s) {
+                printf("%s = ", s);
+            }
+            void write(const void* s) {
+                printf("%p", s);
+            }
+            void end(const char* s=nullptr) {
+                m_indent.erase(m_indent.size() - 1);
+                write(s);
+            }
+            void nl() {
+                printf("\n%s", m_indent.c_str());
+            }
+            std::string m_indent;
+        };
+        void printVar( Output& out, Var top ) {
+            if( top.addr == nullptr ) {
+                out.write("null");
+                return;
+            }
+            if (top.type->toString) {
+                out.write( top.type->toString(top.addr).c_str() );
+                return;
+            }
+            switch( top.type->kind ) {
+                case Kind::Pointer: {
+                    auto obj = *(void**)top.addr;
+                    //out.write(obj);
+                    if (obj) {
+                        auto sub = top.type->sub;
+                        Var e{ obj, sub->dynamicType(obj) };
+                        printVar(out, e);
+                    }
+                    else {
+                        out.write("null");
+                    }
+                    break;
+                }
+                case Kind::Record: {
+                    out.begin( top.type->name );
+                    out.write("{");
+                    std::vector<const Reflect::Type*> chain;
+                    for (auto c = top.type; c; c = c->parent) {
+                        if (c->fields.size()) {
+                            chain.push_back(c);
+                        }
+                    }
+                    for( auto c : reversed(chain) ) {
+                        for( auto f : c->fields ) {
+                            out.nl();
+                            out.field(f.name);
+                            Var v = top[f];
+                            printVar( out, v );
+                        }
+                    }
+                    out.end("}");
+                    break;
+                }
+                case Kind::Array: {
+                    auto et = top.type->sub;
+                    char* s = ( (char**) top.addr )[0];
+                    char* e = ( (char**) top.addr )[1];
+                    unsigned count = unsigned(( e - s ) / et->size);
+                    out.begin("[");
+                    for( unsigned i = 0; i < count; ++i ) {
+                        Var e{ s + i * et->size, et };
+                        out.nl();
+                        printVar( out, e );
+                    }
+                    out.end("]");
+                    break;
+                }
+                case Kind::String: {
+                    std::string s = top.type->toString(top.addr);
+                    out.write(s.c_str());
+                    break;
+                }
+                default:
+                    out.write( "???" );
+                    break;
+            }
+        }
     }
-	void printVar(Var top) {
-		Detail::Output output;
-		Detail::printVar(output, top);
-		output.nl();
-	}
+    void printVar(Var top) {
+        Detail::Output output;
+        Detail::printVar(output, top);
+        output.nl();
+    }
 }
 
 namespace Sema {
@@ -130,9 +130,9 @@ namespace Sema {
 
         Type* m_type{ nullptr };
     };
-	REFLECT_BEGIN(Node)
-		REFLECT_FIELDS(m_type)
-	REFLECT_END()
+    REFLECT_BEGIN(Node)
+        REFLECT_FIELDS(m_type)
+    REFLECT_END()
 
 
     struct Type : Node {
@@ -151,10 +151,10 @@ namespace Sema {
         std::vector<Node*> m_items;
     };
 
-	REFLECT_BEGIN(Module)
-		REFLECT_PARENT(Node)
-		REFLECT_FIELDS(m_items)
-	REFLECT_END()
+    REFLECT_BEGIN(Module)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELDS(m_items)
+    REFLECT_END()
 
     struct State {
         
@@ -227,21 +227,21 @@ namespace Sema {
     #endif
 
     struct FunctionCall : public Node {
-		REFLECT_DECL();
-		const FunctionDecl* m_func{ nullptr };
+        REFLECT_DECL();
+        const FunctionDecl* m_func{ nullptr };
         std::vector< Node* > m_args;
         FunctionCall( const FunctionDecl* func, std::vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
     };
 
-	REFLECT_BEGIN(FunctionCall)
-		REFLECT_FIELDS(m_func)
-		//REFLECT_FIELD(m_args)
-	REFLECT_END()
+    REFLECT_BEGIN(FunctionCall)
+        REFLECT_FIELDS(m_func)
+        //REFLECT_FIELD(m_args)
+    REFLECT_END()
 
     struct Symbol : public Node {
-		REFLECT_DECL();
+        REFLECT_DECL();
 
         std::string m_name;
         Syntax::Symbol* m_sym;
@@ -266,10 +266,10 @@ namespace Sema {
             return r;
         }
 
-		static std::string toString(const void* obj) {
-			auto sym = static_cast<const Symbol*>(obj);
-			return string_format("%s{\"%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
-		}
+        static std::string toString(const void* obj) {
+            auto sym = static_cast<const Symbol*>(obj);
+            return string_format("%s{\"%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
+        }
 
         //    //auto val = Expr::bind( state, args );
         //    //Atom* value = rhs->parse( state );
@@ -277,20 +277,20 @@ namespace Sema {
         //}
     };
 
-	REFLECT_BEGIN(Symbol)
-		REFLECT_FIELDS(m_name)
-		REFLECT_TO_STRING(Symbol::toString)
-		//REFLECT_FIELD(Symbol, m_sym)
-	REFLECT_END()
+    REFLECT_BEGIN(Symbol)
+        REFLECT_FIELDS(m_name)
+        REFLECT_TO_STRING(Symbol::toString)
+        //REFLECT_FIELD(Symbol, m_sym)
+    REFLECT_END()
 
     struct FunctionDecl : public Node {
 
-		REFLECT_DECL();
+        REFLECT_DECL();
 
         std::vector< Symbol* > m_arg_syms;
         Node* m_body = nullptr;
 
-		FunctionDecl() {}
+        FunctionDecl() {}
         FunctionDecl( std::vector<Symbol*>& args, Node* body ) {
             m_arg_syms.swap( args );
             m_body = body;
@@ -306,10 +306,10 @@ namespace Sema {
         }
     };
 
-	REFLECT_BEGIN(FunctionDecl)
-		REFLECT_FIELDS(m_arg_syms)
-		//REFLECT_FIELD(FunctionDecl, m_body)
-	REFLECT_END()
+    REFLECT_BEGIN(FunctionDecl)
+        REFLECT_FIELDS(m_arg_syms)
+        //REFLECT_FIELD(FunctionDecl, m_body)
+    REFLECT_END()
 
 
     struct Sequence : public Node {
@@ -324,7 +324,7 @@ namespace Sema {
 
     struct Definition : public Node {
 
-		REFLECT_DECL();
+        REFLECT_DECL();
 
         Symbol* m_sym = nullptr;
         Node* m_value = nullptr;
@@ -358,10 +358,10 @@ namespace Sema {
         #endif
     };
 
-	REFLECT_BEGIN(Definition)
-		REFLECT_FIELDS(m_sym)
+    REFLECT_BEGIN(Definition)
+        REFLECT_FIELDS(m_sym)
 //		REFLECT_FIELD(m_value)
-	REFLECT_END()
+    REFLECT_END()
 
     struct BuiltinDefine : public Node {
 

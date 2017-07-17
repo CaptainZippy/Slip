@@ -2,14 +2,14 @@
 #include "Syntax.h"
 
 namespace Syntax {
-	REFLECT_BEGIN(Value)
-		REFLECT_PARENT(Atom)
-		REFLECT_FIELDS(m_text)
-	REFLECT_END()
+    REFLECT_BEGIN(Value)
+        REFLECT_PARENT(Atom)
+        REFLECT_FIELDS(m_text)
+    REFLECT_END()
 
-	REFLECT_BEGIN(Atom)
-		//REFLECT_FIELD(Atom, m_attrs)
-	REFLECT_END()
+    REFLECT_BEGIN(Atom)
+        //REFLECT_FIELD(Atom, m_attrs)
+    REFLECT_END()
 }
 
 const char* Syntax::Atom::indent( int n ) {

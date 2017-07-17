@@ -210,14 +210,14 @@ struct Iter {
 std::string string_format(const char* fmt, ...);
 
 namespace Detail {
-	template <typename T>
-	struct reverse_wrapper { T& iterable; };
+    template <typename T>
+    struct reverse_wrapper { T& iterable; };
 
-	template <typename T>
-	auto begin(reverse_wrapper<T> w) { return rbegin(w.iterable); }
+    template <typename T>
+    auto begin(reverse_wrapper<T> w) { return rbegin(w.iterable); }
 
-	template <typename T>
-	auto end(reverse_wrapper<T> w) { return rend(w.iterable); }
+    template <typename T>
+    auto end(reverse_wrapper<T> w) { return rend(w.iterable); }
 }
 
 
