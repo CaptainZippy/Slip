@@ -14,7 +14,8 @@ namespace Reflect {
         Void,
         Pointer,
         Record,
-        Array,
+		Array,
+		String,
     };
 
     struct Field {
@@ -38,13 +39,17 @@ namespace Reflect {
     };
 
     struct Type {
-        typedef void* (*MakeFunc)( );
+		typedef void* (*MakeFunc)();
+		typedef const Type* (*DynamicTypeFunc)(const void*);
+		typedef std::string (*ToStringFunc)(const void*);
         Kind kind;// { Kind::Void };
         const Type* parent;//{ nullptr };
         const Type* sub;//{ nullptr };
         const char* name;//{ nullptr };
         unsigned size;
-        MakeFunc make;//{ nullptr };
+		MakeFunc make;//{ nullptr };
+		DynamicTypeFunc dynamicType;//{ nullptr };
+		ToStringFunc toString;//{ nullptr };
         array_view<Field> fields;
 
         static bool extends( const Type* test, const Type* base ) {
@@ -82,10 +87,20 @@ namespace Reflect {
             return &t;
         }
     };
+	template<>
+	struct TypeOf< std::string > {
+		static const Type* value() {
+			static const Type t{ Kind::String, nullptr, nullptr, "char[]",
+				sizeof(std::string), nullptr, nullptr, [](const void* addr) { return *(std::string*)addr; } };
+			return &t;
+		}
+	};
 
     namespace Detail {
         template<typename T>
         void* maker() { return new T(); }
+		template<typename T>
+		const Type* dynamicType(const void* addr) { return static_cast<const AbstractReflected*>(addr)->dynamicType(); }
     }
 }
 
@@ -97,30 +112,38 @@ namespace Reflect {
 #define PP_PASTE_(a,b) a ## b
 
 #if 1 //TODO
-    #define PP_APPLY(MACRO, ...)  MACRO(__VA_ARGS__)
-    #define PP_FOR_1(MACRO,X)     PP_APPLY(MACRO,X)
-    #define PP_FOR_2(MACRO,X,...) PP_APPLY(MACRO,X) PP_APPLY(PP_FOR_1,MACRO,__VA_ARGS__)
-    #define PP_FOREACH(MACRO,...) PP_APPLY(PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__)),MACRO, __VA_ARGS__)
+	#define PP_APPLY(MACRO, ...)  MACRO(__VA_ARGS__)
+	#define PP_FOR_1(MACRO,X)     PP_APPLY(MACRO,X)
+	#define PP_FOR_2(MACRO,X,...) PP_APPLY(MACRO,X) PP_APPLY(PP_FOR_1,MACRO,__VA_ARGS__)
+	#define PP_FOREACH(MACRO,...) PP_APPLY(PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__)),MACRO, __VA_ARGS__)
 #else
-    #define PP_FOR_1(MACRO,X)     MACRO(X)
-    #define PP_FOR_2(MACRO,X,...) MACRO(X) PP_FOR_1(MACRO,__VA_ARGS__)
-    #define PP_FOREACH(MACRO,...) PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__))(MACRO, __VA_ARGS__)
+	#define PP_FOR_1(MACRO,X)     MACRO(X)
+	#define PP_FOR_2(MACRO,X,...) MACRO(X) PP_FOR_1(MACRO,__VA_ARGS__)
+	#define PP_FOREACH(MACRO,...) PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__))(MACRO, __VA_ARGS__)
 #endif
-    //static const Reflect::Field s_reflectFields[];
 
 #define REFLECT_DECL() \
     struct _Auto; friend struct _Auto; \
-    static const Reflect::Type s_reflectType; \
+    static Reflect::Type s_reflectType; \
     static const Reflect::Type* staticType() { return &s_reflectType; } \
     const Reflect::Type* dynamicType() const { return &s_reflectType; } \
     struct Terminator
 
-#define REFLECT_FIELD(DECL,NAME) { #NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME) }
+#define REFLECT_BEGIN(NAME) \
+	struct NAME::_Auto { static Reflect::Type make(); }; \
+	Reflect::Type NAME::s_reflectType = NAME::_Auto::make(); \
+	Reflect::Type NAME::_Auto::make() { Reflect::Type self{}; \
+	typedef NAME DECL; \
+	self.name = #NAME; self.kind = Reflect::Kind::Record; self.size = sizeof(NAME); \
+	self.dynamicType = &Reflect::Detail::dynamicType<NAME>;
+#define REFLECT_END() return self; }
 
-#define REFLECT_DEFN(NAME, PARENT, ...) \
-    const Reflect::Type NAME::s_reflectType = { \
-        Reflect::Kind::Record, \
-        &PARENT::s_reflectType, #NAME, &Reflect::Detail::maker<NAME>, \
-        { __VA_ARGS__ } }
+#define REFLECT_PARENT(NAME) self.parent = &NAME::s_reflectType;
+#define REFLECT_FIELDS(NAME) \
+	static const Reflect::Field fields[] = { \
+		REFLECT_FIELD(DECL,NAME) }; \
+	self.fields = fields;
+#define REFLECT_FIELD(DECL,NAME) { #NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME) },
+#define REFLECT_TO_STRING(FUNC) self.toString = FUNC;
 
-//&s_reflectFields[0], &NAME::s_reflectFields[sizeof(NAME::s_reflectFields)/sizeof(Reflect::Field)]
+
