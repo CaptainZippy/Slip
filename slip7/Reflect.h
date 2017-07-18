@@ -19,7 +19,7 @@ namespace Reflect {
     };
 
     struct Field {
-        const char* name;
+        std::string name;
         const Type* type;
         int offset;
     };
@@ -111,12 +111,12 @@ namespace Reflect {
 #define PP_PASTE(a,b) PP_PASTE_(a,b)
 #define PP_PASTE_(a,b) a ## b
 
-#if 1 //TODO
+#if 1
     #define PP_APPLY(MACRO, ...)  MACRO(__VA_ARGS__)
     #define PP_FOR_1(MACRO,X)     PP_APPLY(MACRO,X)
     #define PP_FOR_2(MACRO,X,...) PP_APPLY(MACRO,X) PP_APPLY(PP_FOR_1,MACRO,__VA_ARGS__)
     #define PP_FOREACH(MACRO,...) PP_APPLY(PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__)),MACRO, __VA_ARGS__)
-#else
+#else //TODO non msvc
     #define PP_FOR_1(MACRO,X)     MACRO(X)
     #define PP_FOR_2(MACRO,X,...) MACRO(X) PP_FOR_1(MACRO,__VA_ARGS__)
     #define PP_FOREACH(MACRO,...) PP_PASTE(PP_FOR_, PP_NARG(__VA_ARGS__))(MACRO, __VA_ARGS__)

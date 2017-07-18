@@ -2,12 +2,12 @@
 #include "Syntax.h"
 
 namespace Syntax {
-    REFLECT_BEGIN(Value)
+    REFLECT_BEGIN(Syntax::Value)
         REFLECT_PARENT(Atom)
         REFLECT_FIELD(m_text)
     REFLECT_END()
 
-    REFLECT_BEGIN(Atom)
+    REFLECT_BEGIN(Syntax::Atom)
         REFLECT_FIELD(m_attrs)
     REFLECT_END()
 }

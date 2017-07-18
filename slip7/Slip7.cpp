@@ -68,8 +68,9 @@ namespace Reflect {
                     }
                     for( auto c : reversed(chain) ) {
                         for( auto f : c->fields ) {
+                            if (f.name == "m_type") continue;
                             out.nl();
-                            out.field(f.name);
+                            //out.field(f.name.c_str());
                             Var v = top[f];
                             printVar( out, v );
                         }
@@ -84,8 +85,8 @@ namespace Reflect {
                     unsigned count = unsigned(( e - s ) / et->size);
                     out.begin("[");
                     for( unsigned i = 0; i < count; ++i ) {
+                        if (i != 0) out.nl();
                         Var e{ s + i * et->size, et };
-                        out.nl();
                         printVar( out, e );
                     }
                     out.end("]");
@@ -303,7 +304,7 @@ namespace Sema {
         REFLECT_PARENT(Node)
         REFLECT_TO_STRING(Symbol::toString)
         REFLECT_FIELD(m_name)
-        REFLECT_FIELD(m_sym)
+        //REFLECT_FIELD(m_sym)
     REFLECT_END()
 
     struct FunctionDecl : public Node {
@@ -347,6 +348,7 @@ namespace Sema {
 
     struct Scope : public Node {
         REFLECT_DECL();
+        Scope(Node* c) : m_child(c) {}
         Node* m_child{ nullptr };
     };
     REFLECT_BEGIN(Scope)
@@ -466,14 +468,23 @@ namespace Sema {
             auto body = args.cur();
             args.advance();
             verify(args.used());
+
+            Node* ret = nullptr;
             auto seq = new Sequence();
+            
             for( auto pair : lets->items) {
-                auto let = dynamic_cast<Syntax::List*>( pair );
-                verify( let->size() == 2 );
-                //Atom* a = pair.second->parse( state );
-                //state->define( pair.first->text().c_str(), a );
+                auto cur = dynamic_cast<Syntax::List*>( pair );
+                verify(cur->size() == 2);
+                auto sym = dynamic_cast<Syntax::Symbol*>(cur->items[0]);
+                verify(sym);
+                Node* v = state->eval(cur->items[1]); //TODO, wrong
+                Symbol* s = Symbol::parse1(state, sym);
+                seq->m_items.push_back(new Definition(s, v));
+                state->define(sym->text().c_str(), v);
             }
-            return new Scope();
+            seq->m_items.push_back(state->eval(body));
+
+            return new Scope(seq);
         }
     };
     #if 0
