@@ -1,14 +1,14 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "Syntax.h"
 
 namespace Syntax {
     REFLECT_BEGIN(Value)
         REFLECT_PARENT(Atom)
-        REFLECT_FIELDS(m_text)
+        REFLECT_FIELD(m_text)
     REFLECT_END()
 
     REFLECT_BEGIN(Atom)
-        //REFLECT_FIELD(Atom, m_attrs)
+        REFLECT_FIELD(m_attrs)
     REFLECT_END()
 }
 

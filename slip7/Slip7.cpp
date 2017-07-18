@@ -1,12 +1,14 @@
-
+﻿
 // 1. lex + tree
 // 2. tree shape check
 // 3. syntax basics
 // 4. syntax 
+
 #include "Pch.h"
 #include "SourceManager.h"
 #include "Syntax.h"
 #include "Reflect.h"
+
 namespace Reflect {
     namespace Detail {
         struct Output {
@@ -131,20 +133,39 @@ namespace Sema {
         Type* m_type{ nullptr };
     };
     REFLECT_BEGIN(Node)
-        REFLECT_FIELDS(m_type)
+        REFLECT_FIELD(m_type)
     REFLECT_END()
 
 
     struct Type : Node {
+        REFLECT_DECL();
     };
+    REFLECT_BEGIN(Type)
+        REFLECT_PARENT(Node)
+    REFLECT_END()
 
     struct Decl : Node {
+        REFLECT_DECL();
     };
 
+    REFLECT_BEGIN(Decl)
+        REFLECT_PARENT(Node)
+    REFLECT_END()
+
     struct Number : Node {
+        REFLECT_DECL();
         Number( Syntax::Number* n) : m_num(n) {}
         Syntax::Number* m_num;
+
+        static std::string toString(const void* p) {
+            auto n = static_cast<const Number*>(p);
+            return n->m_num->text();
+        }
     };
+    REFLECT_BEGIN(Number)
+        REFLECT_PARENT(Node)
+        REFLECT_TO_STRING(Number::toString)
+    REFLECT_END()
 
     struct Module : Node {
         REFLECT_DECL();
@@ -153,7 +174,7 @@ namespace Sema {
 
     REFLECT_BEGIN(Module)
         REFLECT_PARENT(Node)
-        REFLECT_FIELDS(m_items)
+        REFLECT_FIELD(m_items)
     REFLECT_END()
 
     struct State {
@@ -236,8 +257,9 @@ namespace Sema {
     };
 
     REFLECT_BEGIN(FunctionCall)
-        REFLECT_FIELDS(m_func)
-        //REFLECT_FIELD(m_args)
+        REFLECT_PARENT(Node)
+        //REFLECT_FIELD(m_func)
+        REFLECT_FIELD(m_args)
     REFLECT_END()
 
     struct Symbol : public Node {
@@ -278,13 +300,13 @@ namespace Sema {
     };
 
     REFLECT_BEGIN(Symbol)
-        REFLECT_FIELDS(m_name)
+        REFLECT_PARENT(Node)
         REFLECT_TO_STRING(Symbol::toString)
-        //REFLECT_FIELD(Symbol, m_sym)
+        REFLECT_FIELD(m_name)
+        REFLECT_FIELD(m_sym)
     REFLECT_END()
 
     struct FunctionDecl : public Node {
-
         REFLECT_DECL();
 
         std::vector< Symbol* > m_arg_syms;
@@ -307,23 +329,33 @@ namespace Sema {
     };
 
     REFLECT_BEGIN(FunctionDecl)
-        REFLECT_FIELDS(m_arg_syms)
-        //REFLECT_FIELD(FunctionDecl, m_body)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_arg_syms)
+        REFLECT_FIELD(m_body)
     REFLECT_END()
 
 
     struct Sequence : public Node {
+        REFLECT_DECL();
         std::vector<Node*> m_items;
     };
 
+    REFLECT_BEGIN(Sequence)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_items)
+    REFLECT_END()
+
     struct Scope : public Node {
+        REFLECT_DECL();
         Node* m_child{ nullptr };
     };
-
+    REFLECT_BEGIN(Scope)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_child)
+    REFLECT_END()
 
 
     struct Definition : public Node {
-
         REFLECT_DECL();
 
         Symbol* m_sym = nullptr;
@@ -359,8 +391,9 @@ namespace Sema {
     };
 
     REFLECT_BEGIN(Definition)
-        REFLECT_FIELDS(m_sym)
-//		REFLECT_FIELD(m_value)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_sym)
+		REFLECT_FIELD(m_value)
     REFLECT_END()
 
     struct BuiltinDefine : public Node {
@@ -474,8 +507,6 @@ namespace Sema {
 
     static Type s_intType;
     static Type s_doubleType;
-
-
 
     Node* analyse( Syntax::List* syntax ) {
         State state;

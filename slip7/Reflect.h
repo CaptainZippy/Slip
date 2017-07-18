@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace Reflect {
     struct Type;
@@ -10,7 +10,7 @@ namespace Reflect {
         virtual ~AbstractReflected() {}
     };
 
-    enum class Kind {
+    enum class Kind : unsigned {
         Void,
         Pointer,
         Record,
@@ -50,7 +50,7 @@ namespace Reflect {
         MakeFunc make;//{ nullptr };
         DynamicTypeFunc dynamicType;//{ nullptr };
         ToStringFunc toString;//{ nullptr };
-        array_view<Field> fields;
+        std::vector<Field> fields;
 
         static bool extends( const Type* test, const Type* base ) {
             for( auto c = test; c; c = c->parent ) {
@@ -139,11 +139,7 @@ namespace Reflect {
 #define REFLECT_END() return self; }
 
 #define REFLECT_PARENT(NAME) self.parent = &NAME::s_reflectType;
-#define REFLECT_FIELDS(NAME) \
-    static const Reflect::Field fields[] = { \
-        REFLECT_FIELD(DECL,NAME) }; \
-    self.fields = fields;
-#define REFLECT_FIELD(DECL,NAME) { #NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME) },
+#define REFLECT_FIELD(NAME) self.fields.push_back( {#NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME)} );
 #define REFLECT_TO_STRING(FUNC) self.toString = FUNC;
 
 
