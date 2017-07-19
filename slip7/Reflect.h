@@ -30,6 +30,10 @@ namespace Reflect {
     }
 
     struct Var {
+        template<typename T>
+        Var(T* t) : addr(t), type(t->dynamicType()) {}
+        Var(void* a, const Type* t) : addr(a), type(t) {}
+
         void* addr;
         const Type* type;
 
