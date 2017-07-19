@@ -113,23 +113,12 @@ namespace Reflect {
 namespace Sema {
     struct Node;
     struct Type;
-    struct State;
     struct FunctionCall;
     struct FunctionDecl;
     struct Number;
 
-    typedef Iter<Syntax::Atom*> Args;
-
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
-        virtual Node* eval( State* state, Args& args ) const {
-            verify( false );
-            return nullptr;
-        }
-        void print() const {
-            Reflect::Var self{ const_cast<Node*>(this), dynamicType() };
-            Reflect::printVar( self );
-        }
 
         Type* m_type{ nullptr };
     };
@@ -178,76 +167,6 @@ namespace Sema {
         REFLECT_FIELD(m_items)
     REFLECT_END()
 
-    struct State {
-        
-        void define( const char* sym, Node* value ) {
-            syms[intern( sym )] = value;
-        }
-
-        Node* eval( Syntax::Atom* atom ) {
-            if( auto sym = dynamic_cast<Syntax::Symbol*>( atom ) ) {
-                auto it = syms.find( intern( sym->text().c_str() ) );
-                assert2( it != syms.end(), sym->text().c_str() );
-                return it->second;
-            }
-            else if( auto list = dynamic_cast<Syntax::List*>( atom ) ) {
-                assert( list );
-                assert( list->items.size() );
-                auto& items = list->items;
-                Node* n = eval( items[0] );
-                Args args{ items }; args.advance();
-                return n->eval( this, args );
-            }
-            else if( auto num = dynamic_cast<Syntax::Number*>( atom ) ) {
-                return new Number( num );
-            }
-
-            verify( false );
-            return nullptr;
-        }
-
-        Module* module( Syntax::List* list ) {
-            auto* module = new Module();
-            for( auto c : list->items ) {
-                Node* n = eval(c);
-                module->m_items.push_back( n );
-            }
-            return module;
-        }
-
-        std::map < const char*, Node* > syms;
-
-    protected:
-
-        std::unordered_set<std::string> m_interns;
-        const char* intern( const char* s ) {
-            auto it = m_interns.insert( s );
-            return it.first->c_str();
-        }
-        #if 0
-        Atom* evalSym( Symbol& sym ) {
-            auto it = syms.find( intern( sym.text().c_str() ) );
-            assert( it != syms.end() );
-            return it->second;
-        }
-        Type* newCallableType( array_view<Type*> inTypes, Type* retType ) {
-            return nullptr;
-        }
-        #endif
-
-    };
-    #if 0
-    const Reflect::Type Atom::s_reflectType = { nullptr, "Atom" };
-
-    Atom* State_evalSym( State* s, std::string& sym ) {
-        auto it = s->syms.find( s->intern( sym.c_str() ) );
-        if( it == s->syms.end() ) {
-            Error.fmt( "Undefined symbol %s", sym.c_str() );
-        }
-        return it->second;
-    }
-    #endif
-
     struct FunctionCall : public Node {
         REFLECT_DECL();
         const FunctionDecl* m_func{ nullptr };
@@ -266,38 +185,20 @@ namespace Sema {
     struct Symbol : public Node {
         REFLECT_DECL();
 
+        Symbol(std::string&& n, Syntax::Symbol* s) : m_name(n), m_sym(s) {
+        }
+
         std::string m_name;
         Syntax::Symbol* m_sym;
 
-        static Symbol* parse1( State* state, Syntax::Atom* atom ) {
-            auto sym = dynamic_cast<Syntax::Symbol*>( atom );
-            verify( sym );
-            auto r = new Symbol();
-            r->m_name = sym->text();
-            r->m_sym = sym;
-            if( sym->m_type ) {
-                Node* n = state->eval( sym->m_type );
-                auto t = dynamic_cast<Type*>( n );
-                r->m_type = t;
-            }
-            return r;
-        }
-
-        static Symbol* parse( State* state, Args& args ) {
-            auto r = parse1( state, args.cur() );
-            args.advance();
-            return r;
+        std::string text() const {
+            return m_sym->text();
         }
 
         static std::string toString(const void* obj) {
             auto sym = static_cast<const Symbol*>(obj);
             return string_format("%s{\"%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
         }
-
-        //    //auto val = Expr::bind( state, args );
-        //    //Atom* value = rhs->parse( state );
-        //    return new Symbol{ name, sym };
-        //}
     };
 
     REFLECT_BEGIN(Symbol)
@@ -318,15 +219,6 @@ namespace Sema {
             m_arg_syms.swap( args );
             m_body = body;
         }
-
-        Node* eval( State* state, Args& args ) const override {
-            std::vector<Node*> vals;
-            verify( args.size() == m_arg_syms.size() );
-            for( ; args.size(); args.advance() ) {
-                vals.push_back( state->eval(args.cur()) );
-            }
-            return new FunctionCall( this, std::move(vals) );
-        }
     };
 
     REFLECT_BEGIN(FunctionDecl)
@@ -344,6 +236,18 @@ namespace Sema {
     REFLECT_BEGIN(Sequence)
         REFLECT_PARENT(Node)
         REFLECT_FIELD(m_items)
+    REFLECT_END()
+
+    struct Argument : public Node {
+        REFLECT_DECL();
+        Argument(Symbol* s) : m_sym(s) {
+        }
+        Symbol* m_sym;
+    };
+
+    REFLECT_BEGIN(Argument)
+        REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_sym)
     REFLECT_END()
 
     struct Scope : public Node {
@@ -365,31 +269,6 @@ namespace Sema {
 
         Definition() {}
         Definition( Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
-
-        #if 0
-        virtual void codegen() {
-            if( auto* def = dynamic_cast<FunctionDefn*>( m_value ) ) {
-                printf( "define <rettype> %s(", m_sym->text().c_str() );
-                const char* sep = "";
-                for( auto* a : def->m_arg_syms ) {
-                    printf( "%s<dtype> %s", sep, a->text().c_str() );
-                    sep = ", ";
-                }
-                printf( ")(" );
-                sep = "";
-                for( auto* a : def->m_arg_syms ) {
-                    printf( "%s<mtype> %s, ", sep, a->text().c_str() );
-                    sep = ", ";
-                }
-                printf( ") {\n" );
-                printf( "}\n" );
-            }
-            else {
-                assert( false );
-            }
-
-        }
-        #endif
     };
 
     REFLECT_BEGIN(Definition)
@@ -397,46 +276,162 @@ namespace Sema {
         REFLECT_FIELD(m_sym)
 		REFLECT_FIELD(m_value)
     REFLECT_END()
+}
 
-    struct BuiltinDefine : public Node {
+namespace Parse {
 
-        /*template<typename FUNC, typename...VISITARGS>
-        void visit( FUNC func, VISITARGS...visitargs ) {
-            func( m_sym, visitargs... );
-            func( m_value, visitargs... );
-        }*/
+    struct State;
+    typedef Iter<Syntax::Atom*> Args;
 
-        Node* eval( State* state, Args& args ) const override {
-            auto sym = Symbol::parse( state, args );
-            auto val = state->eval( args.cur() );
+    struct Parser {
+        virtual ~Parser() {}
+        virtual Sema::Node* parse(State* state, Args& args) const = 0;
+    };
+
+#if 0
+    FunctionDecl* eval(State* state, Args& args) const override {
+        std::vector<Node*> vals;
+        verify(args.size() == m_arg_syms.size());
+        for (; args.size(); args.advance()) {
+            vals.push_back(state->eval(args.cur()));
+        }
+        return new FunctionCall(this, std::move(vals));
+    }
+    static Symbol* parse1(State* state, Syntax::Atom* atom) {
+        auto sym = dynamic_cast<Syntax::Symbol*>(atom);
+        verify(sym);
+        auto r = new Symbol();
+        r->m_name = sym->text();
+        r->m_sym = sym;
+        if (sym->m_type) {
+            Node* n = state->eval(sym->m_type);
+            auto t = dynamic_cast<Type*>(n);
+            r->m_type = t;
+        }
+        return r;
+    }
+
+    static Symbol* parse(State* state, Args& args) {
+        auto r = parse1(state, args.cur());
+        args.advance();
+        return r;
+    }
+
+#endif
+
+    struct State {
+
+        State() {
+            enterScope();
+        }
+
+        ~State() {
+            leaveScope();
+        }
+
+        void enterScope() {
+            syms.resize(syms.size() + 1);
+        }
+
+        void leaveScope() {
+            syms.pop_back();
+        }
+
+        void addParser(const std::string& sym, Parser* value) {
+            auto p = syms.back().insert_or_assign(sym, Pair{ value, nullptr } );
+            assert(p.second);
+        }
+
+        void addSym(const std::string& sym, Sema::Node* node) {
+            auto p = syms.back().insert_or_assign(sym, Pair{ nullptr, node });
+            assert(p.second);
+        }
+
+        Sema::Symbol* symbol(Syntax::Atom* atom) {
+            if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
+                return new Sema::Symbol(sym->text(), sym);
+            }
+            assert(0);
+            return nullptr;
+        }
+
+        Sema::Node* parse(Syntax::Atom* atom) {
+            if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
+                return reference(sym->text());
+            }
+            else if (auto list = dynamic_cast<Syntax::List*>(atom)) {
+                assert(list);
+                assert(list->items.size());
+                auto& items = list->items;
+                auto sym = symbol(items[0]);
+                Args args{ items }; args.advance();
+                auto p = parser(sym->text());
+                return p->parse(this, args);
+            }
+            else if (auto num = dynamic_cast<Syntax::Number*>(atom)) {
+                return new Sema::Number(num);
+            }
+            verify(0);
+            return nullptr;
+        }
+
+    protected:
+
+        Sema::Node* reference(const std::string& s) {
+            verify(0);
+            return nullptr;
+        }
+
+        Parser* parser(const std::string& sym) const {
+            for (auto&& cur : reversed(syms)) {
+                auto x = cur.find(sym);
+                if (x != cur.end()) {
+                    return x->second.first;
+                }
+            }
+            verify(0);
+            return nullptr;
+        }
+        typedef std::pair<Parser*, Sema::Node*> Pair;
+        std::list< std::map<std::string, Pair> > syms;
+    };
+
+    struct Define : public Parser {
+        Sema::Node* parse( State* state, Args& args ) const override {
+            auto sym = state->symbol( args.cur() );
+            args.advance();
+            auto val = state->parse( args.cur() );
             args.advance();
             verify( args.used() );
-            state->define( sym->m_name.c_str(), val );
-            return new Definition( sym, val );
+            auto ret = new Sema::Definition( sym, val );
+            state->addSym( sym->text(), ret );
+            return ret;
         }
     };
 
 
-    struct BuiltinLambda : public Node {
+    struct Lambda : public Parser {
 
-        Node* eval( State* state, Args& args ) const override {
+        Sema::FunctionDecl* parse( State* state, Args& args ) const override {
+            state->enterScope();
             auto ain = dynamic_cast<Syntax::List*>(args.cur());
             args.advance();
-            std::vector< Symbol* > arg_syms;
+            std::vector< Sema::Symbol* > arg_syms;
             for( auto i : ain->items ) {
-                arg_syms.push_back( Symbol::parse1( state, i ) );
+                arg_syms.push_back( state->symbol( i ) );
             }
 
-            //Args::bind( state, args, &arg_syms );
             Syntax::Atom* rhs = args.cur();
             args.advance();
             verify( args.used() );
 
             for( auto a : arg_syms ) {
-                state->define( a->m_name.c_str(), a );
+                state->addSym( a->m_name, new Sema::Argument(a) );
             }
-            Node* body = state->eval( rhs );
-            return new FunctionDecl( arg_syms, body );
+            Sema::Node* body = state->parse( rhs );
+            state->leaveScope();
+
+            return new Sema::FunctionDecl( arg_syms, body );
         }
 
 
@@ -461,30 +456,30 @@ namespace Sema {
     #endif
 
 
-    struct BuiltinLet : public Node {
-        Node* eval( State* state, Args& args ) const override {
-            auto lets = dynamic_cast<Syntax::List*>( args.cur() );
-            args.advance();
-            auto body = args.cur();
-            args.advance();
-            verify(args.used());
+    struct Let : public Parser {
+        Sema::Scope* parse( State* state, Args& args ) const override {
+            //auto lets = dynamic_cast<Syntax::List*>( args.cur() );
+            //args.advance();
+            //auto body = args.cur();
+            //args.advance();
+            //verify(args.used());
 
-            Node* ret = nullptr;
-            auto seq = new Sequence();
-            
-            for( auto pair : lets->items) {
-                auto cur = dynamic_cast<Syntax::List*>( pair );
-                verify(cur->size() == 2);
-                auto sym = dynamic_cast<Syntax::Symbol*>(cur->items[0]);
-                verify(sym);
-                Node* v = state->eval(cur->items[1]); //TODO, wrong
-                Symbol* s = Symbol::parse1(state, sym);
-                seq->m_items.push_back(new Definition(s, v));
-                state->define(sym->text().c_str(), v);
-            }
-            seq->m_items.push_back(state->eval(body));
+            //Node* ret = nullptr;
+            //auto seq = new Sequence();
+            //
+            //for( auto pair : lets->items) {
+            //    auto cur = dynamic_cast<Syntax::List*>( pair );
+            //    verify(cur->size() == 2);
+            //    auto sym = dynamic_cast<Syntax::Symbol*>(cur->items[0]);
+            //    verify(sym);
+            //    Node* v = state->eval(cur->items[1]); //TODO, wrong
+            //    Symbol* s = Symbol::parse1(state, sym);
+            //    seq->m_items.push_back(new Definition(s, v));
+            //    state->define(sym->text().c_str(), v);
+            //}
+            //seq->m_items.push_back(state->eval(body));
 
-            return new Scope(seq);
+            return new Sema::Scope(nullptr);
         }
     };
     #if 0
@@ -516,27 +511,22 @@ namespace Sema {
     //}
     #endif
 
-    static Type s_intType;
-    static Type s_doubleType;
+    static Sema::Type s_intType;
+    static Sema::Type s_doubleType;
 
-    Node* analyse( Syntax::List* syntax ) {
+    Sema::Module* module( Syntax::List* syntax ) {
         State state;
-        state.define( "define", new BuiltinDefine() );
-        state.define( "lambda", new BuiltinLambda() );
-        state.define( "let", new BuiltinLet() );
-        //state.define( "int", &s_intType );
-        state.define( "double", &s_doubleType );
-        Module* module = state.module( syntax );
-        ////begin for range set! add_d div_d
-        //for( Atom* a : syntax->items ) {
-        //    Atom* b = a->parse( &state );
-        //    b->print( 0 );
-        //    b->codegen();
-        //}
+        state.addParser( "define", new Define() );
+        state.addParser( "lambda", new Lambda() );
+        state.addParser( "let", new Let() );
+        state.addSym( "int", &s_intType );
+        state.addSym( "double", &s_doubleType );
+        auto module = new Sema::Module();
+        for (auto c : syntax->items) {
+            Sema::Node* n = state.parse(c);
+            module->m_items.push_back(n);
+        }
         return module;
-    }
-    Node* typecheck( Node* node ) {
-        return node;
     }
 }
 
@@ -549,13 +539,12 @@ int main( int argc, const char* argv[] ) {
         Syntax::SourceManager smanager;
         Syntax::List* syntax = Syntax::parse_file( smanager, argv[1] );
         verify( syntax );
-        Sema::Node* sema = Sema::analyse( syntax );
+        Sema::Node* sema = Parse::module( syntax );
         verify( sema );
-        sema->print();
-        auto ok = Sema::typecheck( sema );
-        verify( ok );
+        Reflect::printVar(sema);
     }
     catch( float ) {
         return 1;
     }
+    return 0;
 }
