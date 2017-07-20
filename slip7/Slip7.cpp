@@ -39,10 +39,6 @@ namespace Reflect {
                 out.write("null");
                 return;
             }
-            if (top.type->toString) {
-                out.write( top.type->toString(top.addr).c_str() );
-                return;
-            }
             switch( top.type->kind ) {
                 case Kind::Pointer: {
                     auto obj = *(void**)top.addr;
@@ -62,17 +58,20 @@ namespace Reflect {
                     out.write("{");
                     std::vector<const Reflect::Type*> chain;
                     for (auto c = top.type; c; c = c->parent) {
-                        if (c->fields.size()) {
-                            chain.push_back(c);
-                        }
+                        chain.push_back(c);
                     }
                     for( auto c : reversed(chain) ) {
-                        for( auto f : c->fields ) {
-                            if (f.name == "m_type") continue;
-                            out.nl();
-                            //out.field(f.name.c_str());
-                            Var v = top[f];
-                            printVar( out, v );
+                        if (c->toString) {
+                            out.write(c->toString(top.addr).c_str());
+                        }
+                        else {
+                            for( auto f : c->fields ) {
+                                //if (f.name == "m_type") continue;
+                                out.nl();
+                                //out.field(f.name.c_str());
+                                Var v = top[f];
+                                printVar( out, v );
+                            }
                         }
                     }
                     out.end("}");
@@ -197,13 +196,13 @@ namespace Sema {
 
         static std::string toString(const void* obj) {
             auto sym = static_cast<const Symbol*>(obj);
-            return string_format("%s{\"%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
+            return string_format("%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
         }
     };
 
     REFLECT_BEGIN(Symbol)
         REFLECT_PARENT(Node)
-        REFLECT_TO_STRING(Symbol::toString)
+        //REFLECT_TO_STRING(Symbol::toString)
         REFLECT_FIELD(m_name)
         //REFLECT_FIELD(m_sym)
     REFLECT_END()
@@ -256,6 +255,7 @@ namespace Sema {
         }
         Node* m_sym;
     };
+
     REFLECT_BEGIN(Reference)
         REFLECT_PARENT(Node)
         //REFLECT_FIELD(m_sym)
@@ -266,6 +266,7 @@ namespace Sema {
         Scope(Node* c) : m_child(c) {}
         Node* m_child{ nullptr };
     };
+
     REFLECT_BEGIN(Scope)
         REFLECT_PARENT(Node)
         REFLECT_FIELD(m_child)
@@ -298,37 +299,6 @@ namespace Parse {
         virtual ~Parser() {}
         virtual Sema::Node* parse(State* state, Args& args) const = 0;
     };
-
-#if 0
-    FunctionDecl* eval(State* state, Args& args) const override {
-        std::vector<Node*> vals;
-        verify(args.size() == m_arg_syms.size());
-        for (; args.size(); args.advance()) {
-            vals.push_back(state->eval(args.cur()));
-        }
-        return new FunctionCall(this, std::move(vals));
-    }
-    static Symbol* parse1(State* state, Syntax::Atom* atom) {
-        auto sym = dynamic_cast<Syntax::Symbol*>(atom);
-        verify(sym);
-        auto r = new Symbol();
-        r->m_name = sym->text();
-        r->m_sym = sym;
-        if (sym->m_type) {
-            Node* n = state->eval(sym->m_type);
-            auto t = dynamic_cast<Type*>(n);
-            r->m_type = t;
-        }
-        return r;
-    }
-
-    static Symbol* parse(State* state, Args& args) {
-        auto r = parse1(state, args.cur());
-        args.advance();
-        return r;
-    }
-
-#endif
 
     struct State {
 
@@ -401,7 +371,8 @@ namespace Parse {
 
         typedef std::pair<Parser*, Sema::Node*> Pair;
         Sema::Node* reference(Sema::Node* n) {
-            return new Sema::Reference(n);
+            //return new Sema::Reference(n);
+            return n;
         }
 
         Pair lookup(const std::string& sym) const {
@@ -430,7 +401,6 @@ namespace Parse {
         }
     };
 
-
     struct Lambda : public Parser {
 
         Sema::FunctionDecl* parse( State* state, Args& args ) const override {
@@ -458,29 +428,27 @@ namespace Parse {
 
     struct Let : public Parser {
         Sema::Scope* parse( State* state, Args& args ) const override {
-            verify(0); //TODO
-            //auto lets = dynamic_cast<Syntax::List*>( args.cur() );
-            //args.advance();
-            //auto body = args.cur();
-            //args.advance();
-            //verify(args.used());
+            auto lets = dynamic_cast<Syntax::List*>( args.cur() );
+            args.advance();
+            auto body = args.cur();
+            args.advance();
+            verify(args.used());
 
-            //Node* ret = nullptr;
-            //auto seq = new Sequence();
-            //
-            //for( auto pair : lets->items) {
-            //    auto cur = dynamic_cast<Syntax::List*>( pair );
-            //    verify(cur->size() == 2);
-            //    auto sym = dynamic_cast<Syntax::Symbol*>(cur->items[0]);
-            //    verify(sym);
-            //    Node* v = state->eval(cur->items[1]); //TODO, wrong
-            //    Symbol* s = Symbol::parse1(state, sym);
-            //    seq->m_items.push_back(new Definition(s, v));
-            //    state->define(sym->text().c_str(), v);
-            //}
-            //seq->m_items.push_back(state->eval(body));
+            state->enterScope();
+            auto seq = new Sema::Sequence();
+            for( auto pair : lets->items) {
+                auto cur = dynamic_cast<Syntax::List*>( pair );
+                verify(cur->size() == 2);
+                auto sym = state->symbol(cur->items[0]);
+                verify(sym);
+                Sema::Node* val = state->parse(cur->items[1]);
+                state->addSym(sym->text(), val);
+                seq->m_items.push_back(new Sema::Definition(sym, val));
+            }
+            seq->m_items.push_back(state->parse(body));
+            state->leaveScope();
 
-            return new Sema::Scope(nullptr);
+            return new Sema::Scope(seq);
         }
     };
     
