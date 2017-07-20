@@ -169,9 +169,9 @@ namespace Sema {
 
     struct FunctionCall : public Node {
         REFLECT_DECL();
-        const FunctionDecl* m_func{ nullptr };
+        const Node* m_func{ nullptr };
         std::vector< Node* > m_args;
-        FunctionCall( const FunctionDecl* func, std::vector< Node* >&& args )
+        FunctionCall( const Node* func, std::vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
     };
@@ -248,6 +248,17 @@ namespace Sema {
     REFLECT_BEGIN(Argument)
         REFLECT_PARENT(Node)
         REFLECT_FIELD(m_sym)
+    REFLECT_END()
+
+    struct Reference : public Node {
+        REFLECT_DECL();
+        Reference(Node* s) : m_sym(s) {
+        }
+        Node* m_sym;
+    };
+    REFLECT_BEGIN(Reference)
+        REFLECT_PARENT(Node)
+        //REFLECT_FIELD(m_sym)
     REFLECT_END()
 
     struct Scope : public Node {
@@ -357,7 +368,9 @@ namespace Parse {
 
         Sema::Node* parse(Syntax::Atom* atom) {
             if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
-                return reference(sym->text());
+                auto p = lookup(sym->text());
+                verify(p.first == nullptr);
+                return reference(p.second);
             }
             else if (auto list = dynamic_cast<Syntax::List*>(atom)) {
                 assert(list);
@@ -365,8 +378,17 @@ namespace Parse {
                 auto& items = list->items;
                 auto sym = symbol(items[0]);
                 Args args{ items }; args.advance();
-                auto p = parser(sym->text());
-                return p->parse(this, args);
+                auto p = lookup(sym->text());
+                if (p.first) {
+                    return p.first->parse(this, args);
+                }
+                else {
+                    std::vector<Sema::Node*> fa;
+                    for (auto a : args) {
+                        fa.push_back( parse(a) );
+                    }
+                    return new Sema::FunctionCall(reference(p.second), std::move(fa));
+                }
             }
             else if (auto num = dynamic_cast<Syntax::Number*>(atom)) {
                 return new Sema::Number(num);
@@ -377,22 +399,21 @@ namespace Parse {
 
     protected:
 
-        Sema::Node* reference(const std::string& s) {
-            verify(0);
-            return nullptr;
+        typedef std::pair<Parser*, Sema::Node*> Pair;
+        Sema::Node* reference(Sema::Node* n) {
+            return new Sema::Reference(n);
         }
 
-        Parser* parser(const std::string& sym) const {
+        Pair lookup(const std::string& sym) const {
             for (auto&& cur : reversed(syms)) {
                 auto x = cur.find(sym);
                 if (x != cur.end()) {
-                    return x->second.first;
+                    return x->second;
                 }
             }
             verify(0);
-            return nullptr;
+            return Pair{};
         }
-        typedef std::pair<Parser*, Sema::Node*> Pair;
         std::list< std::map<std::string, Pair> > syms;
     };
 
@@ -433,31 +454,11 @@ namespace Parse {
 
             return new Sema::FunctionDecl( arg_syms, body );
         }
-
-
-        //    Type* retType = m_body->parse( state );
-        //    auto r = new Lambda( nullptr/*state->m_env*/, m_arg_syms.m_list, m_body );
-        //    r->m_loc = m_body->m_loc;
-        //    r->m_type = state->newCallableType( inTypes, retType );
-        //    return r;
-        //}
     };
-
-    #if 0
-    struct Reference : public Atom {
-        Atom* m_atom;
-        Reference( Atom* a ) : m_atom( a ) {
-        }
-    };
-
-    Atom* Symbol::_parse( State* state, AtomList* args ) {
-        return new Reference( state->evalSym( *this ) );
-    }
-    #endif
-
 
     struct Let : public Parser {
         Sema::Scope* parse( State* state, Args& args ) const override {
+            verify(0); //TODO
             //auto lets = dynamic_cast<Syntax::List*>( args.cur() );
             //args.advance();
             //auto body = args.cur();
@@ -482,35 +483,7 @@ namespace Parse {
             return new Sema::Scope(nullptr);
         }
     };
-    #if 0
-
-    struct BuiltinModule {
-        Args::ListOf< List* > m_contents;
-        /*template<typename FUNC, typename...VISITARGS>
-        void visit( FUNC func, VISITARGS...visitargs ) {
-            func( m_contents, visitargs... );
-        }*/
-
-        Atom* parse( State* state, List* syntax ) {
-            for( Atom* a : syntax->items ) {
-                a->parse( state );
-            }
-            return nullptr;
-        }
-    };
-
-
-    //void Atom::print_field( int ind, const char* name, const void* addr, const type_info& type ) const {
-    //    printf( "%s%s", indent(ind), name );
-    //    if( type == typeid( Symbol* ) ) {
-    //        printf( "=%s ", (*static_cast<const Symbol*const*>( addr ))->text().c_str() );
-    //    }
-    //    else {
-    //        printf( "=(%s)%p ", type.name(), addr );
-    //    }
-    //}
-    #endif
-
+    
     static Sema::Type s_intType;
     static Sema::Type s_doubleType;
 

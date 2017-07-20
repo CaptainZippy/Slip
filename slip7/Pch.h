@@ -202,6 +202,8 @@ struct Iter {
         }
         return false;
     }
+    T* begin() { return m_begin; }
+    T* end() { return m_end; }
 
     T* m_begin{ nullptr };
     T* m_end{ nullptr };
