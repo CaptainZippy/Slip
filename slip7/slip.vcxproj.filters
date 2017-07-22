@@ -12,6 +12,7 @@
     <ClInclude Include="SourceManager.h" />
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="temp.h" />
+    <ClInclude Include="Ast.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bench\ack.slip">

@@ -153,6 +153,7 @@
     <ClCompile Include="Syntax.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Ast.h" />
     <ClInclude Include="Pch.h" />
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="SourceManager.h" />
