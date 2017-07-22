@@ -56,15 +56,18 @@ namespace Reflect {
         ToStringFunc toString;//{ nullptr };
         std::vector<Field> fields;
 
-        static bool extends( const Type* test, const Type* base ) {
-            for( auto c = test; c; c = c->parent ) {
-                if( c == base ) {
+        template<typename BASE>
+        bool extends() const {
+            auto b = BASE::staticType();
+            for (auto c = this; c; c = c->parent) {
+                if (c == b) {
                     return true;
                 }
             }
             return false;
         }
         bool isPointer() const { return kind == Kind::Pointer; }
+        bool isArray() const { return kind == Kind::Array; }
 
         Var newInstance() const {
             assert( make );
