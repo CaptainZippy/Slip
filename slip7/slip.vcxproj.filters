@@ -4,7 +4,7 @@
     <ClCompile Include="Slip7.cpp" />
     <ClCompile Include="Pch.cpp" />
     <ClCompile Include="Reflect.cpp" />
-    <ClCompile Include="Lexer.cpp" />
+    <ClCompile Include="Lex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pch.h" />
@@ -12,7 +12,7 @@
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="temp.h" />
     <ClInclude Include="Ast.h" />
-    <ClInclude Include="Lexer.h" />
+    <ClInclude Include="Lex.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bench\ack.slip">

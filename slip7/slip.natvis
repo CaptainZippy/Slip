@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-  <Type Name="Lexer::Symbol">
+  <Type Name="Lex::Symbol">
     <DisplayString>sym={m_sym,s}</DisplayString>
   </Type>
-  <Type Name="Lexer::String">
+  <Type Name="Lex::String">
     <DisplayString>str={m_str}</DisplayString>
   </Type>
-  <Type Name="Lexer::List">
+  <Type Name="Lex::List">
     <Expand>
       <ExpandedItem>items</ExpandedItem>
     </Expand>
@@ -32,7 +32,7 @@
       </ArrayItems>
     </Expand>
   </Type>
-  <Type Name="Lexer::SourceLocation">
+  <Type Name="Lex::SourceLocation">
     <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_off}</DisplayString>
     <DisplayString>file="unnamed"</DisplayString>
   </Type>

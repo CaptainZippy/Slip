@@ -2,7 +2,7 @@
 #include "SourceManager.h"
 #include "Reflect.h"
 
-namespace Lexer {
+namespace Lex {
     struct Atom;
     struct List;
     struct Number;

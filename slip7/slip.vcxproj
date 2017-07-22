@@ -150,14 +150,14 @@
     </ClCompile>
     <ClCompile Include="Reflect.cpp" />
     <ClCompile Include="Slip7.cpp" />
-    <ClCompile Include="Lexer.cpp" />
+    <ClCompile Include="Lex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
     <ClInclude Include="Pch.h" />
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="SourceManager.h" />
-    <ClInclude Include="Lexer.h" />
+    <ClInclude Include="Lex.h" />
     <ClInclude Include="temp.h" />
   </ItemGroup>
   <ItemGroup>

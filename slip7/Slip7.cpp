@@ -1,12 +1,12 @@
 
 // 1. lex + tree
 // 2. tree shape check
-// 3. Lexer basics
-// 4. Lexer 
+// 3. Lex basics
+// 4. Lex 
 
 #include "Pch.h"
 #include "SourceManager.h"
-#include "Lexer.h"
+#include "Lex.h"
 #include "Reflect.h"
 #include "Ast.h"
 
@@ -72,7 +72,7 @@ namespace Sema {
 namespace Parse {
 
     struct State;
-    typedef Iter<Lexer::Atom*> Args;
+    typedef Iter<Lex::Atom*> Args;
 
     struct Parser {
         virtual ~Parser() {}
@@ -107,8 +107,8 @@ namespace Parse {
             assert(p.second);
         }
 
-        Ast::Symbol* symbol(Lexer::Atom* atom) {
-            if (auto sym = dynamic_cast<Lexer::Symbol*>(atom)) {
+        Ast::Symbol* symbol(Lex::Atom* atom) {
+            if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
                 auto ret = new Ast::Symbol(sym->text(), sym);
                 if (sym->m_type) {
                     auto n = this->parse(sym->m_type);
@@ -122,13 +122,13 @@ namespace Parse {
             return nullptr;
         }
 
-        Ast::Node* parse(Lexer::Atom* atom) {
-            if (auto sym = dynamic_cast<Lexer::Symbol*>(atom)) {
+        Ast::Node* parse(Lex::Atom* atom) {
+            if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
                 auto p = lookup(sym->text());
                 verify(p.first == nullptr);
                 return reference(p.second);
             }
-            else if (auto list = dynamic_cast<Lexer::List*>(atom)) {
+            else if (auto list = dynamic_cast<Lex::List*>(atom)) {
                 assert(list);
                 assert(list->items.size());
                 auto& items = list->items;
@@ -146,7 +146,7 @@ namespace Parse {
                     return new Ast::FunctionCall(reference(p.second), std::move(fa));
                 }
             }
-            else if (auto num = dynamic_cast<Lexer::Number*>(atom)) {
+            else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
                 return new Ast::Number(num);
             }
             verify(0);
@@ -191,14 +191,14 @@ namespace Parse {
 
         Ast::FunctionDecl* parse( State* state, Args& args ) const override {
             state->enterScope();
-            auto ain = dynamic_cast<Lexer::List*>(args.cur());
+            auto ain = dynamic_cast<Lex::List*>(args.cur());
             args.advance();
             std::vector< Ast::Symbol* > arg_syms;
             for( auto i : ain->items ) {
                 arg_syms.push_back( state->symbol( i ) );
             }
 
-            Lexer::Atom* rhs = args.cur();
+            Lex::Atom* rhs = args.cur();
             args.advance();
             verify( args.used() );
 
@@ -214,7 +214,7 @@ namespace Parse {
 
     struct Let : public Parser {
         Ast::Scope* parse( State* state, Args& args ) const override {
-            auto lets = dynamic_cast<Lexer::List*>( args.cur() );
+            auto lets = dynamic_cast<Lex::List*>( args.cur() );
             args.advance();
             auto body = args.cur();
             args.advance();
@@ -223,7 +223,7 @@ namespace Parse {
             state->enterScope();
             auto seq = new Ast::Sequence();
             for( auto pair : lets->items) {
-                auto cur = dynamic_cast<Lexer::List*>( pair );
+                auto cur = dynamic_cast<Lex::List*>( pair );
                 verify(cur->size() == 2);
                 auto sym = state->symbol(cur->items[0]);
                 verify(sym);
@@ -238,7 +238,7 @@ namespace Parse {
         }
     };
     
-    Ast::Module* module( Lexer::List* Lexer ) {
+    Ast::Module* module( Lex::List* Lex ) {
         State state;
         state.addParser( "define", new Define() );
         state.addParser( "lambda", new Lambda() );
@@ -247,7 +247,7 @@ namespace Parse {
         state.addSym( "double", &Ast::s_typeDouble );
         state.addSym( "void", &Ast::s_typeVoid );
         auto module = new Ast::Module();
-        for (auto c : Lexer->items) {
+        for (auto c : Lex->items) {
             Ast::Node* n = state.parse(c);
             module->m_items.push_back(n);
         }
@@ -261,10 +261,10 @@ int main( int argc, const char* argv[] ) {
         return 1;
     }
     try {
-        Lexer::SourceManager smanager;
-        Lexer::List* Lexer = Lexer::parse_file( smanager, argv[1] );
-        verify( Lexer );
-        Ast::Module* ast = Parse::module( Lexer );
+        Lex::SourceManager smanager;
+        Lex::List* Lex = Lex::parse_file( smanager, argv[1] );
+        verify( Lex );
+        Ast::Module* ast = Parse::module( Lex );
         verify(ast);
         Reflect::printVar(ast);
         Sema::type_check(ast);
