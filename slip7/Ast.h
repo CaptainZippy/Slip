@@ -3,20 +3,9 @@
 #include "Lex.h"
 
 namespace Ast {
-    struct Node;
-    struct Type;
-    struct Decl;
-    struct Number;
-    struct Module;
-    struct FunctionCall;
-    struct Symbol;
-    struct FunctionDecl;
-    struct Number;
-    struct Sequence;
-    struct Argument;
-    struct Reference;
-    struct Scope;
-    struct Definition;
+    #define AST_NODE(X) struct X;
+    #include "Ast.inc"
+    #undef AST_NODE
 
 #define AST_DECL() \
     REFLECT_DECL(); \
@@ -24,10 +13,11 @@ namespace Ast {
 
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
+        virtual int tag() const;
+
         virtual void type_check() {
             assert(0);
         }
-        virtual int tag() const;
 
         Type* m_type{ nullptr };
     };
@@ -117,13 +107,14 @@ namespace Ast {
     struct FunctionDecl : public Node {
         AST_DECL();
 
+        Ast::Symbol* m_name = nullptr;
         std::vector< Symbol* > m_arg_syms;
         Node* m_body = nullptr;
 
         FunctionDecl() {}
-        FunctionDecl( std::vector<Symbol*>& args, Node* body ) {
+        FunctionDecl( Ast::Symbol* name, std::vector<Symbol*>& args, Node* body )
+            : m_name(name), m_body(body) {
             m_arg_syms.swap( args );
-            m_body = body;
         }
         void type_check() {
             if (m_body->m_type == nullptr) return;

@@ -119,28 +119,31 @@ namespace Parse {
         }
     };
 
-    struct Lambda : public Parser {
+    struct Func : public Parser {
 
         Ast::FunctionDecl* parse( State* state, Args& args ) const override {
+            auto func = new Ast::FunctionDecl();
+            func->m_name = state->symbol(args.cur());
+            args.advance();
+            state->addSym(func->m_name->text(), func);
             state->enterScope();
             auto ain = dynamic_cast<Lex::List*>(args.cur());
             args.advance();
-            std::vector< Ast::Symbol* > arg_syms;
             for( auto i : ain->items ) {
-                arg_syms.push_back( state->symbol( i ) );
+                func->m_arg_syms.push_back( state->symbol( i ) );
             }
 
             Lex::Atom* rhs = args.cur();
             args.advance();
             verify( args.used() );
 
-            for( auto a : arg_syms ) {
+            for( auto a : func->m_arg_syms ) {
                 state->addSym( a->m_name, new Ast::Argument(a) );
             }
-            Ast::Node* body = state->parse( rhs );
+            func->m_body = state->parse( rhs );
             state->leaveScope();
 
-            return new Ast::FunctionDecl( arg_syms, body );
+            return func;
         }
     };
 
@@ -173,7 +176,7 @@ namespace Parse {
     Ast::Module* module( Lex::List* Lex ) {
         State state;
         state.addParser( "define", new Define() );
-        state.addParser( "lambda", new Lambda() );
+        state.addParser( "func", new Func() );
         state.addParser( "let", new Let() );
         state.addSym( "int", &Ast::s_typeInt );
         state.addSym( "double", &Ast::s_typeDouble );

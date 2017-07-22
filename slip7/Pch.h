@@ -247,8 +247,14 @@ namespace Io {
             printf("%s", s);
             m_indent.push_back(' ');
         }
+        void begin(const std::string& s) {
+            begin(s.c_str());
+        }
         void write(const char* s) {
             if (s) printf("%s", s);
+        }
+        void write(const std::string& s) {
+            write(s.c_str());
         }
         void field(const char* s) {
             printf("%s = ", s);

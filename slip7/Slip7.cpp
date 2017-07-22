@@ -73,17 +73,54 @@ namespace Sema {
 namespace Code {
     struct Generator {
         Io::TextOutput out;
+        inline void dispatch(Ast::Node* n) {
+            return Ast::dispatch(n, *this);
+        }
+        
         void operator()(Ast::Node* n) {
             assert(0);
         }
-        void operator()(Ast::Definition* n) {
+        void operator()(Ast::Argument* n) {
+            out.write(n->m_sym->text());
+        }
 
+        void operator()(Ast::Definition* n) {
+            out.nl();
+            out.write(string_format("%s %s = ",
+                n->m_sym->m_type->m_name.c_str(), n->m_sym->text().c_str()));
+            dispatch(n->m_value);
+            out.write(";");
+        }
+        void operator()(Ast::Sequence* n) {
+            for (auto a : n->m_items) {
+                dispatch(a);
+            }
+        }
+        void operator()(Ast::Scope* n) {
+            out.begin("{");
+            dispatch(n->m_child);
+            out.end("}");
+        }
+        void operator()(Ast::FunctionDecl* n) {
+            out.nl();
+            out.begin(string_format("int %s(", n->m_name->text().c_str()));
+            out.nl();
+            const char* sep = "";
+            for (auto a : n->m_arg_syms) {
+                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->text().c_str(), sep));
+                sep = ", ";
+            }
+            out.end(") {");
+            dispatch(n->m_body);
+            out.write("}");
+            out.nl();
         }
         void operator()(Ast::Module* n) {
-            out.write("namespace XX {");
+            out.begin("namespace XX {");
             for (auto n : n->m_items) {
-                Ast::dispatch(n, *this);
+                dispatch(n);
             }
+            out.end("}");
         }
     };
     void generate(Ast::Module* module) {
