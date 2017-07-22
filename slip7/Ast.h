@@ -50,8 +50,8 @@ namespace Ast {
 
     struct Number : Node {
         REFLECT_DECL();
-        Number( Syntax::Number* n) : m_num(n) {}
-        Syntax::Number* m_num;
+        Number( Lexer::Number* n) : m_num(n) {}
+        Lexer::Number* m_num;
 
         void type_check() {
             m_type = &s_typeDouble;
@@ -103,14 +103,14 @@ namespace Ast {
     struct Symbol : public Node {
         REFLECT_DECL();
 
-        Symbol(std::string&& n, Syntax::Symbol* s) : m_name(n), m_sym(s) {
+        Symbol(std::string&& n, Lexer::Symbol* s) : m_name(n), m_sym(s) {
         }
 
         void type_check() {
         }
 
         std::string m_name;
-        Syntax::Symbol* m_sym;
+        Lexer::Symbol* m_sym;
 
         std::string text() const {
             return m_sym->text();

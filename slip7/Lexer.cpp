@@ -1,18 +1,18 @@
 #include "pch.h"
-#include "Syntax.h"
+#include "Lexer.h"
 
-namespace Syntax {
-    REFLECT_BEGIN(Syntax::Value)
+namespace Lexer {
+    REFLECT_BEGIN(Lexer::Value)
         REFLECT_PARENT(Atom)
         REFLECT_FIELD(m_text)
     REFLECT_END()
 
-    REFLECT_BEGIN(Syntax::Atom)
+    REFLECT_BEGIN(Lexer::Atom)
         REFLECT_FIELD(m_attrs)
     REFLECT_END()
 }
 
-const char* Syntax::Atom::indent( int n ) {
+const char* Lexer::Atom::indent( int n ) {
     static char buf[128];
     for( int i = 0; i < n; ++i )
         buf[i] = ' ';
@@ -21,7 +21,7 @@ const char* Syntax::Atom::indent( int n ) {
 }
 
 
-Syntax::Atom* Syntax::parse_one( Input& in ) {
+Lexer::Atom* Lexer::parse_one( Input& in ) {
     while( 1 ) {
         switch( in.peek() ) {
             case '\0':
@@ -111,7 +111,7 @@ Syntax::Atom* Syntax::parse_one( Input& in ) {
     }
 }
 
-Syntax::Atom* Syntax::parse_string( Input& in ) {
+Lexer::Atom* Lexer::parse_string( Input& in ) {
     if( Atom* a = parse_one( in ) ) {
         in.eatwhite();
         if( in.peek() == ':' ) {
@@ -123,7 +123,7 @@ Syntax::Atom* Syntax::parse_string( Input& in ) {
     return nullptr;
 }
 
-Syntax::List* Syntax::parse_file( SourceManager& sm, const char* fname ) {
+Lexer::List* Lexer::parse_file( SourceManager& sm, const char* fname ) {
     if( Input input = sm.load( fname ) ) {
         List* l = new List( input.location( input.tell(), input.tellEnd() ) );
         while( Atom* a = parse_string( input ) ) {

@@ -3,16 +3,16 @@
   <ItemGroup>
     <ClCompile Include="Slip7.cpp" />
     <ClCompile Include="Pch.cpp" />
-    <ClCompile Include="Syntax.cpp" />
     <ClCompile Include="Reflect.cpp" />
+    <ClCompile Include="Lexer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pch.h" />
-    <ClInclude Include="Syntax.h" />
     <ClInclude Include="SourceManager.h" />
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="temp.h" />
     <ClInclude Include="Ast.h" />
+    <ClInclude Include="Lexer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bench\ack.slip">

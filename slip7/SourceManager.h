@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Syntax {
+namespace Lexer {
 
     struct SourceNameAndContents {
         std::string m_name;
