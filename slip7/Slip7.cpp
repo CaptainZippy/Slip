@@ -93,7 +93,7 @@ namespace Reflect {
                 }
                 case Kind::String: {
                     std::string s = top.type->toString(top.addr);
-                    out.write(s.c_str());
+                    out.write(string_format("\"%s\"", s.c_str()).c_str());
                     break;
                 }
                 default:
@@ -118,6 +118,9 @@ namespace Sema {
 
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
+        virtual void type_check() {
+            assert(0);
+        }
 
         Type* m_type{ nullptr };
     };
@@ -128,10 +131,23 @@ namespace Sema {
 
     struct Type : Node {
         REFLECT_DECL();
+        Type(const std::string& s);
+        std::string m_name;
     };
     REFLECT_BEGIN(Type)
-        REFLECT_PARENT(Node)
+        //REFLECT_PARENT(Node)
+        REFLECT_FIELD(m_name)
     REFLECT_END()
+
+    static Sema::Type s_typeType("Type");
+    static Sema::Type s_typeInt("int");
+    static Sema::Type s_typeDouble("double");
+    static Sema::Type s_typeVoid("void");
+    static Sema::Type s_typeF_double_double("double(*)(double)");
+
+    Type::Type(const std::string& s) : m_name(s) {
+        m_type = &s_typeType;
+    }
 
     struct Decl : Node {
         REFLECT_DECL();
@@ -146,6 +162,9 @@ namespace Sema {
         Number( Syntax::Number* n) : m_num(n) {}
         Syntax::Number* m_num;
 
+        void type_check() {
+            m_type = &s_typeDouble;
+        }
         static std::string toString(const void* p) {
             auto n = static_cast<const Number*>(p);
             return n->m_num->text();
@@ -158,6 +177,9 @@ namespace Sema {
 
     struct Module : Node {
         REFLECT_DECL();
+        void type_check() override {
+            m_type = &s_typeVoid;
+        }
         std::vector<Node*> m_items;
     };
 
@@ -173,6 +195,12 @@ namespace Sema {
         FunctionCall( const Node* func, std::vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
+
+        void type_check() {
+            if (m_func->m_type) {
+                m_type = &s_typeDouble;//TODO
+            }
+        }
     };
 
     REFLECT_BEGIN(FunctionCall)
@@ -185,6 +213,9 @@ namespace Sema {
         REFLECT_DECL();
 
         Symbol(std::string&& n, Syntax::Symbol* s) : m_name(n), m_sym(s) {
+        }
+
+        void type_check() {
         }
 
         std::string m_name;
@@ -218,6 +249,11 @@ namespace Sema {
             m_arg_syms.swap( args );
             m_body = body;
         }
+        void type_check() {
+            if (m_body->m_type == nullptr) return;
+            if (any_of(m_arg_syms, [](Symbol*s) { return s->m_type == nullptr; })) { return; }
+            m_type = &s_typeF_double_double;//TODO
+        }
     };
 
     REFLECT_BEGIN(FunctionDecl)
@@ -230,6 +266,14 @@ namespace Sema {
     struct Sequence : public Node {
         REFLECT_DECL();
         std::vector<Node*> m_items;
+        void type_check() {
+            if (m_items.size() == 0 ) {
+                m_type = &s_typeVoid;
+            }
+            else if (auto t = m_items.back()->m_type) {
+                m_type = t;
+            }
+        }
     };
 
     REFLECT_BEGIN(Sequence)
@@ -242,6 +286,12 @@ namespace Sema {
         Argument(Symbol* s) : m_sym(s) {
         }
         Symbol* m_sym;
+
+        void type_check() {
+            if (m_sym->m_type) {
+                m_type = m_sym->m_type;
+            }
+        }
     };
 
     REFLECT_BEGIN(Argument)
@@ -265,6 +315,12 @@ namespace Sema {
         REFLECT_DECL();
         Scope(Node* c) : m_child(c) {}
         Node* m_child{ nullptr };
+
+        void type_check() {
+            if (m_child->m_type) {
+                m_type = m_child->m_type;
+            }
+        }
     };
 
     REFLECT_BEGIN(Scope)
@@ -281,6 +337,16 @@ namespace Sema {
 
         Definition() {}
         Definition( Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
+
+        virtual void type_check() {
+            if (auto t = m_value->m_type) {
+                m_type = t;
+                if (m_sym->m_type == nullptr) {
+                    m_sym->m_type = t;
+                }
+                m_type = &s_typeVoid;
+            }
+        }
     };
 
     REFLECT_BEGIN(Definition)
@@ -288,6 +354,62 @@ namespace Sema {
         REFLECT_FIELD(m_sym)
 		REFLECT_FIELD(m_value)
     REFLECT_END()
+
+    void collect_nodes(std::vector<Sema::Node*>& out, Reflect::Var var) {
+        switch (var.type->kind) {
+            case Reflect::Kind::Pointer: {
+                if (var.type->sub->extends<Node>()) {
+                    auto p = *static_cast<Node**>(var.addr);
+                    if (p) {
+                        out.push_back(p);
+                        collect_nodes(out, p);
+                    }
+                }
+                break;
+            }
+            case Reflect::Kind::Array: {
+                auto a = static_cast<std::vector<char>*>(var.addr);
+                size_t esize = var.type->sub->size;
+                size_t bsize = a->size();
+                assert(bsize % esize == 0);
+                size_t count = bsize / esize;
+                for (int i = 0; i < count; ++i) {
+                    collect_nodes(out, Reflect::Var(&a->at(0) + i * esize, var.type->sub));
+                }
+                break;
+            }
+            case Reflect::Kind::Record: {
+                for (const Reflect::Type* c = var.type; c; c = c->parent) {
+                    for (auto& f : c->fields) {
+                        collect_nodes(out, var[f]);
+                    }
+                }
+                break;
+            }
+            case Reflect::Kind::String:
+            case Reflect::Kind::Void:
+                break;
+            default:
+                assert(0);
+        }
+    }
+        
+    bool type_check(Sema::Node* top_node) {
+        std::vector<Sema::Node*> todo{ top_node };
+        collect_nodes(todo, top_node);
+        // very dumb, just iterate
+        while (todo.size()) {
+            for (auto n : todo) {
+                n->type_check();
+            }
+            auto pre = todo.size();
+            erase_if(todo, [](Sema::Node* n) { return n->m_type != nullptr;  });
+            if (todo.size() == pre) {
+                int x; x = 0;
+            }
+        }
+        return true;
+    }
 }
 
 namespace Parse {
@@ -330,7 +452,14 @@ namespace Parse {
 
         Sema::Symbol* symbol(Syntax::Atom* atom) {
             if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
-                return new Sema::Symbol(sym->text(), sym);
+                auto ret = new Sema::Symbol(sym->text(), sym);
+                if (sym->m_type) {
+                    auto n = this->parse(sym->m_type);
+                    auto t = dynamic_cast<Sema::Type*>(n);
+                    assert(t);
+                    ret->m_type = t;
+                }
+                return ret;
             }
             assert(0);
             return nullptr;
@@ -452,16 +581,14 @@ namespace Parse {
         }
     };
     
-    static Sema::Type s_intType;
-    static Sema::Type s_doubleType;
-
     Sema::Module* module( Syntax::List* syntax ) {
         State state;
         state.addParser( "define", new Define() );
         state.addParser( "lambda", new Lambda() );
         state.addParser( "let", new Let() );
-        state.addSym( "int", &s_intType );
-        state.addSym( "double", &s_doubleType );
+        state.addSym( "int", &Sema::s_typeInt );
+        state.addSym( "double", &Sema::s_typeDouble );
+        state.addSym( "void", &Sema::s_typeVoid );
         auto module = new Sema::Module();
         for (auto c : syntax->items) {
             Sema::Node* n = state.parse(c);
@@ -480,8 +607,10 @@ int main( int argc, const char* argv[] ) {
         Syntax::SourceManager smanager;
         Syntax::List* syntax = Syntax::parse_file( smanager, argv[1] );
         verify( syntax );
-        Sema::Node* sema = Parse::module( syntax );
+        Sema::Module* sema = Parse::module( syntax );
         verify( sema );
+        Reflect::printVar(sema);
+        Sema::type_check(sema);
         Reflect::printVar(sema);
     }
     catch( float ) {
