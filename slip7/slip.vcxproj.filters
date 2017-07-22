@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Slip7.cpp" />
+    <ClCompile Include="Pch.cpp" />
+    <ClCompile Include="Syntax.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Pch.h" />
+    <ClInclude Include="Syntax.h" />
+    <ClInclude Include="SourceManager.h" />
+    <ClInclude Include="Reflect.h" />
+    <ClInclude Include="temp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="bench\ack.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\ary.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\fibo.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\hello.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\nestedloop.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\nsieve.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\harmonic.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\moments.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="slip.natvis">
+      <Filter>other</Filter>
+    </None>
+    <None Include="test.py">
+      <Filter>other</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="bench">
+      <UniqueIdentifier>{20f4cd82-ed0c-4ef2-ad8e-b39e2ba77a1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="other">
+      <UniqueIdentifier>{3731e926-9eb2-4810-97ba-fc8ca4e6400d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\Packages\Debugger\Visualizers\stl.natvis">
+      <Filter>other</Filter>
+    </Natvis>
+  </ItemGroup>
+</Project>
