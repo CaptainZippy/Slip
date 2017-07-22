@@ -1,55 +1,63 @@
 #pragma once
+#include "Reflect.h"
+#include "Lex.h"
 
 namespace Ast {
     struct Node;
     struct Type;
+    struct Decl;
+    struct Number;
+    struct Module;
     struct FunctionCall;
+    struct Symbol;
     struct FunctionDecl;
     struct Number;
+    struct Sequence;
+    struct Argument;
+    struct Reference;
+    struct Scope;
+    struct Definition;
+
+    struct Visitor {
+        virtual void visit(Node& n) {}
+    };
+
+
+#define AST_DECL() \
+    REFLECT_DECL(); \
+    void accept(Visitor& v) override { v.visit(*this);  }
+
 
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
         virtual void type_check() {
             assert(0);
         }
+        virtual void accept(Visitor& v) { v.visit(*this); }
 
         Type* m_type{ nullptr };
     };
-    REFLECT_BEGIN(Node)
-        REFLECT_FIELD(m_type)
-    REFLECT_END()
-
-
+    
     struct Type : Node {
-        REFLECT_DECL();
+        AST_DECL();
         Type(const std::string& s);
         std::string m_name;
     };
-    REFLECT_BEGIN(Type)
-        //REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_name)
-    REFLECT_END()
 
-    static Ast::Type s_typeType("Type");
-    static Ast::Type s_typeInt("int");
-    static Ast::Type s_typeDouble("double");
-    static Ast::Type s_typeVoid("void");
-    static Ast::Type s_typeF_double_double("double(*)(double)");
+    extern Ast::Type s_typeType;
+    extern Ast::Type s_typeInt;
+    extern Ast::Type s_typeDouble;
+    extern Ast::Type s_typeVoid;
+    extern Ast::Type s_typeF_double_double;
 
-    Type::Type(const std::string& s) : m_name(s) {
-        m_type = &s_typeType;
-    }
 
     struct Decl : Node {
-        REFLECT_DECL();
+        AST_DECL();
     };
 
-    REFLECT_BEGIN(Decl)
-        REFLECT_PARENT(Node)
-    REFLECT_END()
 
     struct Number : Node {
-        REFLECT_DECL();
+        AST_DECL();
         Number( Lex::Number* n) : m_num(n) {}
         Lex::Number* m_num;
 
@@ -61,26 +69,20 @@ namespace Ast {
             return n->m_num->text();
         }
     };
-    REFLECT_BEGIN(Number)
-        REFLECT_PARENT(Node)
-        REFLECT_TO_STRING(Number::toString)
-    REFLECT_END()
+    
 
     struct Module : Node {
-        REFLECT_DECL();
+        AST_DECL();
         void type_check() override {
             m_type = &s_typeVoid;
         }
+
         std::vector<Node*> m_items;
     };
 
-    REFLECT_BEGIN(Module)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_items)
-    REFLECT_END()
 
     struct FunctionCall : public Node {
-        REFLECT_DECL();
+        AST_DECL();
         const Node* m_func{ nullptr };
         std::vector< Node* > m_args;
         FunctionCall( const Node* func, std::vector< Node* >&& args )
@@ -94,14 +96,9 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(FunctionCall)
-        REFLECT_PARENT(Node)
-        //REFLECT_FIELD(m_func)
-        REFLECT_FIELD(m_args)
-    REFLECT_END()
 
     struct Symbol : public Node {
-        REFLECT_DECL();
+        AST_DECL();
 
         Symbol(std::string&& n, Lex::Symbol* s) : m_name(n), m_sym(s) {
         }
@@ -122,15 +119,9 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(Symbol)
-        REFLECT_PARENT(Node)
-        //REFLECT_TO_STRING(Symbol::toString)
-        REFLECT_FIELD(m_name)
-        //REFLECT_FIELD(m_sym)
-    REFLECT_END()
 
     struct FunctionDecl : public Node {
-        REFLECT_DECL();
+        AST_DECL();
 
         std::vector< Symbol* > m_arg_syms;
         Node* m_body = nullptr;
@@ -147,15 +138,9 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(FunctionDecl)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_arg_syms)
-        REFLECT_FIELD(m_body)
-    REFLECT_END()
-
 
     struct Sequence : public Node {
-        REFLECT_DECL();
+        AST_DECL();
         std::vector<Node*> m_items;
         void type_check() {
             if (m_items.size() == 0 ) {
@@ -167,13 +152,9 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(Sequence)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_items)
-    REFLECT_END()
-
+    
     struct Argument : public Node {
-        REFLECT_DECL();
+        AST_DECL();
         Argument(Symbol* s) : m_sym(s) {
         }
         Symbol* m_sym;
@@ -185,25 +166,17 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(Argument)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_sym)
-    REFLECT_END()
 
     struct Reference : public Node {
-        REFLECT_DECL();
+        AST_DECL();
         Reference(Node* s) : m_sym(s) {
         }
         Node* m_sym;
     };
 
-    REFLECT_BEGIN(Reference)
-        REFLECT_PARENT(Node)
-        //REFLECT_FIELD(m_sym)
-    REFLECT_END()
 
     struct Scope : public Node {
-        REFLECT_DECL();
+        AST_DECL();
         Scope(Node* c) : m_child(c) {}
         Node* m_child{ nullptr };
 
@@ -214,14 +187,9 @@ namespace Ast {
         }
     };
 
-    REFLECT_BEGIN(Scope)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_child)
-    REFLECT_END()
-
 
     struct Definition : public Node {
-        REFLECT_DECL();
+        AST_DECL();
 
         Symbol* m_sym = nullptr;
         Node* m_value = nullptr;
@@ -239,10 +207,4 @@ namespace Ast {
             }
         }
     };
-
-    REFLECT_BEGIN(Definition)
-        REFLECT_PARENT(Node)
-        REFLECT_FIELD(m_sym)
-		REFLECT_FIELD(m_value)
-    REFLECT_END()
 }

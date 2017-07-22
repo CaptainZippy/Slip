@@ -5,6 +5,7 @@
     <ClCompile Include="Pch.cpp" />
     <ClCompile Include="Reflect.cpp" />
     <ClCompile Include="Lex.cpp" />
+    <ClCompile Include="Ast.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Pch.h" />
@@ -13,6 +14,7 @@
     <ClInclude Include="temp.h" />
     <ClInclude Include="Ast.h" />
     <ClInclude Include="Lex.h" />
+    <ClInclude Include="Parse.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="bench\ack.slip">
