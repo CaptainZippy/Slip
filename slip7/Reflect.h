@@ -5,6 +5,8 @@ namespace Reflect {
     struct Var;
     struct Field;
 
+    void printVar(Var top);
+
     struct AbstractReflected {
         virtual const Reflect::Type* dynamicType() const = 0;
         virtual ~AbstractReflected() {}

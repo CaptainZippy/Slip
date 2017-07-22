@@ -9,107 +9,7 @@
 #include "Syntax.h"
 #include "Reflect.h"
 
-namespace Reflect {
-    namespace Detail {
-        struct Output {
-            void begin(const char* s) {
-                printf("%s", s);
-                m_indent.push_back(' ');
-            }
-            void write(const char* s) {
-                if(s) printf("%s", s);
-            }
-            void field(const char* s) {
-                printf("%s = ", s);
-            }
-            void write(const void* s) {
-                printf("%p", s);
-            }
-            void end(const char* s=nullptr) {
-                m_indent.erase(m_indent.size() - 1);
-                write(s);
-            }
-            void nl() {
-                printf("\n%s", m_indent.c_str());
-            }
-            std::string m_indent;
-        };
-        void printVar( Output& out, Var top ) {
-            if( top.addr == nullptr ) {
-                out.write("null");
-                return;
-            }
-            switch( top.type->kind ) {
-                case Kind::Pointer: {
-                    auto obj = *(void**)top.addr;
-                    //out.write(obj);
-                    if (obj) {
-                        auto sub = top.type->sub;
-                        Var e{ obj, sub->dynamicType(obj) };
-                        printVar(out, e);
-                    }
-                    else {
-                        out.write("null");
-                    }
-                    break;
-                }
-                case Kind::Record: {
-                    out.begin( top.type->name );
-                    out.write("{");
-                    std::vector<const Reflect::Type*> chain;
-                    for (auto c = top.type; c; c = c->parent) {
-                        chain.push_back(c);
-                    }
-                    for( auto c : reversed(chain) ) {
-                        if (c->toString) {
-                            out.write(c->toString(top.addr).c_str());
-                        }
-                        else {
-                            for( auto f : c->fields ) {
-                                //if (f.name == "m_type") continue;
-                                out.nl();
-                                //out.field(f.name.c_str());
-                                Var v = top[f];
-                                printVar( out, v );
-                            }
-                        }
-                    }
-                    out.end("}");
-                    break;
-                }
-                case Kind::Array: {
-                    auto et = top.type->sub;
-                    char* s = ( (char**) top.addr )[0];
-                    char* e = ( (char**) top.addr )[1];
-                    unsigned count = unsigned(( e - s ) / et->size);
-                    out.begin("[");
-                    for( unsigned i = 0; i < count; ++i ) {
-                        if (i != 0) out.nl();
-                        Var e{ s + i * et->size, et };
-                        printVar( out, e );
-                    }
-                    out.end("]");
-                    break;
-                }
-                case Kind::String: {
-                    std::string s = top.type->toString(top.addr);
-                    out.write(string_format("\"%s\"", s.c_str()).c_str());
-                    break;
-                }
-                default:
-                    out.write( "???" );
-                    break;
-            }
-        }
-    }
-    void printVar(Var top) {
-        Detail::Output output;
-        Detail::printVar(output, top);
-        output.nl();
-    }
-}
-
-namespace Sema {
+namespace Ast {
     struct Node;
     struct Type;
     struct FunctionCall;
@@ -139,11 +39,11 @@ namespace Sema {
         REFLECT_FIELD(m_name)
     REFLECT_END()
 
-    static Sema::Type s_typeType("Type");
-    static Sema::Type s_typeInt("int");
-    static Sema::Type s_typeDouble("double");
-    static Sema::Type s_typeVoid("void");
-    static Sema::Type s_typeF_double_double("double(*)(double)");
+    static Ast::Type s_typeType("Type");
+    static Ast::Type s_typeInt("int");
+    static Ast::Type s_typeDouble("double");
+    static Ast::Type s_typeVoid("void");
+    static Ast::Type s_typeF_double_double("double(*)(double)");
 
     Type::Type(const std::string& s) : m_name(s) {
         m_type = &s_typeType;
@@ -355,7 +255,7 @@ namespace Sema {
 		REFLECT_FIELD(m_value)
     REFLECT_END()
 
-    void collect_nodes(std::vector<Sema::Node*>& out, Reflect::Var var) {
+    void collect_nodes(std::vector<Ast::Node*>& out, Reflect::Var var) {
         switch (var.type->kind) {
             case Reflect::Kind::Pointer: {
                 if (var.type->sub->extends<Node>()) {
@@ -394,8 +294,8 @@ namespace Sema {
         }
     }
         
-    bool type_check(Sema::Node* top_node) {
-        std::vector<Sema::Node*> todo{ top_node };
+    bool type_check(Ast::Node* top_node) {
+        std::vector<Ast::Node*> todo{ top_node };
         collect_nodes(todo, top_node);
         // very dumb, just iterate
         while (todo.size()) {
@@ -403,7 +303,7 @@ namespace Sema {
                 n->type_check();
             }
             auto pre = todo.size();
-            erase_if(todo, [](Sema::Node* n) { return n->m_type != nullptr;  });
+            erase_if(todo, [](Ast::Node* n) { return n->m_type != nullptr;  });
             if (todo.size() == pre) {
                 int x; x = 0;
             }
@@ -419,7 +319,7 @@ namespace Parse {
 
     struct Parser {
         virtual ~Parser() {}
-        virtual Sema::Node* parse(State* state, Args& args) const = 0;
+        virtual Ast::Node* parse(State* state, Args& args) const = 0;
     };
 
     struct State {
@@ -445,17 +345,17 @@ namespace Parse {
             assert(p.second);
         }
 
-        void addSym(const std::string& sym, Sema::Node* node) {
+        void addSym(const std::string& sym, Ast::Node* node) {
             auto p = syms.back().insert_or_assign(sym, Pair{ nullptr, node });
             assert(p.second);
         }
 
-        Sema::Symbol* symbol(Syntax::Atom* atom) {
+        Ast::Symbol* symbol(Syntax::Atom* atom) {
             if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
-                auto ret = new Sema::Symbol(sym->text(), sym);
+                auto ret = new Ast::Symbol(sym->text(), sym);
                 if (sym->m_type) {
                     auto n = this->parse(sym->m_type);
-                    auto t = dynamic_cast<Sema::Type*>(n);
+                    auto t = dynamic_cast<Ast::Type*>(n);
                     assert(t);
                     ret->m_type = t;
                 }
@@ -465,7 +365,7 @@ namespace Parse {
             return nullptr;
         }
 
-        Sema::Node* parse(Syntax::Atom* atom) {
+        Ast::Node* parse(Syntax::Atom* atom) {
             if (auto sym = dynamic_cast<Syntax::Symbol*>(atom)) {
                 auto p = lookup(sym->text());
                 verify(p.first == nullptr);
@@ -482,15 +382,15 @@ namespace Parse {
                     return p.first->parse(this, args);
                 }
                 else {
-                    std::vector<Sema::Node*> fa;
+                    std::vector<Ast::Node*> fa;
                     for (auto a : args) {
                         fa.push_back( parse(a) );
                     }
-                    return new Sema::FunctionCall(reference(p.second), std::move(fa));
+                    return new Ast::FunctionCall(reference(p.second), std::move(fa));
                 }
             }
             else if (auto num = dynamic_cast<Syntax::Number*>(atom)) {
-                return new Sema::Number(num);
+                return new Ast::Number(num);
             }
             verify(0);
             return nullptr;
@@ -498,9 +398,9 @@ namespace Parse {
 
     protected:
 
-        typedef std::pair<Parser*, Sema::Node*> Pair;
-        Sema::Node* reference(Sema::Node* n) {
-            //return new Sema::Reference(n);
+        typedef std::pair<Parser*, Ast::Node*> Pair;
+        Ast::Node* reference(Ast::Node* n) {
+            //return new Ast::Reference(n);
             return n;
         }
 
@@ -518,13 +418,13 @@ namespace Parse {
     };
 
     struct Define : public Parser {
-        Sema::Node* parse( State* state, Args& args ) const override {
+        Ast::Node* parse( State* state, Args& args ) const override {
             auto sym = state->symbol( args.cur() );
             args.advance();
             auto val = state->parse( args.cur() );
             args.advance();
             verify( args.used() );
-            auto ret = new Sema::Definition( sym, val );
+            auto ret = new Ast::Definition( sym, val );
             state->addSym( sym->text(), ret );
             return ret;
         }
@@ -532,11 +432,11 @@ namespace Parse {
 
     struct Lambda : public Parser {
 
-        Sema::FunctionDecl* parse( State* state, Args& args ) const override {
+        Ast::FunctionDecl* parse( State* state, Args& args ) const override {
             state->enterScope();
             auto ain = dynamic_cast<Syntax::List*>(args.cur());
             args.advance();
-            std::vector< Sema::Symbol* > arg_syms;
+            std::vector< Ast::Symbol* > arg_syms;
             for( auto i : ain->items ) {
                 arg_syms.push_back( state->symbol( i ) );
             }
@@ -546,17 +446,17 @@ namespace Parse {
             verify( args.used() );
 
             for( auto a : arg_syms ) {
-                state->addSym( a->m_name, new Sema::Argument(a) );
+                state->addSym( a->m_name, new Ast::Argument(a) );
             }
-            Sema::Node* body = state->parse( rhs );
+            Ast::Node* body = state->parse( rhs );
             state->leaveScope();
 
-            return new Sema::FunctionDecl( arg_syms, body );
+            return new Ast::FunctionDecl( arg_syms, body );
         }
     };
 
     struct Let : public Parser {
-        Sema::Scope* parse( State* state, Args& args ) const override {
+        Ast::Scope* parse( State* state, Args& args ) const override {
             auto lets = dynamic_cast<Syntax::List*>( args.cur() );
             args.advance();
             auto body = args.cur();
@@ -564,34 +464,34 @@ namespace Parse {
             verify(args.used());
 
             state->enterScope();
-            auto seq = new Sema::Sequence();
+            auto seq = new Ast::Sequence();
             for( auto pair : lets->items) {
                 auto cur = dynamic_cast<Syntax::List*>( pair );
                 verify(cur->size() == 2);
                 auto sym = state->symbol(cur->items[0]);
                 verify(sym);
-                Sema::Node* val = state->parse(cur->items[1]);
+                Ast::Node* val = state->parse(cur->items[1]);
                 state->addSym(sym->text(), val);
-                seq->m_items.push_back(new Sema::Definition(sym, val));
+                seq->m_items.push_back(new Ast::Definition(sym, val));
             }
             seq->m_items.push_back(state->parse(body));
             state->leaveScope();
 
-            return new Sema::Scope(seq);
+            return new Ast::Scope(seq);
         }
     };
     
-    Sema::Module* module( Syntax::List* syntax ) {
+    Ast::Module* module( Syntax::List* syntax ) {
         State state;
         state.addParser( "define", new Define() );
         state.addParser( "lambda", new Lambda() );
         state.addParser( "let", new Let() );
-        state.addSym( "int", &Sema::s_typeInt );
-        state.addSym( "double", &Sema::s_typeDouble );
-        state.addSym( "void", &Sema::s_typeVoid );
-        auto module = new Sema::Module();
+        state.addSym( "int", &Ast::s_typeInt );
+        state.addSym( "double", &Ast::s_typeDouble );
+        state.addSym( "void", &Ast::s_typeVoid );
+        auto module = new Ast::Module();
         for (auto c : syntax->items) {
-            Sema::Node* n = state.parse(c);
+            Ast::Node* n = state.parse(c);
             module->m_items.push_back(n);
         }
         return module;
@@ -607,10 +507,10 @@ int main( int argc, const char* argv[] ) {
         Syntax::SourceManager smanager;
         Syntax::List* syntax = Syntax::parse_file( smanager, argv[1] );
         verify( syntax );
-        Sema::Module* sema = Parse::module( syntax );
+        Ast::Module* sema = Parse::module( syntax );
         verify( sema );
         Reflect::printVar(sema);
-        Sema::type_check(sema);
+        Ast::type_check(sema);
         Reflect::printVar(sema);
     }
     catch( float ) {
