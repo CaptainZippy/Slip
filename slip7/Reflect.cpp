@@ -3,30 +3,8 @@
 
 namespace Reflect {
     namespace Detail {
-        struct Output {
-            void begin(const char* s) {
-                printf("%s", s);
-                m_indent.push_back(' ');
-            }
-            void write(const char* s) {
-                if (s) printf("%s", s);
-            }
-            void field(const char* s) {
-                printf("%s = ", s);
-            }
-            void write(const void* s) {
-                printf("%p", s);
-            }
-            void end(const char* s = nullptr) {
-                m_indent.erase(m_indent.size() - 1);
-                write(s);
-            }
-            void nl() {
-                printf("\n%s", m_indent.c_str());
-            }
-            std::string m_indent;
-        };
-        void printVar(Output& out, Var top) {
+        
+        void printVar(Io::TextOutput& out, Var top) {
             if (top.addr == nullptr) {
                 out.write("null");
                 return;
@@ -96,7 +74,7 @@ namespace Reflect {
 }
 
 void Reflect::printVar(Var top) {
-    Detail::Output output;
+    Io::TextOutput output;
     Detail::printVar(output, top);
     output.nl();
 }

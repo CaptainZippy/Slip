@@ -71,14 +71,24 @@ namespace Sema {
 }
 
 namespace Code {
-    struct Generator : public Ast::Visitor {
-        void visit(Ast::Node& n) {
+    struct Generator {
+        Io::TextOutput out;
+        void operator()(Ast::Node* n) {
+            assert(0);
+        }
+        void operator()(Ast::Definition* n) {
 
+        }
+        void operator()(Ast::Module* n) {
+            out.write("namespace XX {");
+            for (auto n : n->m_items) {
+                Ast::dispatch(n, *this);
+            }
         }
     };
     void generate(Ast::Module* module) {
         Generator g;
-        module->accept(g);
+        Ast::dispatch(module, g);
     }
 }
 

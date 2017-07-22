@@ -163,6 +163,7 @@
     <ClInclude Include="temp.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Ast.inc" />
     <None Include="bench\ack.slip" />
     <None Include="bench\ary.slip" />
     <None Include="bench\fibo.slip" />

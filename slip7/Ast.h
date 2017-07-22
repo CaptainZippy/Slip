@@ -18,22 +18,16 @@ namespace Ast {
     struct Scope;
     struct Definition;
 
-    struct Visitor {
-        virtual void visit(Node& n) {}
-    };
-
-
 #define AST_DECL() \
     REFLECT_DECL(); \
-    void accept(Visitor& v) override { v.visit(*this);  }
-
+    int tag() const override
 
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
         virtual void type_check() {
             assert(0);
         }
-        virtual void accept(Visitor& v) { v.visit(*this); }
+        virtual int tag() const;
 
         Type* m_type{ nullptr };
     };
@@ -207,4 +201,20 @@ namespace Ast {
             }
         }
     };
+
+    namespace Detail {
+        template<typename T> struct TagOf;
+        #define AST_NODE(X) template<> struct TagOf<X> { enum { Tag = __LINE__}; };
+        #include "Ast.inc"
+        #undef AST_NODE
+    }
+
+    template <typename Handler>
+    auto dispatch(Node* n, Handler&& handler) {
+        switch (n->tag()) {
+            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n));
+            #include "Ast.inc"
+            #undef AST_NODE
+        }
+    }
 }
