@@ -61,7 +61,7 @@ template<typename T>
 void assert2( T t, const char* msg ) {
     if( !t ) Error.fmt( msg );
 }
-#define assert(A) assert2(A, #A)
+#define assert(A) if(!(A)) __debugbreak()
 #define cast(T,a) dynamic_cast<T*>(a)
 #define verify(A) assert2(A, #A)
 
@@ -239,4 +239,30 @@ bool any_of(const Cont& c, Lambda&& lambda) {
 template <typename Cont, typename Lambda>
 auto erase_if(Cont& c, Lambda&& lambda) {
     return c.erase( std::remove_if(c.begin(), c.end(), lambda), c.end() );
+}
+
+namespace Io {
+    struct TextOutput {
+        void begin(const char* s) {
+            printf("%s", s);
+            m_indent.push_back(' ');
+        }
+        void write(const char* s) {
+            if (s) printf("%s", s);
+        }
+        void field(const char* s) {
+            printf("%s = ", s);
+        }
+        void write(const void* s) {
+            printf("%p", s);
+        }
+        void end(const char* s = nullptr) {
+            m_indent.erase(m_indent.size() - 1);
+            write(s);
+        }
+        void nl() {
+            printf("\n%s", m_indent.c_str());
+        }
+        std::string m_indent;
+    };
 }
