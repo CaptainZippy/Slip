@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
+#include <algorithm>
 
 #define Error Slip::Detail::_Error{__FILE__, __LINE__}
 typedef unsigned long long uptr;
@@ -225,3 +226,17 @@ namespace Detail {
 
 template <typename T>
 Detail::reverse_wrapper<T> reversed(T&& iterable) { return { iterable }; }
+
+template <typename Cont, typename Lambda>
+bool all_of(const Cont& c, Lambda&& lambda) {
+    return std::all_of(c.begin(), c.end(), lambda);
+}
+template <typename Cont, typename Lambda>
+bool any_of(const Cont& c, Lambda&& lambda) {
+    return std::any_of(c.begin(), c.end(), lambda);
+}
+
+template <typename Cont, typename Lambda>
+auto erase_if(Cont& c, Lambda&& lambda) {
+    return c.erase( std::remove_if(c.begin(), c.end(), lambda), c.end() );
+}
