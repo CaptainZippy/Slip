@@ -1,9 +1,0 @@
-(print "hello")
-(begin (define c 100)) ;begin introduces a new scope
-(define c 100) ; this is in the global scope
-(define foo (lambda (a b) (plus a b c)))
-(print "foo" (foo 3 33))
-; (begin (print (foo 3 33)))
-; (begin (define c 100) (print (foo 3 33)))
-(print)
-(print)
