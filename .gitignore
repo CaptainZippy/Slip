@@ -46,6 +46,7 @@ Temporary Items
 # MSVC
 Debug
 Release
+.vs
 *.pdb
 *.sdf
 *.suo
