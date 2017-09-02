@@ -67,9 +67,9 @@ namespace Ast {
 
     struct FunctionCall : public Node {
         AST_DECL();
-        const Node* m_func{ nullptr };
+        Node* m_func{ nullptr };
         std::vector< Node* > m_args;
-        FunctionCall( const Node* func, std::vector< Node* >&& args )
+        FunctionCall( Node* func, std::vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
 

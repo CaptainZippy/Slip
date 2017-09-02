@@ -83,7 +83,9 @@ namespace Code {
         void operator()(Ast::Argument* n) {
             out.write(n->m_sym->text());
         }
-
+        void operator()(Ast::Number* n) {
+            out.write(n->m_num->text());
+        }
         void operator()(Ast::Definition* n) {
             out.nl();
             out.write(string_format("%s %s = ",
@@ -115,6 +117,25 @@ namespace Code {
             out.write("}");
             out.nl();
         }
+        void operator()(Ast::FunctionCall* n) {
+            out.write("(");
+            if (auto d = dynamic_cast<Ast::FunctionDecl*>(n->m_func)) {
+                out.write(d->m_name->text());
+            }
+            else {
+                assert(0);
+            }
+            out.write(")");
+            out.write("(");
+            auto sep = "";
+            for (auto a : n->m_args) {
+                out.write(sep);
+                sep = ", ";
+                dispatch(a);
+            }
+            out.write(")");
+        }
+
         void operator()(Ast::Module* n) {
             out.begin("namespace XX {");
             for (auto n : n->m_items) {
