@@ -59,7 +59,10 @@ inline void error( const char* msg ) {
 }
 template<typename T>
 void assert2( T t, const char* msg ) {
-    if( !t ) Error.fmt( msg );
+    if (!t) {
+        Error.fmt(msg);
+        __debugbreak();
+    }
 }
 #define assert(A) if(!(A)) __debugbreak()
 #define cast(T,a) dynamic_cast<T*>(a)
@@ -100,7 +103,8 @@ struct array_view {
     const T& operator[]( unsigned i ) const { assert( i < size() ); return m_begin[i]; }
     const T* begin() const { return m_begin; }
     const T* end() const { return m_end; }
-    array_view<T> ltrim( unsigned n ) const { assert( n <= size() ); return array_view<T>( m_begin + n, m_end ); }
+    array_view<T> ltrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin+n, m_end); }
+    array_view<T> rtrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin, m_end-n); }
     const T* m_begin;
     const T* m_end;
 };
@@ -110,6 +114,8 @@ namespace array_view_t {
     array_view<T> from_single( const T& t ) { return array_view<T>( &t, &t + 1 ); }
     template<typename T, int N>
     array_view<T> make( T( &arr )[N] ) { return array_view<T>( t, t + N ); }
+    template<typename T>
+    array_view<T> make(const std::vector<T>& a) { return array_view<T>(a.data(), a.size()); }
 }
 
 template<typename S>
@@ -244,7 +250,7 @@ auto erase_if(Cont& c, Lambda&& lambda) {
 namespace Io {
     struct TextOutput {
         void begin(const char* s) {
-            printf("%s", s);
+            write(s);
             m_indent.push_back(' ');
         }
         void begin(const std::string& s) {
@@ -255,9 +261,6 @@ namespace Io {
         }
         void write(const std::string& s) {
             write(s.c_str());
-        }
-        void field(const char* s) {
-            printf("%s = ", s);
         }
         void write(const void* s) {
             printf("%p", s);

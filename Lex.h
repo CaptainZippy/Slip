@@ -22,7 +22,7 @@ namespace Lex {
         void print( int i ) const { _print( i ); }
 
         SourceLocation m_loc{};
-        Atom* m_type = nullptr;
+        Atom* m_decltype = nullptr;
         std::vector<Atom*> m_attrs;
 
         Atom() {}
