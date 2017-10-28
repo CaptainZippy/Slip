@@ -7,11 +7,11 @@ namespace Ast {
     #undef AST_NODE
 
     REFLECT_BEGIN(Node)
-    REFLECT_FIELD(m_type)
+    //REFLECT_FIELD2(m_type, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
-    //REFLECT_PARENT(Node)
+    REFLECT_PARENT(Node)
     REFLECT_FIELD(m_name)
     REFLECT_END()
 
@@ -21,36 +21,30 @@ namespace Ast {
 
     REFLECT_BEGIN(Number)
     REFLECT_PARENT(Node)
-    REFLECT_TO_STRING(Number::toString)
+    REFLECT_FIELD(m_num)
     REFLECT_END()
 
     REFLECT_BEGIN(Module)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_items)
+    REFLECT_FIELD2(m_items, Flags::Child)
     REFLECT_END()
 
     REFLECT_BEGIN(FunctionCall)
     REFLECT_PARENT(Node)
     //REFLECT_FIELD(m_func)
-    REFLECT_FIELD(m_args)
-    REFLECT_END()
-
-    REFLECT_BEGIN(Symbol)
-    REFLECT_PARENT(Node)
-    //REFLECT_TO_STRING(Symbol::toString)
-    REFLECT_FIELD(m_name)
-    //REFLECT_FIELD(m_sym)
+    REFLECT_FIELD2(m_args, Flags::Child)
     REFLECT_END()
 
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_arg_syms)
-    REFLECT_FIELD(m_body)
+    REFLECT_FIELD(m_name)
+    REFLECT_FIELD2(m_args, Flags::Child)
+    REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
     REFLECT_BEGIN(Sequence)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_items)
+    REFLECT_FIELD2(m_items, Flags::Child)
     REFLECT_END()
 
     REFLECT_BEGIN(Argument)
@@ -60,7 +54,7 @@ namespace Ast {
 
     REFLECT_BEGIN(Reference)
     REFLECT_PARENT(Node)
-    //REFLECT_FIELD(m_sym)
+    REFLECT_FIELD(m_target)
     REFLECT_END()
 
     REFLECT_BEGIN(Scope)
@@ -71,7 +65,7 @@ namespace Ast {
     REFLECT_BEGIN(Definition)
     REFLECT_PARENT(Node)
     REFLECT_FIELD(m_sym)
-    REFLECT_FIELD(m_value)
+    REFLECT_FIELD2(m_value, Flags::Child)
     REFLECT_END()
 }
 
@@ -88,4 +82,92 @@ namespace Ast {
         m_type = &s_typeType;
     }
 
+    
+    void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
+        if(auto f = top.type->toString ) {
+            std::string s = (*f)(top.addr);
+            out.write(s);
+            return;
+        }
+        switch (top.type->kind) {
+            case Reflect::Kind::Array: {
+                auto et = top.type->sub;
+                char* s = ((char**)top.addr)[0];
+                char* e = ((char**)top.addr)[1];
+                unsigned count = unsigned((e - s) / et->size);
+                for (unsigned i = 0; i < count; ++i) {
+                    Reflect::Var e{ s + i * et->size, et };
+                    print(e, out, false);
+                }
+                break;
+            }
+            case Reflect::Kind::Record: {
+                std::vector<const Reflect::Type*> chain;
+                for (auto c = top.type; c; c = c->parent) {
+                    chain.push_back(c);
+                }
+                if (abbrev) {
+                    for (auto c : reversed(chain)) {
+                        for (auto f : c->fields) {
+                            if ((f.flags & (Flags::Abbrev|Flags::Child)) == Flags::Abbrev) {
+                                out.write(string_format(" %s={", f.name.c_str()));
+                                print(top[f], out, true);
+                                out.write("}");
+                            }
+                        }
+                    }
+                }
+                else {
+                    out.nl();
+                    out.write(string_format("%s "/*0x%p*/, top.type->name, top.addr));
+                    for (auto c : reversed(chain)) {
+                        for (auto f : c->fields) {
+                            if ((f.flags & Flags::Child) == 0) {
+                                out.write(string_format(" %s={", f.name.c_str()));
+                                print(top[f], out, true);
+                                out.write("}");
+                            }
+                        }
+                    }
+
+                    out.begin(nullptr);
+                    for (auto c : reversed(chain)) {
+                        for (auto f : c->fields) {
+                            if (f.flags & Flags::Child) {
+                                print(top[f], out, false);
+                            }
+                        }
+                    }
+                    out.end();
+                }
+                break;
+            }
+            case Reflect::Kind::Pointer: {
+                if (void* obj = *(void**)top.addr) {
+                    auto sub = top.type->sub;
+                    Reflect::Var e{ obj, sub->dynamicType(obj) };
+                    print(e, out, abbrev);
+                }
+                else {
+                    out.write("null");
+                }
+                break;
+            }
+            case Reflect::Kind::String: {
+                std::string s = top.type->toString(top.addr);
+                out.write(string_format("\"%s\"", s.c_str()));
+                break;
+            }
+            default: {
+                verify(false);
+            }
+        }
+    }
+
+    void print(Node* node) {
+        Io::TextOutput out;
+        Reflect::Var top{ node };
+        print(top, out, false);
+        out.nl();
+    }
 }

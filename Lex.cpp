@@ -5,6 +5,8 @@ namespace Lex {
     REFLECT_BEGIN(Lex::Value)
         REFLECT_PARENT(Atom)
         REFLECT_FIELD(m_text)
+        REFLECT_TO_STRING([](const void*arg) {
+            return static_cast<const Lex::Value*>(arg)->text(); })
     REFLECT_END()
 
     REFLECT_BEGIN(Lex::Atom)
@@ -116,7 +118,7 @@ Lex::Atom* Lex::parse_string( Input& in ) {
         in.eatwhite();
         if( in.peek() == ':' ) {
             in.next();
-            a->m_type = parse_one( in );
+            a->m_decltype = parse_one( in );
         }
         return a;
     }

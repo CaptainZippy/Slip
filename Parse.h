@@ -11,6 +11,7 @@ namespace Parse {
         virtual Ast::Node* parse(State* state, Args& args) const = 0;
     };
 
+
     struct State {
 
         State() {
@@ -39,16 +40,17 @@ namespace Parse {
             assert(p.second);
         }
 
-        Ast::Symbol* symbol(Lex::Atom* atom) {
+        Lex::Symbol* symbol(Lex::Atom* atom) {
             if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-                auto ret = new Ast::Symbol(sym->text(), sym);
-                if (sym->m_type) {
-                    auto n = this->parse(sym->m_type);
-                    auto t = dynamic_cast<Ast::Type*>(n);
-                    assert(t);
-                    ret->m_type = t;
-                }
-                return ret;
+
+            //    auto ret = nullptr;// new Ast::Symbol(sym->text(), sym);
+            //    if (sym->m_decltype) {
+            //        auto n = this->parse(sym->m_decltype);
+            //        //if( auto r = dynamic_cast<Ast::Reference*>(n) ) { n = r->m_target; }
+            //        auto t = dynamic_cast<Ast::Type*>(n);
+            //        ret->m_type = t;
+            //    }
+                return sym;
             }
             assert(0);
             return nullptr;
@@ -85,7 +87,7 @@ namespace Parse {
             return nullptr;
         }
 
-    protected:
+    //protected:
 
         typedef std::pair<Parser*, Ast::Node*> Pair;
         Ast::Node* reference(Ast::Node* n) {
@@ -127,18 +129,19 @@ namespace Parse {
             args.advance();
             state->addSym(func->m_name->text(), func);
             state->enterScope();
-            auto ain = dynamic_cast<Lex::List*>(args.cur());
-            args.advance();
-            for( auto i : ain->items ) {
-                func->m_arg_syms.push_back( state->symbol( i ) );
+            for( auto i : dynamic_cast<Lex::List*>(args.cur())->items ) {
+                auto a = state->symbol(i);
+                verify(a);
+                func->m_args.push_back( new Ast::Argument(a) );
             }
+            args.advance();
 
             Lex::Atom* rhs = args.cur();
             args.advance();
             verify( args.used() );
 
-            for( auto a : func->m_arg_syms ) {
-                state->addSym( a->m_name, new Ast::Argument(a) );
+            for( auto a : func->m_args ) {
+                state->addSym( a->m_sym->text(), a );
             }
             func->m_body = state->parse( rhs );
             state->leaveScope();
@@ -148,7 +151,7 @@ namespace Parse {
     };
 
     struct Let : public Parser {
-        Ast::Scope* parse( State* state, Args& args ) const override {
+        Ast::Node* parse( State* state, Args& args ) const override {
             auto lets = dynamic_cast<Lex::List*>( args.cur() );
             args.advance();
             auto body = args.cur();
@@ -160,7 +163,7 @@ namespace Parse {
             for( auto pair : lets->items) {
                 auto cur = dynamic_cast<Lex::List*>( pair );
                 verify(cur->size() == 2);
-                auto sym = state->symbol(cur->items[0]);
+                auto sym = dynamic_cast<Lex::Symbol*>(cur->items[0]);
                 verify(sym);
                 Ast::Node* val = state->parse(cur->items[1]);
                 state->addSym(sym->text(), val);
@@ -169,7 +172,7 @@ namespace Parse {
             seq->m_items.push_back(state->parse(body));
             state->leaveScope();
 
-            return new Ast::Scope(seq);
+            return seq;
         }
     };
     

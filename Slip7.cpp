@@ -18,7 +18,7 @@ namespace Sema {
             case Reflect::Kind::Pointer: {
                 if (var.type->sub->extends<Ast::Node>()) {
                     auto p = *static_cast<Ast::Node**>(var.addr);
-                    if (p) {
+                    if (p && std::find(out.begin(), out.end(), p)==out.end()) {
                         out.push_back(p);
                         collect_nodes(out, p);
                     }
@@ -61,10 +61,10 @@ namespace Sema {
                 n->type_check();
             }
             auto pre = todo.size();
-            erase_if(todo, [](Ast::Node* n) { return n->m_type != nullptr;  });
-            if (todo.size() == pre) {
-                int x; x = 0;
-            }
+            erase_if(todo, [](Ast::Node* n) { return n->m_type != nullptr; });
+            verify(todo.size() < pre);
+
+            Ast::print(top_node);
         }
         return true;
     }
@@ -72,6 +72,14 @@ namespace Sema {
 
 namespace Code {
     struct Generator {
+        int pushScope() {
+            m_stack.push_back(m_counter++);
+            return m_stack.back();
+        }
+        void popScope() {
+            m_stack.pop_back();
+        }
+
         Io::TextOutput out;
         inline void dispatch(Ast::Node* n) {
             return Ast::dispatch(n, *this);
@@ -88,44 +96,54 @@ namespace Code {
         }
         void operator()(Ast::Definition* n) {
             out.nl();
-            out.write(string_format("%s %s = ",
-                n->m_sym->m_type->m_name.c_str(), n->m_sym->text().c_str()));
+            out.write(string_format("%s = ",
+                n->m_sym->text().c_str()));
             dispatch(n->m_value);
             out.write(";");
         }
         void operator()(Ast::Sequence* n) {
-            for (auto a : n->m_items) {
+            for (auto a : array_view_t::make(n->m_items).rtrim(1)) {
                 dispatch(a);
+                out.nl();
             }
+            out.write(string_format("_%i = ", m_stack.back()));
+            dispatch(n->m_items.back());
+            out.write(";");
+            out.nl();
         }
         void operator()(Ast::Scope* n) {
             out.begin("{");
             dispatch(n->m_child);
             out.end("}");
+            out.nl();
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
             out.begin(string_format("int %s(", n->m_name->text().c_str()));
             out.nl();
             const char* sep = "";
-            for (auto a : n->m_arg_syms) {
-                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->text().c_str(), sep));
+            for (auto a : n->m_args) {
+                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->m_sym->text().c_str(), sep));
                 sep = ", ";
             }
-            out.end(") {");
+            out.write(") {");
+            out.nl();
+            int scope = pushScope();
+            out.write(string_format("int _%i;", scope));
             dispatch(n->m_body);
-            out.write("}");
+            out.write(string_format("return _%i;", scope));
+            popScope();
+            out.nl();
+            out.end("}");
             out.nl();
         }
         void operator()(Ast::FunctionCall* n) {
-            out.write("(");
             if (auto d = dynamic_cast<Ast::FunctionDecl*>(n->m_func)) {
                 out.write(d->m_name->text());
             }
             else {
                 assert(0);
             }
-            out.write(")");
             out.write("(");
             auto sep = "";
             for (auto a : n->m_args) {
@@ -143,13 +161,15 @@ namespace Code {
             }
             out.end("}");
         }
+        std::vector<int> m_stack;
+        int m_counter = 1;
     };
     void generate(Ast::Module* module) {
         Generator g;
         Ast::dispatch(module, g);
     }
+    
 }
-
 
 
 int main( int argc, const char* argv[] ) {
@@ -163,10 +183,14 @@ int main( int argc, const char* argv[] ) {
         verify( Lex );
         Ast::Module* ast = Parse::module( Lex );
         verify(ast);
-        Reflect::printVar(ast);
+        Ast::print(ast);
+        printf("\n\n");
         Sema::type_check(ast);
+        printf("\n\n");
         Reflect::printVar(ast);
+        printf("\n\n");
         Code::generate(ast);
+        printf("\n\n");
     }
     catch( float ) {
         return 1;

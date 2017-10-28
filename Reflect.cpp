@@ -9,6 +9,10 @@ namespace Reflect {
                 out.write("null");
                 return;
             }
+            else if (auto f = top.type->toString) {
+                out.write((*f)(top.addr));
+                return;
+            }
             switch (top.type->kind) {
                 case Kind::Pointer: {
                     auto obj = *(void**)top.addr;
@@ -37,7 +41,6 @@ namespace Reflect {
                             for (auto f : c->fields) {
                                 //if (f.name == "m_type") continue;
                                 out.nl();
-                                //out.field(f.name.c_str());
                                 Var v = top[f];
                                 printVar(out, v);
                             }

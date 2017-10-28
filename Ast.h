@@ -11,6 +11,11 @@ namespace Ast {
     REFLECT_DECL(); \
     int tag() const override
 
+    namespace Flags {
+        const unsigned Child = 1; // Default is "ref"
+        const unsigned Abbrev = 1; // Default is "ref"
+    };
+
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
         virtual int tag() const;
@@ -25,6 +30,8 @@ namespace Ast {
     struct Type : Node {
         AST_DECL();
         Type(const std::string& s);
+        void type_check() override {
+        }
         std::string m_name;
     };
 
@@ -80,45 +87,33 @@ namespace Ast {
         }
     };
 
-
-    struct Symbol : public Node {
+    struct Argument : public Node {
         AST_DECL();
-
-        Symbol(std::string&& n, Lex::Symbol* s) : m_name(n), m_sym(s) {
+        Argument(Lex::Symbol* s) : m_sym(s) {
         }
-
-        void type_check() {
-        }
-
-        std::string m_name;
         Lex::Symbol* m_sym;
 
-        std::string text() const {
-            return m_sym->text();
-        }
-
-        static std::string toString(const void* obj) {
-            auto sym = static_cast<const Symbol*>(obj);
-            return string_format("%s\"}", sym->dynamicType()->name, sym->m_name.c_str());
+        void type_check() {
+            assert(m_sym->m_decltype);
+            m_type = &s_typeDouble;
         }
     };
-
 
     struct FunctionDecl : public Node {
         AST_DECL();
 
-        Ast::Symbol* m_name = nullptr;
-        std::vector< Symbol* > m_arg_syms;
+        Lex::Symbol* m_name = nullptr;
+        std::vector< Argument* > m_args;
         Node* m_body = nullptr;
 
         FunctionDecl() {}
-        FunctionDecl( Ast::Symbol* name, std::vector<Symbol*>& args, Node* body )
+        FunctionDecl( Lex::Symbol* name, std::vector<Argument*>& args, Node* body )
             : m_name(name), m_body(body) {
-            m_arg_syms.swap( args );
+            m_args.swap( args );
         }
         void type_check() {
             if (m_body->m_type == nullptr) return;
-            if (any_of(m_arg_syms, [](Symbol*s) { return s->m_type == nullptr; })) { return; }
+            if (any_of(m_args, [](Argument*s) { return s->m_type == nullptr; })) { return; }
             m_type = &s_typeF_double_double;//TODO
         }
     };
@@ -138,25 +133,19 @@ namespace Ast {
     };
 
     
-    struct Argument : public Node {
-        AST_DECL();
-        Argument(Symbol* s) : m_sym(s) {
-        }
-        Symbol* m_sym;
-
-        void type_check() {
-            if (m_sym->m_type) {
-                m_type = m_sym->m_type;
-            }
-        }
-    };
+    
 
 
     struct Reference : public Node {
         AST_DECL();
-        Reference(Node* s) : m_sym(s) {
+        Reference(Node* s) : m_target(s) {
         }
-        Node* m_sym;
+        virtual void type_check() {
+            if (auto t = m_target->m_type) {
+                m_type = t;
+            }
+        }
+        Node* m_target;
     };
 
 
@@ -176,22 +165,22 @@ namespace Ast {
     struct Definition : public Node {
         AST_DECL();
 
-        Symbol* m_sym = nullptr;
+        Lex::Symbol* m_sym = nullptr;
         Node* m_value = nullptr;
 
         Definition() {}
-        Definition( Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
+        Definition( Lex::Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
 
         virtual void type_check() {
             if (auto t = m_value->m_type) {
                 m_type = t;
-                if (m_sym->m_type == nullptr) {
-                    m_sym->m_type = t;
-                }
                 m_type = &s_typeVoid;
             }
         }
     };
+
+    void print(Node* node);
+    void print(Node* node, Io::TextOutput& out);
 
     namespace Detail {
         template<typename T> struct TagOf;

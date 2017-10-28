@@ -24,6 +24,7 @@ namespace Reflect {
         std::string name;
         const Type* type;
         int offset;
+        unsigned flags;
     };
 
     template<typename T>
@@ -148,7 +149,8 @@ namespace Reflect {
 #define REFLECT_END() return self; }
 
 #define REFLECT_PARENT(NAME) self.parent = &NAME::s_reflectType;
-#define REFLECT_FIELD(NAME) self.fields.push_back( {#NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME)} );
+#define REFLECT_FIELD2(NAME, FLAGS) self.fields.push_back( {#NAME, Reflect::TypeOf<decltype(DECL::NAME)>::value(), offsetof(DECL,NAME), FLAGS} );
+#define REFLECT_FIELD(NAME) REFLECT_FIELD2(NAME,0)
 #define REFLECT_TO_STRING(FUNC) self.toString = FUNC;
 
 
