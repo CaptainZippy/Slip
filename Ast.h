@@ -20,18 +20,13 @@ namespace Ast {
         REFLECT_DECL();
         virtual int tag() const;
 
-        virtual void type_check() {
-            assert(0);
-        }
-
         Type* m_type{ nullptr };
     };
     
     struct Type : Node {
         AST_DECL();
         Type(const std::string& s);
-        void type_check() override {
-        }
+        
         std::string m_name;
     };
 
@@ -52,9 +47,6 @@ namespace Ast {
         Number( Lex::Number* n) : m_num(n) {}
         Lex::Number* m_num;
 
-        void type_check() {
-            m_type = &s_typeDouble;
-        }
         static std::string toString(const void* p) {
             auto n = static_cast<const Number*>(p);
             return n->m_num->text();
@@ -64,9 +56,6 @@ namespace Ast {
 
     struct Module : Node {
         AST_DECL();
-        void type_check() override {
-            m_type = &s_typeVoid;
-        }
 
         std::vector<Node*> m_items;
     };
@@ -79,12 +68,6 @@ namespace Ast {
         FunctionCall( Node* func, std::vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
-
-        void type_check() {
-            if (m_func->m_type) {
-                m_type = &s_typeDouble;//TODO
-            }
-        }
     };
 
     struct Argument : public Node {
@@ -92,11 +75,6 @@ namespace Ast {
         Argument(Lex::Symbol* s) : m_sym(s) {
         }
         Lex::Symbol* m_sym;
-
-        void type_check() {
-            assert(m_sym->m_decltype);
-            m_type = &s_typeDouble;
-        }
     };
 
     struct FunctionDecl : public Node {
@@ -111,39 +89,18 @@ namespace Ast {
             : m_name(name), m_body(body) {
             m_args.swap( args );
         }
-        void type_check() {
-            if (m_body->m_type == nullptr) return;
-            if (any_of(m_args, [](Argument*s) { return s->m_type == nullptr; })) { return; }
-            m_type = &s_typeF_double_double;//TODO
-        }
     };
 
 
     struct Sequence : public Node {
         AST_DECL();
         std::vector<Node*> m_items;
-        void type_check() {
-            if (m_items.size() == 0 ) {
-                m_type = &s_typeVoid;
-            }
-            else if (auto t = m_items.back()->m_type) {
-                m_type = t;
-            }
-        }
     };
-
-    
-    
 
 
     struct Reference : public Node {
         AST_DECL();
         Reference(Node* s) : m_target(s) {
-        }
-        virtual void type_check() {
-            if (auto t = m_target->m_type) {
-                m_type = t;
-            }
         }
         Node* m_target;
     };
@@ -153,12 +110,6 @@ namespace Ast {
         AST_DECL();
         Scope(Node* c) : m_child(c) {}
         Node* m_child{ nullptr };
-
-        void type_check() {
-            if (m_child->m_type) {
-                m_type = m_child->m_type;
-            }
-        }
     };
 
 
@@ -170,13 +121,6 @@ namespace Ast {
 
         Definition() {}
         Definition( Lex::Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
-
-        virtual void type_check() {
-            if (auto t = m_value->m_type) {
-                m_type = t;
-                m_type = &s_typeVoid;
-            }
-        }
     };
 
     void print(Node* node);

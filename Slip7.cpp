@@ -13,6 +13,97 @@
 
 
 namespace Sema {
+    struct TypeChecker {
+        auto dispatch(Ast::Node* node) {
+            if (node->m_type) {
+                return;
+            }
+            return Ast::dispatch(node, *this);
+        }
+
+        void operator()(Ast::Node* n) {
+            assert(0);
+        }
+        void operator()(Ast::Module* n) {
+            assign(&n->m_type, &Ast::s_typeVoid);
+        }
+        void operator()(Ast::Number* n) {
+            assign(&n->m_type, &Ast::s_typeDouble);
+        }
+        void operator()(Ast::FunctionCall* n) {
+            assign(&n->m_type, &Ast::s_typeDouble);
+            //if (n->m_type) { m_type = &s_typeDouble; }
+        }
+        void operator()(Ast::Argument* n) {
+            assert(n->m_sym->m_decltype);
+            assign(&n->m_type, &Ast::s_typeDouble);
+        }
+        void operator()(Ast::Sequence* n) {
+            if (n->m_items.size() == 0) {
+                assign(&n->m_type, &Ast::s_typeVoid);
+            }
+            else {
+                compatible(&n->m_type, &n->m_items.back()->m_type);
+            }
+        }
+        void operator()(Ast::FunctionDecl* n) {
+            //if (any_of(m_args, [](Argument*s) { return s->m_type == nullptr; })) { return; }
+            assign(&n->m_type, &Ast::s_typeF_double_double);
+        }
+        void operator()(Ast::Reference* n) {
+            compatible(&n->m_type, &n->m_target->m_type);
+        }
+        void operator()(Ast::Scope* n) {
+            if (n->m_child) {
+                compatible(&n->m_type, &n->m_child->m_type);
+            }
+            else {
+                assign(&n->m_type, &Ast::s_typeVoid);
+            }
+        }
+        void operator()(Ast::Definition* n) {
+            assign(&n->m_type, &Ast::s_typeVoid);
+        }
+
+        Result resolve() {
+            for (auto info : m_infoFromType) {
+                if (info.second->deps.size()==0) {
+                    return Result::ERR;
+                }
+            }
+            return Result::OK;
+        }
+
+    protected:
+        struct Info {
+            Ast::Type** loc{ nullptr };
+            Ast::Type* declared{ nullptr };
+            Ast::Type* assign{ nullptr };
+            Ast::Type** compatible{ nullptr };
+            std::vector<Info*> deps;
+        };
+        Info* lookup(Ast::Type** ta) {
+            auto& val = m_infoFromType[ta];
+            if (!val) {
+                val = new Info;
+                val->loc = ta;
+            }
+            return val;
+        }
+
+        void assign(Ast::Type** ta, Ast::Type* t) {
+            lookup(ta)->declared = t;
+        }
+        void compatible(Ast::Type** td, Ast::Type** ts) {
+            auto id = lookup(td);
+            auto is = lookup(ts);
+            id->compatible = ts;
+            is->deps.push_back(id);
+        }
+        Result m_result = Result::OK;
+        std::unordered_map<Ast::Type**, Info*> m_infoFromType;
+    };
+
     void collect_nodes(std::vector<Ast::Node*>& out, Reflect::Var var) {
         switch (var.type->kind) {
             case Reflect::Kind::Pointer: {
@@ -51,22 +142,15 @@ namespace Sema {
                 assert(0);
         }
     }
-        
-    bool type_check(Ast::Node* top_node) {
-        std::vector<Ast::Node*> todo{ top_node };
-        collect_nodes(todo, top_node);
-        // very dumb, just iterate
-        while (todo.size()) {
-            for (auto n : todo) {
-                n->type_check();
-            }
-            auto pre = todo.size();
-            erase_if(todo, [](Ast::Node* n) { return n->m_type != nullptr; });
-            verify(todo.size() < pre);
 
-            Ast::print(top_node);
+    Result type_check(Ast::Node* top_node) {
+        TypeChecker checker;
+        std::vector<Ast::Node*> nodes{ top_node };
+        collect_nodes(nodes, top_node);
+        for (auto node : nodes) {
+            checker.dispatch(node);
         }
-        return true;
+        return checker.resolve();
     }
 }
 
@@ -123,6 +207,8 @@ namespace Code {
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
+                assert(a->m_type);
+                assert(a->m_sym);
                 out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->m_sym->text().c_str(), sep));
                 sep = ", ";
             }
