@@ -14,94 +14,141 @@
 
 namespace Sema {
     struct TypeChecker {
-        auto dispatch(Ast::Node* node) {
-            if (node->m_type) {
-                return;
-            }
-            return Ast::dispatch(node, *this);
-        }
 
         void operator()(Ast::Node* n) {
             assert(0);
         }
         void operator()(Ast::Module* n) {
-            assign(&n->m_type, &Ast::s_typeVoid);
+            assign(n, &Ast::s_typeVoid);
         }
         void operator()(Ast::Number* n) {
-            assign(&n->m_type, &Ast::s_typeDouble);
+            assign(n, &Ast::s_typeDouble);
         }
         void operator()(Ast::FunctionCall* n) {
-            assign(&n->m_type, &Ast::s_typeDouble);
+            assign(n, &Ast::s_typeDouble);
             //if (n->m_type) { m_type = &s_typeDouble; }
         }
         void operator()(Ast::Argument* n) {
             assert(n->m_sym->m_decltype);
-            assign(&n->m_type, &Ast::s_typeDouble);
+            assign(n, &Ast::s_typeDouble);
         }
         void operator()(Ast::Sequence* n) {
-            if (n->m_items.size() == 0) {
-                assign(&n->m_type, &Ast::s_typeVoid);
+            if (n->m_items.size()) {
+                equal(n, n->m_items.back());
             }
             else {
-                compatible(&n->m_type, &n->m_items.back()->m_type);
+                assign(n, &Ast::s_typeVoid);
             }
         }
         void operator()(Ast::FunctionDecl* n) {
             //if (any_of(m_args, [](Argument*s) { return s->m_type == nullptr; })) { return; }
-            assign(&n->m_type, &Ast::s_typeF_double_double);
+            assign(n, &Ast::s_typeF_double_double);
         }
         void operator()(Ast::Reference* n) {
-            compatible(&n->m_type, &n->m_target->m_type);
+            equal(n, n->m_target);
         }
         void operator()(Ast::Scope* n) {
             if (n->m_child) {
-                compatible(&n->m_type, &n->m_child->m_type);
+                equal(n, n->m_child);
             }
             else {
-                assign(&n->m_type, &Ast::s_typeVoid);
+                assign(n, &Ast::s_typeVoid);
             }
         }
         void operator()(Ast::Definition* n) {
-            assign(&n->m_type, &Ast::s_typeVoid);
+            assign(n, &Ast::s_typeVoid);
         }
 
-        Result resolve() {
-            for (auto info : m_infoFromType) {
-                if (info.second->deps.size()==0) {
-                    return Result::ERR;
-                }
+        Result resolve(array_view<Ast::Node*> nodes) {
+            std::vector<Info*> todo;
+            for (auto node : nodes) {
+                auto inf = new Info{};
+                todo.push_back(inf);
+                node->m_data = inf;
+                inf->node = node;
             }
-            return Result::OK;
+            for (auto node : nodes) {
+                Ast::dispatch(node, *this);
+            }
+            auto res = _resolve(todo);
+            for (auto node : nodes) {
+                delete static_cast<TypeChecker::Info*>(node->m_data);
+                node->m_data = nullptr;
+            }
+            return res;
         }
 
     protected:
+        
         struct Info {
-            Ast::Type** loc{ nullptr };
+            Ast::Node* node{ nullptr };
             Ast::Type* declared{ nullptr };
-            Ast::Type* assign{ nullptr };
-            Ast::Type** compatible{ nullptr };
+            Info* equal{ nullptr };
+            unsigned num_prec{ 0 };
             std::vector<Info*> deps;
         };
-        Info* lookup(Ast::Type** ta) {
-            auto& val = m_infoFromType[ta];
-            if (!val) {
-                val = new Info;
-                val->loc = ta;
+
+        Result _resolve1(Info* inf) {
+            assert(inf->node);
+            assert(inf->node->m_type == nullptr);
+            if (inf->declared) {
+                inf->node->m_type = inf->declared;
             }
-            return val;
+            else {
+                assert(inf->equal);
+                assert(inf->equal->node);
+                assert(inf->equal->node->m_type);
+                inf->node->m_type = inf->equal->node->m_type;
+            }
+            for (auto dep : inf->deps) {
+                dep->num_prec -= 1;
+            }
+
+            return Result::OK;
         }
 
-        void assign(Ast::Type** ta, Ast::Type* t) {
-            lookup(ta)->declared = t;
+        Result _resolve(std::vector<Info*>& todo) {
+            while (todo.size()) {
+                std::vector<Info*> next;
+                for (auto cur : todo) {
+                    if (cur->num_prec == 0) {
+                        _resolve1(cur);
+                    }
+                    else {
+                        next.push_back(cur);
+                    }
+                }
+                if (todo.size() == next.size()) {
+                    return Result::ERR;
+                }
+                todo.swap(next);
+            }
+
+            return Result::OK;
         }
-        void compatible(Ast::Type** td, Ast::Type** ts) {
-            auto id = lookup(td);
-            auto is = lookup(ts);
+
+        Info* info(Ast::Node* n) {
+            return static_cast<Info*>(n->m_data);
+        }
+
+        void assign(Ast::Node* node, Ast::Type* t) {
+            info(node)->declared = t;
+        }
+
+        void equal(Ast::Node* tgt, Ast::Node* src) {
+            auto itgt = info(tgt);
+            auto isrc = info(src);
+            itgt->equal = isrc;
+            itgt->num_prec += 1;
+            isrc->deps.push_back(itgt);
+        }
+
+        void compatible(Ast::Node* tgt, Ast::Node* src) {
+            /*auto id = info(lhs);
+            auto is = info(ts);
             id->compatible = ts;
-            is->deps.push_back(id);
+            is->deps.push_back(id);*/
         }
-        Result m_result = Result::OK;
-        std::unordered_map<Ast::Type**, Info*> m_infoFromType;
     };
 
     void collect_nodes(std::vector<Ast::Node*>& out, Reflect::Var var) {
@@ -147,10 +194,7 @@ namespace Sema {
         TypeChecker checker;
         std::vector<Ast::Node*> nodes{ top_node };
         collect_nodes(nodes, top_node);
-        for (auto node : nodes) {
-            checker.dispatch(node);
-        }
-        return checker.resolve();
+        return checker.resolve(nodes);
     }
 }
 

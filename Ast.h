@@ -21,6 +21,7 @@ namespace Ast {
         virtual int tag() const;
 
         Type* m_type{ nullptr };
+        void* m_data{ nullptr };
     };
     
     struct Type : Node {
