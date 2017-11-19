@@ -154,6 +154,7 @@
     <ClCompile Include="Reflect.cpp" />
     <ClCompile Include="Slip7.cpp" />
     <ClCompile Include="Lex.cpp" />
+    <ClCompile Include="Type.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
@@ -162,7 +163,7 @@
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="SourceManager.h" />
     <ClInclude Include="Lex.h" />
-    <ClInclude Include="temp.h" />
+    <ClInclude Include="Type.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Ast.inc" />

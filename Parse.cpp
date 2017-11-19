@@ -79,3 +79,7 @@ Ast::Module* Parse::module( Lex::List* Lex ) {
     }
     return module;
 }
+
+Ast::Node* Parse::Parser::parse(State* state, Args& args) const {
+    return  _parse(state, args);
+}
