@@ -19,7 +19,6 @@ namespace Lex {
         REFLECT_DECL();
         Atom( const SourceLocation& loc ) : m_loc( loc ) {}
         virtual ~Atom() {}
-        void print( int i ) const { _print( i ); }
 
         SourceLocation m_loc{};
         Atom* m_decltype = nullptr;
@@ -27,17 +26,12 @@ namespace Lex {
 
         Atom() {}
     protected:
-        virtual void _print(int i) const {}// = 0;
         static const char* indent( int i );
     };
 
     struct Value : Atom {
         REFLECT_DECL();
         Value( const SourceLocation& loc ) : Atom( loc ), m_text( text() ) {}
-        void _print( int i ) const override {
-            auto s = m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
-            printf( "%s%s\n", indent( i ), s.c_str() );
-        }
         std::string text() const {
             return m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
         }
@@ -50,10 +44,6 @@ namespace Lex {
 
     struct String : Value {
         String( const SourceLocation& loc ) : Value( loc ) {}
-
-        void _print( int i ) const override {
-            printf( "%s\"%s\"\n", indent( i ), text().c_str() );
-        }
     };
 
     struct Symbol : Value {
@@ -62,11 +52,6 @@ namespace Lex {
 
     struct Number : Value {
         Number( const SourceLocation& loc ) : Value( loc ) {}
-    protected:
-        void _print( int i ) const override {
-            auto s = m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
-            printf( "%s#%s\n", indent( i ), s.c_str() );
-        }
     };
 
 
@@ -79,14 +64,6 @@ namespace Lex {
         void append( Atom* a ) {
             items.push_back( a );
         }
-        void _print( int i ) const override {
-            printf( "%s(\n", indent( i ) );
-            for( auto& a : items ) {
-                a->print( i + 1 );
-            }
-            printf( "%s)\n", indent( i ) );
-        }
-
         std::vector< Atom* > items;
     };
 }
