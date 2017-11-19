@@ -35,7 +35,6 @@ namespace Ast {
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeDouble;
     extern Ast::Type s_typeVoid;
-    extern Ast::Type s_typeF_double_double;
 
 
     struct Decl : Node {

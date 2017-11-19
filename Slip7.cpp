@@ -11,6 +11,10 @@
 #include "Ast.h"
 #include "Parse.h"
 
+Ast::Node* Parse::Parser::parse(State* state, Args& args) const
+{
+    return  _parse(state, args);
+}
 
 namespace Sema {
     struct TypeChecker {
@@ -30,7 +34,7 @@ namespace Sema {
         }
         void operator()(Ast::Argument* n) {
             assert(n->m_sym->m_decltype);
-            assign(n, &Ast::s_typeDouble);
+            assert(n->m_type);
         }
         void operator()(Ast::Sequence* n) {
             if (n->m_items.size()) {
@@ -41,8 +45,12 @@ namespace Sema {
             }
         }
         void operator()(Ast::FunctionDecl* n) {
-            //if (any_of(m_args, [](Argument*s) { return s->m_type == nullptr; })) { return; }
-            assign(n, &Ast::s_typeF_double_double);
+            std::vector<Ast::Node*> deps;
+            deps.push_back(n->m_body);
+            deps.insert(deps.begin(), n->m_args.begin(), n->m_args.end());
+            depends(n, deps, [deps,n,this]() {
+                n->m_type = this->_create_function_type(deps);
+            });
         }
         void operator()(Ast::Reference* n) {
             equal(n, n->m_target);
@@ -80,18 +88,25 @@ namespace Sema {
 
     protected:
         
+        typedef std::function< void() > Callback;
+
         struct Info {
             Ast::Node* node{ nullptr };
             Ast::Type* declared{ nullptr };
             Info* equal{ nullptr };
             unsigned num_prec{ 0 };
             std::vector<Info*> deps;
+            Callback pre_resolve_cb;
         };
 
         Result _resolve1(Info* inf) {
             assert(inf->node);
-            assert(inf->node->m_type == nullptr);
-            if (inf->declared) {
+            if (inf->pre_resolve_cb) {
+                inf->pre_resolve_cb();
+            }
+            if (inf->node->m_type) {
+            }
+            else if (inf->declared) {
                 inf->node->m_type = inf->declared;
             }
             else {
@@ -143,11 +158,27 @@ namespace Sema {
             isrc->deps.push_back(itgt);
         }
 
-        void compatible(Ast::Node* tgt, Ast::Node* src) {
-            /*auto id = info(lhs);
-            auto is = info(ts);
-            id->compatible = ts;
-            is->deps.push_back(id);*/
+        void depends(Ast::Node* tgt, array_view<Ast::Node*> deps, Callback&& cb ) {
+            auto itgt = info(tgt);
+            itgt->pre_resolve_cb = cb;
+            for (auto d : deps) {
+                auto id = info(d);
+                itgt->num_prec += 1;
+                id->deps.push_back(itgt);
+            }
+        }
+
+        Ast::Type* _create_function_type(array_view<Ast::Node*> sig) {
+            std::string name;
+            name.append(sig[0]->m_type->m_name);
+            name.append(" (");
+            const char* sep = "";
+            for (auto a : sig.ltrim(1)) {
+                name.append(sep); sep = ", ";
+                name.append(a->m_type->m_name);
+            }
+            name.append(")");
+            return new Ast::Type(name);
         }
     };
 
@@ -298,7 +329,6 @@ namespace Code {
         Generator g;
         Ast::dispatch(module, g);
     }
-    
 }
 
 

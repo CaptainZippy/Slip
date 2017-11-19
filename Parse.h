@@ -8,9 +8,10 @@ namespace Parse {
 
     struct Parser {
         virtual ~Parser() {}
-        virtual Ast::Node* parse(State* state, Args& args) const = 0;
+        virtual Ast::Node* parse(State* state, Args& args) const final;
+    protected:
+        virtual Ast::Node* _parse(State* state, Args& args) const = 0;
     };
-
 
     struct State {
 
@@ -42,17 +43,20 @@ namespace Parse {
 
         Lex::Symbol* symbol(Lex::Atom* atom) {
             if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-
-            //    auto ret = nullptr;// new Ast::Symbol(sym->text(), sym);
-            //    if (sym->m_decltype) {
-            //        auto n = this->parse(sym->m_decltype);
-            //        //if( auto r = dynamic_cast<Ast::Reference*>(n) ) { n = r->m_target; }
-            //        auto t = dynamic_cast<Ast::Type*>(n);
-            //        ret->m_type = t;
-            //    }
                 return sym;
             }
             assert(0);
+            return nullptr;
+        }
+
+        Ast::Type* _parseType(Lex::Atom* atom) {
+            if( atom ) {
+                auto p = parse(atom);
+                assert(p);
+                auto t = dynamic_cast<Ast::Type*>(p);
+                assert(t);
+                return t;
+            }
             return nullptr;
         }
 
@@ -109,7 +113,7 @@ namespace Parse {
     };
 
     struct Define : public Parser {
-        Ast::Node* parse( State* state, Args& args ) const override {
+        Ast::Node* _parse( State* state, Args& args ) const override {
             auto sym = state->symbol( args.cur() );
             args.advance();
             auto val = state->parse( args.cur() );
@@ -123,16 +127,18 @@ namespace Parse {
 
     struct Func : public Parser {
 
-        Ast::FunctionDecl* parse( State* state, Args& args ) const override {
+        Ast::FunctionDecl* _parse( State* state, Args& args ) const override {
             auto func = new Ast::FunctionDecl();
             func->m_name = state->symbol(args.cur());
             args.advance();
             state->addSym(func->m_name->text(), func);
             state->enterScope();
-            for( auto i : dynamic_cast<Lex::List*>(args.cur())->items ) {
-                auto a = state->symbol(i);
-                verify(a);
-                func->m_args.push_back( new Ast::Argument(a) );
+            for( auto item : dynamic_cast<Lex::List*>(args.cur())->items ) {
+                auto sym = state->symbol(item);
+                verify(sym);
+                auto arg = new Ast::Argument(sym);
+                arg->m_type = state->_parseType(item->m_decltype);
+                func->m_args.push_back( arg );
             }
             args.advance();
 
@@ -151,7 +157,7 @@ namespace Parse {
     };
 
     struct Let : public Parser {
-        Ast::Node* parse( State* state, Args& args ) const override {
+        Ast::Node* _parse( State* state, Args& args ) const override {
             auto lets = dynamic_cast<Lex::List*>( args.cur() );
             args.advance();
             auto body = args.cur();

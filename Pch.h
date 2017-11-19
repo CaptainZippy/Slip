@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <memory>
 #include <algorithm>
+#include <functional>
 
 #define Error Slip::Detail::_Error{__FILE__, __LINE__}
 typedef unsigned long long uptr;

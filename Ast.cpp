@@ -76,7 +76,6 @@ namespace Ast {
     Ast::Type s_typeInt("int");
     Ast::Type s_typeDouble("double");
     Ast::Type s_typeVoid("void");
-    Ast::Type s_typeF_double_double("double(*)(double)");
 
     Type::Type(const std::string& s) : m_name(s) {
         m_type = &s_typeType;
