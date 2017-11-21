@@ -13,7 +13,7 @@ namespace Ast {
 
     namespace Flags {
         const unsigned Child = 1; // Default is "ref"
-        const unsigned Abbrev = 1; // Default is "ref"
+        const unsigned Abbrev = 2; // Default is "ref"
     };
 
     struct Node : Reflect::AbstractReflected {
