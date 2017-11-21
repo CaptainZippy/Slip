@@ -60,36 +60,7 @@ namespace Parse {
             return nullptr;
         }
 
-        Ast::Node* parse(Lex::Atom* atom) {
-            if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-                auto p = lookup(sym->text());
-                verify(p.first == nullptr);
-                return reference(p.second);
-            }
-            else if (auto list = dynamic_cast<Lex::List*>(atom)) {
-                assert(list);
-                assert(list->items.size());
-                auto& items = list->items;
-                auto sym = symbol(items[0]);
-                Args args{ items }; args.advance();
-                auto p = lookup(sym->text());
-                if (p.first) {
-                    return p.first->parse(this, args);
-                }
-                else {
-                    std::vector<Ast::Node*> fa;
-                    for (auto a : args) {
-                        fa.push_back( parse(a) );
-                    }
-                    return new Ast::FunctionCall(reference(p.second), std::move(fa));
-                }
-            }
-            else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
-                return new Ast::Number(num);
-            }
-            verify(0);
-            return nullptr;
-        }
+        Ast::Node* parse(Lex::Atom* atom);
 
     //protected:
 
