@@ -46,7 +46,7 @@ Ast::Node* Parse::Define::_parse( State* state, Args& args ) const  {
 Ast::FunctionDecl* Parse::Func::_parse( State* state, Args& args ) const {
     auto func = new Ast::FunctionDecl(state->symbol(args.cur()));
     args.advance();
-    state->addSym(func->m_sym->text(), func);
+    state->addSym(func->m_name->text(), func);
     state->enterScope();
     for( auto item : dynamic_cast<Lex::List*>(args.cur())->items ) {
         auto sym = state->symbol(item);
@@ -62,7 +62,7 @@ Ast::FunctionDecl* Parse::Func::_parse( State* state, Args& args ) const {
     verify( args.used() );
 
     for( auto a : func->m_args ) {
-        state->addSym( a->m_sym->text(), a );
+        state->addSym( a->m_name->text(), a );
     }
     func->m_body = state->parse( rhs );
     state->leaveScope();

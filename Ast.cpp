@@ -37,7 +37,7 @@ namespace Ast {
     
     REFLECT_BEGIN(Named)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD2(m_sym, Flags::Abbrev)
+    REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(FunctionDecl)

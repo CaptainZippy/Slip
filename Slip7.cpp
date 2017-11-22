@@ -32,14 +32,14 @@ namespace Code {
         }
         void operator()(Ast::Reference* n) {
             if (auto d = dynamic_cast<Ast::Named*>(n->m_target)) {
-                out.write( d->m_sym->text() );
+                out.write( d->m_name->text() );
             }
             else {
                 assert(0);
             }
         }
         void operator()(Ast::Argument* n) {
-            out.write(n->m_sym->text());
+            out.write(n->m_name->text());
         }
         void operator()(Ast::Number* n) {
             out.write(n->m_num->text());
@@ -48,7 +48,7 @@ namespace Code {
             out.nl();
             out.write(string_format("%s %s = ",
                 n->m_type->m_name.c_str(),
-                n->m_sym->text().c_str()));
+                n->m_name->text().c_str()));
             dispatch(n->m_value);
             out.write(";");
         }
@@ -70,13 +70,13 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_sym->text().c_str()));
+            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_name->text().c_str()));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
-                assert(a->m_sym);
-                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->m_sym->text().c_str(), sep));
+                assert(a->m_name);
+                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->m_name->text().c_str(), sep));
                 sep = ", ";
             }
             out.write(") {");

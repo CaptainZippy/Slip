@@ -72,9 +72,9 @@ namespace Ast {
 
     struct Named : public Node {
         AST_DECL();
-        Lex::Symbol* m_sym = nullptr;
+        Lex::Symbol* m_name = nullptr;
 
-        Named(Lex::Symbol* sym) : m_sym(sym) {}
+        Named(Lex::Symbol* sym) : m_name(sym) {}
     };
 
     struct Argument : public Named {
