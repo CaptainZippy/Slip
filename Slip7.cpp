@@ -30,15 +30,9 @@ namespace Code {
         void operator()(Ast::Node* n) {
             assert(0);
         }
-        void operator()(Ast::Reference* n) { //TODO
-            if (auto d = dynamic_cast<Ast::Definition*>(n->m_target)) {
+        void operator()(Ast::Reference* n) {
+            if (auto d = dynamic_cast<Ast::Named*>(n->m_target)) {
                 out.write( d->m_sym->text() );
-            }
-            else if (auto a = dynamic_cast<Ast::Argument*>(n->m_target)) {
-                out.write(a->m_sym->text());
-            }
-            else if (auto f = dynamic_cast<Ast::FunctionDecl*>(n->m_target)) {
-                out.write(f->m_name->text());
             }
             else {
                 assert(0);
@@ -76,7 +70,7 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_name->text().c_str()));
+            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_sym->text().c_str()));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {

@@ -1,4 +1,5 @@
 AST_NODE(Node)
+AST_NODE(Named)
 AST_NODE(Type)
 AST_NODE(Decl)
 AST_NODE(Module)

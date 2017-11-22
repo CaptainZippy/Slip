@@ -34,10 +34,14 @@ namespace Ast {
     REFLECT_FIELD2(m_func, Flags::Child)
     REFLECT_FIELD2(m_args, Flags::Child)
     REFLECT_END()
+    
+    REFLECT_BEGIN(Named)
+    REFLECT_PARENT(Node)
+    REFLECT_FIELD2(m_sym, Flags::Abbrev)
+    REFLECT_END()
 
     REFLECT_BEGIN(FunctionDecl)
-    REFLECT_PARENT(Node)
-    REFLECT_FIELD2(m_name, Flags::Abbrev)
+    REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
@@ -48,8 +52,7 @@ namespace Ast {
     REFLECT_END()
 
     REFLECT_BEGIN(Argument)
-    REFLECT_PARENT(Node)
-    REFLECT_FIELD2(m_sym, Flags::Abbrev)
+    REFLECT_PARENT(Named)
     REFLECT_END()
 
     REFLECT_BEGIN(Reference)
@@ -63,8 +66,7 @@ namespace Ast {
     REFLECT_END()
 
     REFLECT_BEGIN(Definition)
-    REFLECT_PARENT(Node)
-    REFLECT_FIELD2(m_sym, Flags::Abbrev)
+    REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_value, Flags::Child)
     REFLECT_END()
 }

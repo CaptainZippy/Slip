@@ -70,23 +70,30 @@ namespace Ast {
         }
     };
 
-    struct Argument : public Node {
+    struct Named : public Node {
         AST_DECL();
-        Argument(Lex::Symbol* s) : m_sym(s) {
-        }
-        Lex::Symbol* m_sym;
+        Lex::Symbol* m_sym = nullptr;
+
+        Named(Lex::Symbol* sym) : m_sym(sym) {}
     };
 
-    struct FunctionDecl : public Node {
+    struct Argument : public Named {
+        AST_DECL();
+        Argument(Lex::Symbol* s) : Named(s) {
+        }
+    };
+
+    struct FunctionDecl : public Named {
         AST_DECL();
 
-        Lex::Symbol* m_name = nullptr;
         std::vector< Argument* > m_args;
         Node* m_body = nullptr;
 
-        FunctionDecl() {}
+        FunctionDecl(Lex::Symbol* name)
+            : Named(name) {
+        }
         FunctionDecl( Lex::Symbol* name, std::vector<Argument*>& args, Node* body )
-            : m_name(name), m_body(body) {
+            : Named(name), m_body(body) {
             m_args.swap( args );
         }
     };
@@ -113,14 +120,12 @@ namespace Ast {
     };
 
 
-    struct Definition : public Node {
+    struct Definition : public Named {
         AST_DECL();
 
-        Lex::Symbol* m_sym = nullptr;
         Node* m_value = nullptr;
 
-        Definition() {}
-        Definition( Lex::Symbol* sym, Node* value ) : m_sym( sym ), m_value( value ) {}
+        Definition( Lex::Symbol* sym, Node* value ) : Named( sym ), m_value( value ) {}
     };
 
     void print(Node* node);

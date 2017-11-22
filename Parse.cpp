@@ -44,10 +44,9 @@ Ast::Node* Parse::Define::_parse( State* state, Args& args ) const  {
 }
 
 Ast::FunctionDecl* Parse::Func::_parse( State* state, Args& args ) const {
-    auto func = new Ast::FunctionDecl();
-    func->m_name = state->symbol(args.cur());
+    auto func = new Ast::FunctionDecl(state->symbol(args.cur()));
     args.advance();
-    state->addSym(func->m_name->text(), func);
+    state->addSym(func->m_sym->text(), func);
     state->enterScope();
     for( auto item : dynamic_cast<Lex::List*>(args.cur())->items ) {
         auto sym = state->symbol(item);
