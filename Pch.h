@@ -253,18 +253,31 @@ namespace Io {
         void begin(const char* s) {
             write(s);
             m_indent.push_back(' ');
+            m_sep = false;
         }
         void begin(const std::string& s) {
             begin(s.c_str());
         }
         void write(const char* s) {
-            if (s) printf("%s", s);
+            if (s) {
+                printf("%s", s);
+                auto n = strlen(s);
+                auto c = s[n - 1];
+                m_sep = isalnum(c);
+            }
         }
         void write(const std::string& s) {
             write(s.c_str());
         }
         void write(const void* s) {
             printf("%p", s);
+            m_sep = true;
+        }
+        void sep() {
+            if (m_sep) {
+                printf(" ");
+                m_sep = false;
+            }
         }
         void end(const char* s = nullptr) {
             m_indent.erase(m_indent.size() - 1);
@@ -272,7 +285,9 @@ namespace Io {
         }
         void nl() {
             printf("\n%s", m_indent.c_str());
+            m_sep = false;
         }
         std::string m_indent;
+        bool m_sep{ false };
     };
 }
