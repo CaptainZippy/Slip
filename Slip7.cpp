@@ -30,8 +30,19 @@ namespace Code {
         void operator()(Ast::Node* n) {
             assert(0);
         }
-        void operator()(Ast::Reference* n) {
-            dispatch(n->m_target);
+        void operator()(Ast::Reference* n) { //TODO
+            if (auto d = dynamic_cast<Ast::Definition*>(n->m_target)) {
+                out.write( d->m_sym->text() );
+            }
+            else if (auto a = dynamic_cast<Ast::Argument*>(n->m_target)) {
+                out.write(a->m_sym->text());
+            }
+            else if (auto f = dynamic_cast<Ast::FunctionDecl*>(n->m_target)) {
+                out.write(f->m_name->text());
+            }
+            else {
+                assert(0);
+            }
         }
         void operator()(Ast::Argument* n) {
             out.write(n->m_sym->text());
@@ -41,7 +52,8 @@ namespace Code {
         }
         void operator()(Ast::Definition* n) {
             out.nl();
-            out.write(string_format("%s = ",
+            out.write(string_format("%s %s = ",
+                n->m_type->m_name.c_str(),
                 n->m_sym->text().c_str()));
             dispatch(n->m_value);
             out.write(";");
@@ -64,7 +76,7 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_format("int %s(", n->m_name->text().c_str()));
+            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_name->text().c_str()));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
@@ -76,7 +88,7 @@ namespace Code {
             out.write(") {");
             out.nl();
             int scope = pushScope();
-            out.write(string_format("int _%i;", scope));
+            out.write(string_format("%s _%i;", n->m_body->m_type->m_name.c_str(), scope));
             dispatch(n->m_body);
             out.write(string_format("return _%i;", scope));
             popScope();
@@ -85,12 +97,7 @@ namespace Code {
             out.nl();
         }
         void operator()(Ast::FunctionCall* n) {
-            if (auto d = dynamic_cast<Ast::FunctionDecl*>(n->m_func)) {
-                out.write(d->m_name->text());
-            }
-            else {
-                assert(0);
-            }
+            dispatch(n->m_func);
             out.write("(");
             auto sep = "";
             for (auto a : n->m_args) {
@@ -132,8 +139,7 @@ int main( int argc, const char* argv[] ) {
         Ast::print(ast);
         printf("\n\n");
         Sema::type_check(ast);
-        printf("\n\n");
-        Reflect::printVar(ast);
+        Ast::print(ast);
         printf("\n\n");
         Code::generate(ast);
         printf("\n\n");

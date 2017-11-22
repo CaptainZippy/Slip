@@ -7,12 +7,12 @@ namespace Ast {
     #undef AST_NODE
 
     REFLECT_BEGIN(Node)
-    //REFLECT_FIELD2(m_type, Flags::Abbrev)
+    REFLECT_FIELD2(m_type, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
-    REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_name)
+    //REFLECT_PARENT(Node)
+    REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Decl)
@@ -21,7 +21,7 @@ namespace Ast {
 
     REFLECT_BEGIN(Number)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_num)
+    REFLECT_FIELD2(m_num, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Module)
@@ -37,7 +37,7 @@ namespace Ast {
 
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_name)
+    REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_FIELD2(m_args, Flags::Child)
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
@@ -59,7 +59,7 @@ namespace Ast {
 
     REFLECT_BEGIN(Scope)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_child)
+    REFLECT_FIELD2(m_child, Flags::Child)
     REFLECT_END()
 
     REFLECT_BEGIN(Definition)

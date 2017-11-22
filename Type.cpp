@@ -12,10 +12,10 @@ namespace Sema {
             assign(n, &Ast::s_typeVoid);
         }
         void operator()(Ast::Number* n) {
-            assign(n, &Ast::s_typeDouble);
+            assign(n, &Ast::s_typeDouble); //TODO
         }
         void operator()(Ast::FunctionCall* n) {
-            assign(n, &Ast::s_typeDouble);
+            assign(n, &Ast::s_typeDouble); //TODO
             //if (n->m_type) { m_type = &s_typeDouble; }
         }
         void operator()(Ast::Argument* n) {
@@ -50,7 +50,7 @@ namespace Sema {
             }
         }
         void operator()(Ast::Definition* n) {
-            assign(n, &Ast::s_typeVoid);
+            equal(n, n->m_value);
         }
 
         Result resolve(array_view<Ast::Node*> nodes) {
