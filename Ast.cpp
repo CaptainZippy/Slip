@@ -31,7 +31,7 @@ namespace Ast {
 
     REFLECT_BEGIN(FunctionCall)
     REFLECT_PARENT(Node)
-    //REFLECT_FIELD(m_func)
+    REFLECT_FIELD2(m_func, Flags::Child)
     REFLECT_FIELD2(m_args, Flags::Child)
     REFLECT_END()
 
@@ -49,12 +49,12 @@ namespace Ast {
 
     REFLECT_BEGIN(Argument)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_sym)
+    REFLECT_FIELD2(m_sym, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Reference)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_target)
+    REFLECT_FIELD2(m_target, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Scope)
@@ -64,7 +64,7 @@ namespace Ast {
 
     REFLECT_BEGIN(Definition)
     REFLECT_PARENT(Node)
-    REFLECT_FIELD(m_sym)
+    REFLECT_FIELD2(m_sym, Flags::Abbrev)
     REFLECT_FIELD2(m_value, Flags::Child)
     REFLECT_END()
 }
@@ -109,9 +109,8 @@ namespace Ast {
                     for (auto c : reversed(chain)) {
                         for (auto f : c->fields) {
                             if ((f.flags & (Flags::Abbrev|Flags::Child)) == Flags::Abbrev) {
-                                out.write(string_format(" %s={", f.name.c_str()));
+                                out.sep();
                                 print(top[f], out, true);
-                                out.write("}");
                             }
                         }
                     }

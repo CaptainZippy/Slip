@@ -85,9 +85,10 @@ Ast::Node* Parse::Let::_parse( State* state, Args& args ) const {
         verify(cur->size() == 2);
         auto sym = dynamic_cast<Lex::Symbol*>(cur->items[0]);
         verify(sym);
-        Ast::Node* val = state->parse(cur->items[1]);
-        state->addSym(sym->text(), val);
-        seq->m_items.push_back(new Ast::Definition(sym, val));
+        auto val = state->parse(cur->items[1]);
+        auto def = new Ast::Definition(sym, val);
+        state->addSym(sym->text(), def);
+        seq->m_items.push_back(def);
     }
     seq->m_items.push_back(state->parse(body));
     state->leaveScope();

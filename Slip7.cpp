@@ -30,6 +30,9 @@ namespace Code {
         void operator()(Ast::Node* n) {
             assert(0);
         }
+        void operator()(Ast::Reference* n) {
+            dispatch(n->m_target);
+        }
         void operator()(Ast::Argument* n) {
             out.write(n->m_sym->text());
         }

@@ -50,10 +50,10 @@ namespace Parse {
         }
 
         Ast::Type* _parseType(Lex::Atom* atom) {
-            if( atom ) {
-                auto p = parse(atom);
-                assert(p);
-                auto t = dynamic_cast<Ast::Type*>(p);
+            if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
+                auto p = lookup(sym->text());
+                verify(p.first == nullptr);
+                auto t = dynamic_cast<Ast::Type*>(p.second);
                 assert(t);
                 return t;
             }
@@ -66,8 +66,7 @@ namespace Parse {
 
         typedef std::pair<Parser*, Ast::Node*> Pair;
         Ast::Node* reference(Ast::Node* n) {
-            //return new Ast::Reference(n);
-            return n;
+            return new Ast::Reference(n);
         }
 
         Pair lookup(const std::string& sym) const {
