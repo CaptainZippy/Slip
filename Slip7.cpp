@@ -47,7 +47,7 @@ namespace Code {
         void operator()(Ast::Definition* n) {
             out.nl();
             out.write(string_format("%s %s = ",
-                n->m_type->m_name.c_str(),
+                n->m_type->text(),
                 n->m_name->text().c_str()));
             dispatch(n->m_value);
             out.write(";");
@@ -70,19 +70,19 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_format("%s %s(", n->m_body->m_type->m_name.c_str(), n->m_name->text().c_str()));
+            out.begin(string_format("%s %s(", n->m_body->m_type->text(), n->m_name->text().c_str()));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_format("%s %s%s", a->m_type->m_name.c_str(), a->m_name->text().c_str(), sep));
+                out.write(string_format("%s %s%s", a->m_type->text(), a->m_name->text().c_str(), sep));
                 sep = ", ";
             }
             out.write(") {");
             out.nl();
             int scope = pushScope();
-            out.write(string_format("%s _%i;", n->m_body->m_type->m_name.c_str(), scope));
+            out.write(string_format("%s _%i;", n->m_body->m_type->text(), scope));
             dispatch(n->m_body);
             out.write(string_format("return _%i;", scope));
             popScope();

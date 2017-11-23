@@ -23,12 +23,26 @@ namespace Ast {
         Type* m_type{ nullptr };
         void* m_data{ nullptr };
     };
-    
-    struct Type : Node {
+
+     struct Named : public Node {
         AST_DECL();
-        Type(const std::string& s);
-        
-        std::string m_name;
+        Lex::Symbol* m_name = nullptr;
+
+        Named(Lex::Symbol* sym) : m_name(sym) {}
+    };
+
+    struct Type : Named {
+        AST_DECL();
+        Type(std::string n);
+
+        Type(Lex::Symbol* sym)
+            : Named(sym)
+            , m_text(sym->text()) {
+        }
+        const char* text() const {
+            return m_text.c_str();
+        }
+        std::string m_text;
     };
 
     extern Ast::Type s_typeType;
@@ -70,13 +84,6 @@ namespace Ast {
         }
     };
 
-    struct Named : public Node {
-        AST_DECL();
-        Lex::Symbol* m_name = nullptr;
-
-        Named(Lex::Symbol* sym) : m_name(sym) {}
-    };
-
     struct Argument : public Named {
         AST_DECL();
         Argument(Lex::Symbol* s) : Named(s) {
@@ -107,7 +114,7 @@ namespace Ast {
 
     struct Reference : public Node {
         AST_DECL();
-        Reference(Node* s) : m_target(s) {
+        Reference(Named* s) : m_target(s) {
         }
         Node* m_target;
     };

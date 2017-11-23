@@ -31,13 +31,11 @@ namespace Lex {
 
     struct Value : Atom {
         REFLECT_DECL();
-        Value( const SourceLocation& loc ) : Atom( loc ), m_text( text() ) {}
+        Value() {}
+        Value( const SourceLocation& loc ) : Atom( loc ) {}
         std::string text() const {
             return m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
         }
-        Value() {}
-    protected:
-        std::string m_text;
     };
     
 

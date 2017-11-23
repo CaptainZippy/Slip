@@ -11,7 +11,7 @@ namespace Ast {
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
-    //REFLECT_PARENT(Node)
+//    REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
@@ -79,7 +79,9 @@ namespace Ast {
     Ast::Type s_typeDouble("double");
     Ast::Type s_typeVoid("void");
 
-    Type::Type(const std::string& s) : m_name(s) {
+    Type::Type(std::string n)
+        : Named(nullptr)
+        , m_text(std::move(n)) {
         m_type = &s_typeType;
     }
 

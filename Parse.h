@@ -36,7 +36,7 @@ namespace Parse {
             assert(p.second);
         }
 
-        void addSym(const std::string& sym, Ast::Node* node) {
+        void addSym(const std::string& sym, Ast::Named* node) {
             auto p = syms.back().insert_or_assign(sym, Pair{ nullptr, node });
             assert(p.second);
         }
@@ -64,8 +64,8 @@ namespace Parse {
 
     //protected:
 
-        typedef std::pair<Parser*, Ast::Node*> Pair;
-        Ast::Node* reference(Ast::Node* n) {
+        typedef std::pair<Parser*, Ast::Named*> Pair;
+        Ast::Node* reference(Ast::Named* n) {
             return new Ast::Reference(n);
         }
 

@@ -156,12 +156,12 @@ namespace Sema {
 
         Ast::Type* _create_function_type(array_view<Ast::Node*> sig) {
             std::string name;
-            name.append(sig[0]->m_type->m_name);
+            name.append(sig[0]->m_type->text());
             name.append(" (");
             const char* sep = "";
             for (auto a : sig.ltrim(1)) {
                 name.append(sep); sep = ", ";
-                name.append(a->m_type->m_name);
+                name.append(a->m_type->text());
             }
             name.append(")");
             return new Ast::Type(name);

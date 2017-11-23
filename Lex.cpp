@@ -4,7 +4,7 @@
 namespace Lex {
     REFLECT_BEGIN(Lex::Value)
         REFLECT_PARENT(Atom)
-        REFLECT_FIELD(m_text)
+        //REFLECT_FIELD(m_text)
         REFLECT_TO_STRING([](const void*arg) {
             return static_cast<const Lex::Value*>(arg)->text(); })
     REFLECT_END()

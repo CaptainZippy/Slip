@@ -1,7 +1,4 @@
 
-;(define harmonic (lambda (n : double)
-;    (let ((acc n)) acc)))
-
 (func harmonic (n : double)
     (let ((acc n)) acc))
     
@@ -14,4 +11,5 @@
 ;    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
 
 (func main ()
-    (harmonic 4))
+    (let ((x (harmonic 4)))
+        0))
