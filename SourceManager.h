@@ -44,7 +44,7 @@ namespace Lex {
     };
 
     struct Input {
-        Input( const char* s, const char* e, SourceNameAndContents* n ) : start( s ), cur( s ), end( e ), info( n ) {}
+        Input( const char* s, const char* e, SourceNameAndContents* n ) : cur( s ), start( s ), end( e ), info( n ) {}
         explicit operator bool() const {
             return cur != end;
         }
@@ -96,8 +96,7 @@ namespace Lex {
                     while( 1 ) {
                         char buf[4096];
                         size_t n = fread( buf, 1, sizeof( buf ), fin );
-                        if( n == -1 ) error( "Read error" );
-                        else if( n == 0 ) break;
+                        if( n == 0 ) break;
                         else txt.append( buf, buf + n );
                     }
                     m_files[fname] = new SourceNameAndContents{ fname, txt };

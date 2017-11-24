@@ -1,4 +1,4 @@
-#include "pch.h"
+#include "Pch.h"
 #include "Lex.h"
 
 namespace Lex {
@@ -59,7 +59,6 @@ Lex::Atom* Lex::parse_one( Input& in ) {
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9': {
                 auto start = in.tell();
-                const char* s = in.peekbuf();
                 bool isFloat = false;
                 while( int c = in.peek() ) {
                     //if(isdigit(c) || isalpha(c) || c == '_'){
@@ -77,9 +76,8 @@ Lex::Atom* Lex::parse_one( Input& in ) {
             case '"': {
                 in.next();
                 auto start = in.tell();
-                const char* s = in.peekbuf();
                 while( 1 ) {
-                    switch( int c = in.next() ) {
+                    switch( in.next() ) {
                         case -1:
                         case 0:
                             Error.at( in.location() ).fmt( "End of input while parsing quoted string" );
@@ -97,7 +95,6 @@ Lex::Atom* Lex::parse_one( Input& in ) {
             default: {
                 if( isalpha( in.peek() ) || in.peek() == '_' || in.peek() == '@' ) {
                     auto start = in.tell();
-                    const char* s = in.peekbuf();
                     in.next();
                     while( int c = in.peek() ) {
                         if( isdigit( c ) || isalpha( c ) || c == '@' || c == '_' || c == '?' || c == '!' ) {

@@ -1,13 +1,20 @@
+#if defined(_MSC_VER)
 #define _CRT_SECURE_NO_WARNINGS
 #define _ITERATOR_DEBUG_LEVEL 0
 #pragma warning(disable:4996)
+#include <windows.h>
+#else
+#define __debugbreak() asm("int $3")
+#endif
 #include <vector>
 #include <cctype>
 #include <string>
+#include <cstring>
 #include <map>
+#include <list>
+#include <cstddef>
 #include <cstdarg>
 #include <cstdint>
-#include <windows.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
@@ -48,7 +55,7 @@ namespace Slip {
         protected:
             void print( const char* s ) {
                 printf( "%s", s );
-                OutputDebugStringA( s );
+                //OutputDebugStringA( s );
             }
         };
     }
@@ -114,7 +121,7 @@ namespace array_view_t {
     template<typename T>
     array_view<T> from_single( const T& t ) { return array_view<T>( &t, &t + 1 ); }
     template<typename T, int N>
-    array_view<T> make( T( &arr )[N] ) { return array_view<T>( t, t + N ); }
+    array_view<T> make( T( &t )[N] ) { return array_view<T>( t, t + N ); }
     template<typename T>
     array_view<T> make(const std::vector<T>& a) { return array_view<T>(a.data(), a.size()); }
 }
@@ -173,7 +180,6 @@ template<typename T>
 struct Iter {
     Iter() = default;
 
-    template<typename T>
     Iter( std::vector<T>& v ) {
         T* t = v.size() ? &v[0] : nullptr;
         m_begin = t;
@@ -261,7 +267,7 @@ namespace Io {
         void write(const char* s) {
             if (s) {
                 printf("%s", s);
-                auto n = strlen(s);
+                auto n = std::strlen(s);
                 auto c = s[n - 1];
                 m_sep = isalnum(c);
             }

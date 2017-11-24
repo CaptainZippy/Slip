@@ -9,7 +9,7 @@ namespace Lex {
     struct String;
     struct Symbol;
 
-    static Atom* parse_string( Input& in );
+    Atom* parse_string( Input& in );
     Atom* parse_one( Input& in );
     List* parse_file( SourceManager& sm, const char* fname );
 

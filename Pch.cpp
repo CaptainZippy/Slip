@@ -14,15 +14,15 @@ std::string string_format(const char* fmt, ...) {
         int n = vsnprintf(&str[0], str.size(), fmt, ap) + 1;
         va_end(ap);
 
-        if (n > str.capacity()) {
-            str.resize(n);
+        if (n < 0) {
+            str.resize(str.size() * 2);
         }
-        else if (n > 0) {
+        else if (unsigned(n) > str.capacity()) {
             str.resize(n);
-            return str;
         }
         else {
-            str.resize(str.size() * 2);
+            str.resize(n);
+            return str;
         }
     }
 }
