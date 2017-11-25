@@ -1,5 +1,6 @@
 #include "pch/Pch.h"
 #include "Ast.h"
+#include "Util.h"
 
 namespace Ast {
     #define AST_NODE(X) int X::tag() const { return Detail::TagOf<X>::Tag; }
@@ -126,7 +127,7 @@ namespace Ast {
                     for (auto c : reversed(chain)) {
                         for (auto f : c->fields) {
                             if ((f.flags & Flags::Child) == 0) {
-                                out.write(string_format(" %s={", f.name.c_str()));
+                                out.write(string_concat(" ", f.name, "={ "));
                                 print(top[f], out, true);
                                 out.write("}");
                             }
@@ -158,7 +159,7 @@ namespace Ast {
             }
             case Reflect::Kind::String: {
                 std::string s = top.type->toString(top.addr);
-                out.write(string_format("\"%s\"", s.c_str()));
+                out.write(string_concat("\"", s, "\""));
                 break;
             }
             default: {

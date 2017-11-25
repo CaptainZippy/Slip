@@ -166,6 +166,7 @@
     <ClInclude Include="SourceManager.h" />
     <ClInclude Include="Lex.h" />
     <ClInclude Include="Type.h" />
+    <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Ast.inc" />

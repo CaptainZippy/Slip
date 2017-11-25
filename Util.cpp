@@ -1,4 +1,5 @@
 #include "pch/Pch.h"
+#include "Util.h"
 
 std::string string_format(const char* fmt, ...) {
     std::string str;
@@ -25,4 +26,14 @@ std::string string_format(const char* fmt, ...) {
             return str;
         }
     }
+}
+
+std::string string_concat(array_view<string_view> strs) {
+    size_t size = std::accumulate(strs.begin(), strs.end(), size_t{0}, [](size_t a, string_view b) {
+        return a + b.size(); });
+    std::string ret; ret.reserve(size);
+    for (auto s : strs) {
+        ret.append(s.begin(),s.size());
+    }
+    return ret;
 }

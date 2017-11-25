@@ -11,6 +11,7 @@
 #include "Ast.h"
 #include "Parse.h"
 #include "Type.h"
+#include "Util.h"
 
 namespace Code {
     struct Generator {
@@ -46,9 +47,8 @@ namespace Code {
         }
         void operator()(Ast::Definition* n) {
             out.nl();
-            out.write(string_format("%s %s = ",
-                n->m_type->text(),
-                n->m_name->text().c_str()));
+            out.write(string_concat(n->m_type->text(), " ", 
+                n->m_name->text(), " = "));
             dispatch(n->m_value);
             out.write(";");
         }
@@ -70,13 +70,13 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_format("%s %s(", n->m_body->m_type->text(), n->m_name->text().c_str()));
+            out.begin(string_concat(n->m_body->m_type->text(), " ", n->m_name->text(), "("));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_format("%s %s%s", a->m_type->text(), a->m_name->text().c_str(), sep));
+                out.write(string_concat(a->m_type->text(), " ", a->m_name->text(), sep));
                 sep = ", ";
             }
             out.write(") {");

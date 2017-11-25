@@ -1,5 +1,6 @@
 #include "pch/Pch.h"
 #include "Reflect.h"
+#include "Util.h"
 
 namespace Reflect {
     namespace Detail {
@@ -65,7 +66,7 @@ namespace Reflect {
                 }
                 case Kind::String: {
                     std::string s = top.type->toString(top.addr);
-                    out.write(string_format("\"%s\"", s.c_str()).c_str());
+                    out.write(string_concat("\"", s, "\""));
                     break;
                 }
                 default:

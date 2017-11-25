@@ -11,6 +11,7 @@
 #include <cctype>
 #include <string>
 #include <cstring>
+#include <numeric>
 #include <map>
 #include <list>
 #include <cstddef>
@@ -117,6 +118,7 @@ struct array_view {
     const T* m_begin;
     const T* m_end;
 };
+
 
 namespace array_view_t {
     template<typename T>
