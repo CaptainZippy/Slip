@@ -43,6 +43,7 @@ namespace Ast {
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)
+    REFLECT_FIELD2(m_returnType, Flags::Child)
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 

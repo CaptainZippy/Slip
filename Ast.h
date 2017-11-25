@@ -43,6 +43,7 @@ namespace Ast {
             return m_text.c_str();
         }
         std::string m_text;
+        Ast::Type* m_extra{ nullptr }; //TODO func return type
     };
 
     extern Ast::Type s_typeType;
@@ -94,7 +95,8 @@ namespace Ast {
         AST_DECL();
 
         std::vector< Argument* > m_args;
-        Node* m_body = nullptr;
+        Ast::Node* m_returnType{ nullptr };
+        Node* m_body{ nullptr };
 
         FunctionDecl(Lex::Symbol* name)
             : Named(name) {

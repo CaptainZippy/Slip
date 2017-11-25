@@ -6,17 +6,21 @@ namespace Sema {
     struct TypeChecker {
 
         void operator()(Ast::Node* n) {
-            assert(0);
+            assert(n->m_type);
         }
         void operator()(Ast::Module* n) {
             assign(n, &Ast::s_typeVoid);
         }
         void operator()(Ast::Number* n) {
-            assign(n, &Ast::s_typeDouble); //TODO
+            //TODO
         }
         void operator()(Ast::FunctionCall* n) {
-            assign(n, &Ast::s_typeDouble); //TODO
-            //if (n->m_type) { m_type = &s_typeDouble; }
+            std::vector<Ast::Node*> deps;
+            deps.push_back(n->m_func);
+            deps.insert(deps.end(), n->m_args.begin(), n->m_args.end());
+            depends(n, deps, [deps, n, this]() {
+                assign(n, deps[0]->m_type->m_extra);
+            });
         }
         void operator()(Ast::Argument* n) {
             assert(n->m_name->m_decltype);
@@ -33,6 +37,9 @@ namespace Sema {
         void operator()(Ast::FunctionDecl* n) {
             std::vector<Ast::Node*> deps;
             deps.push_back(n->m_body);
+            /*if (n->m_returnType) {
+                deps.push_back(n->m_returnType);
+            }*/
             deps.insert(deps.begin(), n->m_args.begin(), n->m_args.end());
             depends(n, deps, [deps,n,this]() {
                 n->m_type = this->_create_function_type(deps);
@@ -164,7 +171,9 @@ namespace Sema {
                 name.append(a->m_type->text());
             }
             name.append(")");
-            return new Ast::Type(name);
+            auto r = new Ast::Type(name);
+            r->m_extra = sig[0]->m_type;
+            return r;
         }
     };
 

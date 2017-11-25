@@ -26,7 +26,9 @@ Ast::Node* Parse::State::parse(Lex::Atom* atom) {
         }
     }
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
-        return new Ast::Number(num);
+        auto r = new Ast::Number(num);
+        r->m_type = this->_parseType(num->m_decltype);
+        return r;
     }
     verify(0);
     return nullptr;
@@ -48,7 +50,13 @@ Ast::FunctionDecl* Parse::Func::_parse( State* state, Args& args ) const {
     args.advance();
     state->addSym(func->m_name->text(), func);
     state->enterScope();
-    for( auto item : dynamic_cast<Lex::List*>(args.cur())->items ) {
+    auto argsList = dynamic_cast<Lex::List*>(args.cur());
+    if (auto a = argsList->m_decltype) {
+        auto r = new Ast::Node;
+        r->m_type = state->_parseType(a);
+        func->m_returnType = r;
+    }
+    for( auto item : argsList->items ) {
         auto sym = state->symbol(item);
         verify(sym);
         auto arg = new Ast::Argument(sym);
