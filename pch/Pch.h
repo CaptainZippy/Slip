@@ -1,3 +1,4 @@
+#pragma once
 #if defined(_MSC_VER)
 #define _CRT_SECURE_NO_WARNINGS
 #define _ITERATOR_DEBUG_LEVEL 0
