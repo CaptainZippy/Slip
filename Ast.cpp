@@ -1,6 +1,5 @@
 #include "pch/Pch.h"
 #include "Ast.h"
-#include "Util.h"
 
 namespace Ast {
     #define AST_NODE(X) int X::tag() const { return Detail::TagOf<X>::Tag; }

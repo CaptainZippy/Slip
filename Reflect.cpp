@@ -1,6 +1,5 @@
 #include "pch/Pch.h"
 #include "Reflect.h"
-#include "Util.h"
 
 namespace Reflect {
     namespace Detail {

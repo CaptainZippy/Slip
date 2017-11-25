@@ -11,7 +11,6 @@
 #include "Ast.h"
 #include "Parse.h"
 #include "Type.h"
-#include "Util.h"
 
 namespace Code {
     struct Generator {
