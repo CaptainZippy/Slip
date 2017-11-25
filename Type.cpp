@@ -14,6 +14,9 @@ namespace Sema {
         void operator()(Ast::Number* n) {
             //TODO
         }
+        void operator()(Ast::String* n) {
+            assign(n, &Ast::s_typeString);
+        }
         void operator()(Ast::FunctionCall* n) {
             std::vector<Ast::Node*> deps;
             deps.push_back(n->m_func);

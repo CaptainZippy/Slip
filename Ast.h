@@ -50,6 +50,7 @@ namespace Ast {
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeDouble;
     extern Ast::Type s_typeVoid;
+    extern Ast::Type s_typeString;
 
 
     struct Decl : Node {
@@ -68,6 +69,16 @@ namespace Ast {
         }
     };
     
+    struct String : Node {
+        AST_DECL();
+        String(Lex::String* n) : m_str(n) {}
+        Lex::String* m_str;
+
+        static std::string toString(const void* p) {
+            auto n = static_cast<const String*>(p);
+            return n->m_str->text();
+        }
+    };
 
     struct Module : Node {
         AST_DECL();

@@ -24,6 +24,11 @@ namespace Ast {
     REFLECT_FIELD2(m_num, Flags::Abbrev)
     REFLECT_END()
 
+    REFLECT_BEGIN(String)
+    REFLECT_PARENT(Node)
+    REFLECT_FIELD2(m_str, Flags::Abbrev)
+    REFLECT_END()
+
     REFLECT_BEGIN(Module)
     REFLECT_PARENT(Node)
     REFLECT_FIELD2(m_items, Flags::Child)
@@ -79,6 +84,7 @@ namespace Ast {
     Ast::Type s_typeInt("int");
     Ast::Type s_typeDouble("double");
     Ast::Type s_typeVoid("void");
+    Ast::Type s_typeString("string");
 
     Type::Type(std::string n)
         : Named(nullptr)

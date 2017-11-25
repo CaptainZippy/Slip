@@ -30,6 +30,11 @@ Ast::Node* Parse::State::parse(Lex::Atom* atom) {
         r->m_type = this->_parseType(num->m_decltype);
         return r;
     }
+    else if (auto str = dynamic_cast<Lex::String*>(atom)) {
+        auto r = new Ast::String(str);
+        r->m_type = this->_parseType(str->m_decltype);
+        return r;
+    }
     verify(0);
     return nullptr;
 }
