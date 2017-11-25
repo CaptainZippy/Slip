@@ -11,5 +11,5 @@
 ;    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
 
 (func main ()
-    (let ((x (harmonic 4)))
-        0))
+    (let ((x (harmonic 4:double)))
+        0:int))
