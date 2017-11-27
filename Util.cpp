@@ -2,10 +2,6 @@
 
 std::string string_format(const char* fmt, ...) {
     std::string str;
-    if (str.capacity() < 15)
-    {
-        str.reserve(15);
-    }
     str.resize(str.capacity());
     va_list ap;
 

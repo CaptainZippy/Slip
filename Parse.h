@@ -65,7 +65,7 @@ namespace Parse {
     //protected:
 
         typedef std::pair<Parser*, Ast::Named*> Pair;
-        Ast::Node* reference(Ast::Named* n) {
+        Ast::Reference* reference(Ast::Named* n) {
             return new Ast::Reference(n);
         }
 

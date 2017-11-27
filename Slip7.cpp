@@ -5,7 +5,7 @@
 // 4. Lex 
 
 #include "pch/Pch.h"
-#include "SourceManager.h"
+#include "Source.h"
 #include "Lex.h"
 #include "Reflect.h"
 #include "Ast.h"
@@ -31,12 +31,7 @@ namespace Code {
             assert(0);
         }
         void operator()(Ast::Reference* n) {
-            if (auto d = dynamic_cast<Ast::Named*>(n->m_target)) {
-                out.write( d->m_name->text() );
-            }
-            else {
-                assert(0);
-            }
+            out.write( n->m_target->m_name->text() );
         }
         void operator()(Ast::Argument* n) {
             out.write(n->m_name->text());

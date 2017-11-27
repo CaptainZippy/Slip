@@ -163,7 +163,7 @@
     <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h" />
     <ClInclude Include="Reflect.h" />
-    <ClInclude Include="SourceManager.h" />
+    <ClInclude Include="Source.h" />
     <ClInclude Include="Lex.h" />
     <ClInclude Include="Type.h" />
     <ClInclude Include="Util.h" />

@@ -1,5 +1,5 @@
 #pragma once
-#include "SourceManager.h"
+#include "Source.h"
 #include "Reflect.h"
 
 namespace Lex {

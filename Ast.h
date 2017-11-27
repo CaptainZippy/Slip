@@ -24,7 +24,7 @@ namespace Ast {
         void* m_data{ nullptr };
     };
 
-     struct Named : public Node {
+    struct Named : public Node {
         AST_DECL();
         Lex::Symbol* m_name = nullptr;
 
@@ -129,7 +129,7 @@ namespace Ast {
         AST_DECL();
         Reference(Named* s) : m_target(s) {
         }
-        Node* m_target;
+        Named* m_target;
     };
 
 
