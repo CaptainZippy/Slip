@@ -79,27 +79,27 @@ namespace Reflect {
     };
     template<typename T>
     struct TypeOf {
-        static const Type* value( ) {
+        static inline const Type* value( ) {
             return T::staticType();
         }
     };
     template<typename T>
     struct TypeOf<T*> {
-        static const Type* value() {
+        static inline const Type* value() {
             static const Type t{ Kind::Pointer, nullptr, TypeOf<T>::value(), "T*", sizeof(T*), nullptr, {}, };
             return &t;
         }
     };
     template<typename T>
     struct TypeOf< std::vector<T> > {
-        static const Type* value() {
+        static inline const Type* value() {
             static const Type t{ Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof(std::vector<T>), nullptr,{}, };
             return &t;
         }
     };
     template<>
     struct TypeOf< std::string > {
-        static const Type* value() {
+        static inline const Type* value() {
             static const Type t{ Kind::String, nullptr, nullptr, "char[]",
                 sizeof(std::string), nullptr, nullptr, [](const void* addr) { return *(std::string*)addr; } };
             return &t;
