@@ -85,6 +85,40 @@ namespace Sema {
             for (auto node : nodes) {
                 Ast::dispatch(node, *this);
             }
+            if (0) {
+                Io::TextOutput io("deps.dgml");
+                io.begin("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+                io.begin("<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\">\n");
+                io.begin("<Nodes>\n");
+                for (auto node : nodes) {
+                    auto src = static_cast<TypeInfo*>(node->m_data);
+                    io.write(string_format("<Node Id='0x%p' Category='Node' Label='%i ", node, src->num_prec));
+                    io.write(node->dynamicType()->name);
+                    Ast::print(node, io);
+                    io.write("' />\n");
+                }
+                io.end("</Nodes>\n");
+                io.begin("<Links>\n");
+                for (auto node : nodes) {
+                    auto src = static_cast<TypeInfo*>(node->m_data);
+                    if (src->equal) {
+                        io.write(string_format("<Link Source='0x%p' Target='0x%p' Category='Equal'/>\n", node, src->equal->node));
+                    }
+                    for (auto d : src->deps) {
+                        io.write(string_format("<Link Source='0x%p' Target='0x%p' Category='Depends'/>\n", node, d->node));
+                    }
+                    for (auto d : src->compatible) {
+                        io.write(string_format("<Link Source='0x%p' Target='0x%p' Category='Compatible'/>\n", node, d->node));
+                    }
+                }
+                io.end("</Links>\n");
+                io.begin("<Categories>\n");
+                io.write("<Category Id=\"Equal\" StrokeThickness='3' Stroke=\"Red\" />\n");
+                io.write("<Category Id=\"Depends\"  StrokeDashArray=\"4\"/>\n");
+                io.write("<Category Id=\"Compatible\"  StrokeDashArray=\"1\"/>\n");
+                io.end("</Categories>\n");
+                io.end("</DirectedGraph>\n");
+            }
             auto res = _resolve(todo);
             for (auto node : nodes) {
                 delete static_cast<TypeInfo*>(node->m_data);

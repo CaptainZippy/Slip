@@ -179,4 +179,10 @@ namespace Ast {
         print(top, out, false);
         out.nl();
     }
+
+    void print(Node* node, Io::TextOutput& out) {
+        Reflect::Var top{ node };
+        print(top, out, true);
+        out.nl();
+    }
 }
