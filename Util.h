@@ -7,6 +7,7 @@ struct Result {
     Code code;
 };
 #define R_OK Result::OK
+
 template<typename T>
 struct view_ptr {
     view_ptr() : m_ptr(nullptr) {}
@@ -181,6 +182,21 @@ auto erase_if(Cont& c, Lambda&& lambda) {
 
 namespace Io {
     struct TextOutput {
+        FILE* m_file;
+        bool m_close;
+        TextOutput()
+            : m_file(stdout)
+            , m_close(false){
+        }
+        TextOutput(const char* fname)
+            : m_file(fopen(fname,"w"))
+            , m_close(true) {
+        }
+        ~TextOutput() {
+            if (m_close) {
+                fclose(m_file);
+            }
+        }
         void begin(const char* s) {
             write(s);
             m_indent.push_back(' ');
@@ -191,7 +207,7 @@ namespace Io {
         }
         void write(const char* s) {
             if (s) {
-                printf("%s", s);
+                fprintf(m_file, "%s", s);
                 auto n = std::strlen(s);
                 auto c = s[n - 1];
                 m_sep = isalnum(c);
@@ -201,12 +217,12 @@ namespace Io {
             write(s.c_str());
         }
         void write(const void* s) {
-            printf("%p", s);
+            fprintf(m_file, "%p", s);
             m_sep = true;
         }
         void sep() {
             if (m_sep) {
-                printf(" ");
+                fprintf(m_file, " ");
                 m_sep = false;
             }
         }
@@ -215,7 +231,7 @@ namespace Io {
             write(s);
         }
         void nl() {
-            printf("\n%s", m_indent.c_str());
+            fprintf(m_file, "\n%s", m_indent.c_str());
             m_sep = false;
         }
         std::string m_indent;
