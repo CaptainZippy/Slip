@@ -55,3 +55,5 @@ Release
 *.ipch
 *.db
 *.opendb
+*.dgml
+*.user
