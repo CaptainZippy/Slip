@@ -3,6 +3,17 @@
 #include "Type.h"
 
 namespace Sema {
+    typedef std::function< void() > Callback;
+
+    struct TypeInfo {
+        Ast::Node* node{ nullptr };
+        Ast::Type* declared{ nullptr };
+        TypeInfo* equal{ nullptr };
+        unsigned num_prec{ 0 };
+        std::vector<TypeInfo*> deps;
+        std::vector<TypeInfo*> compatible;
+        Callback pre_resolve_cb;
+    };
     struct TypeChecker {
 
         void operator()(Ast::Node* n) {
@@ -64,9 +75,9 @@ namespace Sema {
         }
 
         Result resolve(array_view<Ast::Node*> nodes) {
-            std::vector<Info*> todo;
+            std::vector<TypeInfo*> todo;
             for (auto node : nodes) {
-                auto inf = new Info{};
+                auto inf = new TypeInfo{};
                 todo.push_back(inf);
                 node->m_data = inf;
                 inf->node = node;
@@ -76,7 +87,7 @@ namespace Sema {
             }
             auto res = _resolve(todo);
             for (auto node : nodes) {
-                delete static_cast<TypeChecker::Info*>(node->m_data);
+                delete static_cast<TypeInfo*>(node->m_data);
                 node->m_data = nullptr;
             }
             return res;
@@ -84,18 +95,7 @@ namespace Sema {
 
     protected:
         
-        typedef std::function< void() > Callback;
-
-        struct Info {
-            Ast::Node* node{ nullptr };
-            Ast::Type* declared{ nullptr };
-            Info* equal{ nullptr };
-            unsigned num_prec{ 0 };
-            std::vector<Info*> deps;
-            Callback pre_resolve_cb;
-        };
-
-        Result _resolve1(Info* inf) {
+        Result _resolve1(TypeInfo* inf) {
             assert(inf->node);
             if (inf->pre_resolve_cb) {
                 inf->pre_resolve_cb();
@@ -118,9 +118,9 @@ namespace Sema {
             return Result::OK;
         }
 
-        Result _resolve(std::vector<Info*>& todo) {
+        Result _resolve(std::vector<TypeInfo*>& todo) {
             while (todo.size()) {
-                std::vector<Info*> next;
+                std::vector<TypeInfo*> next;
                 for (auto cur : todo) {
                     if (cur->num_prec == 0) {
                         _resolve1(cur);
@@ -138,8 +138,8 @@ namespace Sema {
             return Result::OK;
         }
 
-        Info* info(Ast::Node* n) {
-            return static_cast<Info*>(n->m_data);
+        TypeInfo* info(Ast::Node* n) {
+            return static_cast<TypeInfo*>(n->m_data);
         }
 
         void assign(Ast::Node* node, Ast::Type* t) {

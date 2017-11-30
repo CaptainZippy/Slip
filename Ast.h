@@ -2,6 +2,10 @@
 #include "Reflect.h"
 #include "Lex.h"
 
+namespace Sema {
+    struct TypeInfo;
+}
+
 namespace Ast {
     #define AST_NODE(X) struct X;
     #include "Ast.inc"
@@ -21,7 +25,7 @@ namespace Ast {
         virtual int tag() const;
 
         Type* m_type{ nullptr };
-        void* m_data{ nullptr };
+        Sema::TypeInfo* m_data{ nullptr };
     };
 
     struct Named : public Node {
