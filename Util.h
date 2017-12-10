@@ -36,6 +36,8 @@ struct array_view {
     const T& operator[](unsigned i) const { assert(i < size()); return m_begin[i]; }
     const T* begin() const { return m_begin; }
     const T* end() const { return m_end; }
+    const T& front() const { return *(m_begin); }
+    const T& back() const { return *(m_end-1); }
     array_view<T> ltrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin + n, m_end); }
     array_view<T> rtrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin, m_end - n); }
     const T* m_begin;
