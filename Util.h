@@ -5,8 +5,19 @@ struct Result {
     Result(Code c) : code(c) {}
     bool isOk() const { return code == OK; }
     Code code;
+    static void failed(const char* what, const char* fmt, ...);
 };
 #define R_OK Result::OK
+#define RETURN_IF_FAILED(COND, ...) do { \
+    Result res = (COND); \
+    if(!res.isOk()) { \
+        Result::failed(#COND, "" ##__VA_ARGS__); \
+        return res; } } while(0)
+
+#define RETURN_RES_IF(RES, COND, ...) do { \
+    if((COND)) { \
+        Result::failed(#COND, "" ##__VA_ARGS__); \
+        return RES; } } while(0)
 
 template<typename T>
 struct view_ptr {

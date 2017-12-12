@@ -1,5 +1,18 @@
 #include "pch/Pch.h"
 
+void Result::failed(const char* what, const char* fmt, ...) {
+    printf("Failed '%s'", what);
+    if (fmt && fmt[0]) {
+        printf(" - ");
+        va_list ap;
+        va_start(ap, fmt);
+        vprintf(fmt, ap);;
+        va_end(ap);
+    }
+    printf("\n");
+}
+
+
 std::string string_format(const char* fmt, ...) {
     std::string str;
     str.resize(str.capacity());
