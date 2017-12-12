@@ -168,7 +168,7 @@ namespace Ast {
                 break;
             }
             default: {
-                verify(false);
+                assert(false);
             }
         }
     }

@@ -76,6 +76,5 @@ void assert2( T t, const char* msg ) {
 }
 #define assert(A) if(!(A)) __debugbreak()
 #define cast(T,a) dynamic_cast<T*>(a)
-#define verify(A) assert2(A, #A)
 
 #include "Util.h"

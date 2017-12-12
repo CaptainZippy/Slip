@@ -76,7 +76,7 @@ namespace Parse {
                     return x->second;
                 }
             }
-            verify(0);
+            assert(0);
             return Pair{};
         }
         std::list< std::map<std::string, Pair> > syms;

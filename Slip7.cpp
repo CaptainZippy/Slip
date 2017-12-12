@@ -119,7 +119,6 @@ Result compile(const char* fname) {
     RETURN_IF_FAILED(Lex::parse_file(smanager, fname, &lex));
     Ast::Module* ast;
     RETURN_IF_FAILED(Parse::module(lex, &ast));
-    verify(ast);
     Ast::print(ast);
     printf("\n\n");
     RETURN_IF_FAILED(Sema::type_check(ast));
