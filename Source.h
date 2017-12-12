@@ -44,7 +44,10 @@ namespace Lex {
     };
 
     struct Input {
-        Input( const char* s, const char* e, SourceNameAndContents* n ) : cur( s ), start( s ), end( e ), info( n ) {}
+        Input() = default;
+        Input( const char* s, const char* e, SourceNameAndContents* n )
+            : cur( s ), start( s ), end( e ), info( n ) {}
+
         explicit operator bool() const {
             return cur != end;
         }
@@ -75,21 +78,22 @@ namespace Lex {
         SourceLocation location(long s, long e) const {
             return SourceLocation( info, s, e );
         }
-        const char* cur;
-        const char* start;
-        const char* end;
-        const SourceNameAndContents* info;
+        const char* cur{nullptr};
+        const char* start{nullptr};
+        const char* end{nullptr};
+        const SourceNameAndContents* info{nullptr};
     };
 
     struct SourceManager {
         std::map< std::string, SourceNameAndContents* > m_files;
 
-        Input load( const char* fname ) {
+        Result load( const char* fname, Input* out ) {
             while( 1 ) {
                 auto it = m_files.find( fname );
                 if( it != m_files.end() ) {
                     auto& txt = it->second->m_contents;
-                    return Input( &txt[0], &txt[0] + txt.size(), it->second );
+                    *out = Input( &txt[0], &txt[0] + txt.size(), it->second );
+                    return Result::OK;
                 }
                 else if( FILE* fin = fopen( fname, "r" ) ) {
                     std::string txt;
@@ -102,7 +106,7 @@ namespace Lex {
                     m_files[fname] = new SourceNameAndContents{ fname, txt };
                 }
                 else {
-                    return Input( nullptr, nullptr, nullptr );
+                    return Result::ERR;
                 }
             }
         }

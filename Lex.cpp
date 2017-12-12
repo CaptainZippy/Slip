@@ -122,16 +122,13 @@ Lex::Atom* Lex::parse_string( Input& in ) {
     return nullptr;
 }
 
-Lex::List* Lex::parse_file( SourceManager& sm, const char* fname ) {
-    if( Input input = sm.load( fname ) ) {
-        List* l = new List( input.location( input.tell(), input.tellEnd() ) );
-        while( Atom* a = parse_string( input ) ) {
-            l->append( a );
-        }
-        return l;
+Result Lex::parse_file( SourceManager& sm, const char* fname, Lex::List** out ) {
+    Input input;
+    RETURN_IF_FAILED(sm.load(fname, &input), "Failed to open '{}'", fname);
+    List* l = new List( input.location( input.tell(), input.tellEnd() ) );
+    while( Atom* a = parse_string( input ) ) {
+        l->append( a );
     }
-    else {
-        Error.fmt( "Unable to open '%s'", fname );
-        return nullptr;
-    }
+    *out = l;
+    return Result::OK;
 }

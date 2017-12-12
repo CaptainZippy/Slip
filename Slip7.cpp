@@ -106,10 +106,26 @@ namespace Code {
         std::vector<int> m_stack;
         int m_counter = 1;
     };
-    void generate(Ast::Module* module) {
+    Result generate(Ast::Module* module) {
         Generator g;
         Ast::dispatch(module, g);
+        return Result::OK;
     }
+}
+
+Result compile(const char* fname) {
+    Lex::SourceManager smanager;
+    Lex::List* lex;
+    RETURN_IF_FAILED(Lex::parse_file(smanager, fname, &lex));
+    Ast::Module* ast = Parse::module(lex);
+    verify(ast);
+    Ast::print(ast);
+    printf("\n\n");
+    RETURN_IF_FAILED(Sema::type_check(ast));
+    Ast::print(ast);
+    printf("\n\n");
+    RETURN_IF_FAILED(Code::generate(ast));
+    return Result::OK;
 }
 
 
@@ -118,22 +134,5 @@ int main( int argc, const char* argv[] ) {
         Error.fmt( "Need a script to run" );
         return 1;
     }
-    try {
-        Lex::SourceManager smanager;
-        Lex::List* Lex = Lex::parse_file( smanager, argv[1] );
-        verify( Lex );
-        Ast::Module* ast = Parse::module( Lex );
-        verify(ast);
-        Ast::print(ast);
-        printf("\n\n");
-        Sema::type_check(ast);
-        Ast::print(ast);
-        printf("\n\n");
-        Code::generate(ast);
-        printf("\n\n");
-    }
-    catch( float ) {
-        return 1;
-    }
-    return 0;
+    return compile(argv[1]).isOk() ? 0 : 1;
 }
