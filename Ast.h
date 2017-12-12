@@ -28,7 +28,7 @@ namespace Ast {
         Sema::TypeInfo* m_data{ nullptr };
     };
 
-    struct Named : public Node {
+    struct Named : Node {
         AST_DECL();
         Lex::Symbol* m_name = nullptr;
 
@@ -48,6 +48,7 @@ namespace Ast {
         }
         std::string m_text;
         Ast::Type* m_extra{ nullptr }; //TODO func return type
+        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
     };
 
     extern Ast::Type s_typeType;
@@ -91,7 +92,7 @@ namespace Ast {
     };
 
 
-    struct FunctionCall : public Node {
+    struct FunctionCall : Node {
         AST_DECL();
         Node* m_func{ nullptr };
         std::vector< Node* > m_args;
@@ -100,13 +101,13 @@ namespace Ast {
         }
     };
 
-    struct Argument : public Named {
+    struct Argument : Named {
         AST_DECL();
         Argument(Lex::Symbol* s) : Named(s) {
         }
     };
 
-    struct FunctionDecl : public Named {
+    struct FunctionDecl : Named {
         AST_DECL();
 
         std::vector< Argument* > m_args;
@@ -123,7 +124,7 @@ namespace Ast {
     };
 
 
-    struct Sequence : public Node {
+    struct Sequence : Node {
         AST_DECL();
         std::vector<Node*> m_items;
     };
