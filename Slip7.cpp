@@ -117,7 +117,8 @@ Result compile(const char* fname) {
     Lex::SourceManager smanager;
     Lex::List* lex;
     RETURN_IF_FAILED(Lex::parse_file(smanager, fname, &lex));
-    Ast::Module* ast = Parse::module(lex);
+    Ast::Module* ast;
+    RETURN_IF_FAILED(Parse::module(lex, &ast));
     verify(ast);
     Ast::print(ast);
     printf("\n\n");

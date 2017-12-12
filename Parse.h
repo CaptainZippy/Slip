@@ -8,9 +8,9 @@ namespace Parse {
 
     struct Parser {
         virtual ~Parser() {}
-        virtual Ast::Node* parse(State* state, Args& args) const final;
+        virtual Result parse(State* state, Args& args, Ast::Node** out) const final;
     protected:
-        virtual Ast::Node* _parse(State* state, Args& args) const = 0;
+        virtual Result _parse(State* state, Args& args, Ast::Node** out) const = 0;
     };
 
     struct State {
@@ -49,18 +49,18 @@ namespace Parse {
             return nullptr;
         }
 
-        Ast::Type* _parseType(Lex::Atom* atom) {
-            if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-                auto p = lookup(sym->text());
-                verify(p.first == nullptr);
-                auto t = dynamic_cast<Ast::Type*>(p.second);
-                assert(t);
-                return t;
-            }
-            return nullptr;
+        Result _parseType(Lex::Atom* atom, Ast::Type** out) {
+            auto sym = dynamic_cast<Lex::Symbol*>(atom);
+            RETURN_RES_IF(Result::ERR, sym == nullptr);
+            auto p = lookup(sym->text());
+            RETURN_RES_IF(Result::ERR, p.first != nullptr);
+            auto t = dynamic_cast<Ast::Type*>(p.second);
+            RETURN_RES_IF(Result::ERR, t == nullptr);
+            *out = t;
+            return Result::OK;
         }
 
-        Ast::Node* parse(Lex::Atom* atom);
+        Result parse(Lex::Atom* atom, Ast::Node** out);
 
     //protected:
 
@@ -83,16 +83,16 @@ namespace Parse {
     };
 
     struct Define : public Parser {
-        Ast::Node* _parse(State* state, Args& args) const override;
+        Result _parse(State* state, Args& args, Ast::Node** out) const override;
     };
 
     struct Func : public Parser {
-        Ast::FunctionDecl* _parse(State* state, Args& args) const override;
+        Result _parse(State* state, Args& args, Ast::Node** out) const override;
     };
 
     struct Let : public Parser {
-        Ast::Node* _parse(State* state, Args& args) const override;
+        Result _parse(State* state, Args& args, Ast::Node** out) const override;
     };
     
-    Ast::Module* module(Lex::List* Lex);
+    Result module(Lex::List* Lex, Ast::Module** out);
 }

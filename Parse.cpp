@@ -1,114 +1,139 @@
 #include "pch/Pch.h"
 #include "Parse.h"
 
-Ast::Node* Parse::State::parse(Lex::Atom* atom) {
+Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
         auto p = lookup(sym->text());
-        verify(p.first == nullptr);
-        return reference(p.second);
+        RETURN_RES_IF(Result::ERR, p.first != nullptr);
+        *out = reference(p.second);
+        return Result::OK;
     }
     else if (auto list = dynamic_cast<Lex::List*>(atom)) {
-        assert(list);
-        assert(list->items.size());
+        RETURN_RES_IF(Result::ERR, !list);
+        RETURN_RES_IF(Result::ERR, list->items.size()==0);
         auto& items = list->items;
         auto sym = symbol(items[0]);
         Args args{ items }; args.advance();
         auto p = lookup(sym->text());
         if (p.first) { // a builtin
-            return p.first->parse(this, args);
+            return p.first->parse(this, args, out);
         }
         else { 
             std::vector<Ast::Node*> fa;
             for (auto a : args) {
-                fa.push_back(parse(a));
+                Ast::Node* n;
+                RETURN_IF_FAILED(parse(a, &n));
+                fa.push_back(n);
             }
-            return new Ast::FunctionCall(reference(p.second), std::move(fa));
+            *out = new Ast::FunctionCall(reference(p.second), std::move(fa));
+            return Result::OK;
         }
     }
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
+        Ast::Type* t;
+        RETURN_IF_FAILED(this->_parseType(num->m_decltype, &t));
         auto r = new Ast::Number(num);
-        r->m_type = this->_parseType(num->m_decltype);
-        return r;
+        r->m_type = t;
+        *out = r;
+        return Result::OK;
     }
     else if (auto str = dynamic_cast<Lex::String*>(atom)) {
+        Ast::Type* t;
+        RETURN_IF_FAILED(this->_parseType(str->m_decltype, &t));
         auto r = new Ast::String(str);
-        r->m_type = this->_parseType(str->m_decltype);
-        return r;
+        r->m_type = t;
+        *out = r;
+        return Result::OK;
     }
-    verify(0);
-    return nullptr;
+    RETURN_RES_IF(Result::ERR, true);
 }
 
-Ast::Node* Parse::Define::_parse( State* state, Args& args ) const  {
+Result Parse::Define::_parse( State* state, Args& args, Ast::Node** out ) const  {
     auto sym = state->symbol( args.cur() );
     args.advance();
-    auto val = state->parse( args.cur() );
+    Ast::Node* val;
+    RETURN_IF_FAILED(state->parse(args.cur(), &val));
     args.advance();
-    verify( args.used() );
+    RETURN_RES_IF(Result::ERR, args.used()==false);
     auto ret = new Ast::Definition( sym, val );
     state->addSym( sym->text(), ret );
-    return ret;
+    *out = ret;
+    return Result::OK;
 }
 
-Ast::FunctionDecl* Parse::Func::_parse( State* state, Args& args ) const {
+Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     auto func = new Ast::FunctionDecl(state->symbol(args.cur()));
     args.advance();
     state->addSym(func->m_name->text(), func);
     state->enterScope();
     auto argsList = dynamic_cast<Lex::List*>(args.cur());
     if (auto a = argsList->m_decltype) {
+        Ast::Type* t;
+        RETURN_IF_FAILED(state->_parseType(a, &t));
         auto r = new Ast::Node;
-        r->m_type = state->_parseType(a);
+        r->m_type = t;
         func->m_returnType = r;
     }
     for( auto item : argsList->items ) {
         auto sym = state->symbol(item);
-        verify(sym);
+        RETURN_RES_IF(Result::ERR, sym == nullptr);
         auto arg = new Ast::Argument(sym);
-        arg->m_type = state->_parseType(item->m_decltype);
+        Ast::Type* t;
+        RETURN_IF_FAILED(state->_parseType(item->m_decltype, &t));
+        arg->m_type = t;
         func->m_args.push_back( arg );
     }
     args.advance();
 
     Lex::Atom* rhs = args.cur();
     args.advance();
-    verify( args.used() );
+    RETURN_RES_IF(Result::ERR, args.used()==false );
 
     for( auto a : func->m_args ) {
         state->addSym( a->m_name->text(), a );
     }
-    func->m_body = state->parse( rhs );
+    Ast::Node* body;
+    RETURN_IF_FAILED(state->parse( rhs, &body ));
     state->leaveScope();
-
-    return func;
+    func->m_body = body;
+    *out = func;
+    return Result::OK;
 }
 
-Ast::Node* Parse::Let::_parse( State* state, Args& args ) const {
+
+ Result Parse::Let::_parse( State* state, Args& args, Ast::Node** out) const {
     auto lets = dynamic_cast<Lex::List*>( args.cur() );
+    RETURN_RES_IF(Result::ERR, !lets);
     args.advance();
     auto body = args.cur();
     args.advance();
-    verify(args.used());
+    RETURN_RES_IF(Result::ERR, args.used()==false);
 
     state->enterScope();
     auto seq = new Ast::Sequence();
     for( auto pair : lets->items) {
         auto cur = dynamic_cast<Lex::List*>( pair );
-        verify(cur->size() == 2);
+        RETURN_RES_IF(Result::ERR, !cur);
+        RETURN_RES_IF(Result::ERR, cur->size()!=2);
         auto sym = dynamic_cast<Lex::Symbol*>(cur->items[0]);
-        verify(sym);
-        auto val = state->parse(cur->items[1]);
+        RETURN_RES_IF(Result::ERR, sym);
+        Ast::Node* val;
+        RETURN_IF_FAILED(state->parse(cur->items[1], &val));
         auto def = new Ast::Definition(sym, val);
         state->addSym(sym->text(), def);
         seq->m_items.push_back(def);
     }
-    seq->m_items.push_back(state->parse(body));
+    Ast::Node* b;
+    RETURN_IF_FAILED(state->parse(body, &b));
+    seq->m_items.push_back(b);
     state->leaveScope();
 
-    return seq;
+    *out = seq;
+    return Result::OK;
 }
-    
-Ast::Module* Parse::module( Lex::List* Lex ) {
+
+
+ Result Parse::module( Lex::List* Lex, Ast::Module** out) {
     State state;
     state.addParser( "define", new Define() );
     state.addParser( "func", new Func() );
@@ -118,12 +143,14 @@ Ast::Module* Parse::module( Lex::List* Lex ) {
     state.addSym( "void", &Ast::s_typeVoid );
     auto module = new Ast::Module();
     for (auto c : Lex->items) {
-        Ast::Node* n = state.parse(c);
+        Ast::Node* n;
+        RETURN_IF_FAILED(state.parse(c, &n));
         module->m_items.push_back(n);
     }
-    return module;
+    *out = module;
+    return Result::OK;
 }
 
-Ast::Node* Parse::Parser::parse(State* state, Args& args) const {
-    return  _parse(state, args);
+Result Parse::Parser::parse(State* state, Args& args, Ast::Node** out) const {
+    return  _parse(state, args, out);
 }
