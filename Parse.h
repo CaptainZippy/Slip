@@ -52,9 +52,10 @@ namespace Parse {
         Result _parseType(Lex::Atom* atom, Ast::Type** out) {
             auto sym = dynamic_cast<Lex::Symbol*>(atom);
             RETURN_RES_IF(Result::ERR, sym == nullptr);
-            auto p = lookup(sym->text());
-            RETURN_RES_IF(Result::ERR, p.first != nullptr);
-            auto t = dynamic_cast<Ast::Type*>(p.second);
+            const Pair* p;
+            RETURN_IF_FAILED(lookup(sym->text(), &p));
+            RETURN_RES_IF(Result::ERR, p->first != nullptr);
+            auto t = dynamic_cast<Ast::Type*>(p->second);
             RETURN_RES_IF(Result::ERR, t == nullptr);
             *out = t;
             return Result::OK;
@@ -69,15 +70,15 @@ namespace Parse {
             return new Ast::Reference(n);
         }
 
-        Pair lookup(const std::string& sym) const {
+        Result lookup(const std::string& sym, const Pair** out) const {
             for (auto&& cur : reversed(syms)) {
                 auto x = cur.find(sym);
                 if (x != cur.end()) {
-                    return x->second;
+                    *out = &x->second;
+                    return Result::OK;
                 }
             }
-            assert(0);
-            return Pair{};
+            RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", sym.c_str());
         }
         std::list< std::map<std::string, Pair> > syms;
     };

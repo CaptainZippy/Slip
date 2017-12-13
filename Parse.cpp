@@ -3,9 +3,10 @@
 
 Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-        auto p = lookup(sym->text());
-        RETURN_RES_IF(Result::ERR, p.first != nullptr);
-        *out = reference(p.second);
+        const Pair* p;
+        RETURN_IF_FAILED(lookup(sym->text(), &p));
+        RETURN_RES_IF(Result::ERR, p->first != nullptr);
+        *out = reference(p->second);
         return Result::OK;
     }
     else if (auto list = dynamic_cast<Lex::List*>(atom)) {
@@ -14,9 +15,10 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         auto& items = list->items;
         auto sym = symbol(items[0]);
         Args args{ items }; args.advance();
-        auto p = lookup(sym->text());
-        if (p.first) { // a builtin
-            return p.first->parse(this, args, out);
+        const Pair* p;
+        RETURN_IF_FAILED(lookup(sym->text(), &p));
+        if (p->first) { // a builtin
+            return p->first->parse(this, args, out);
         }
         else { 
             std::vector<Ast::Node*> fa;
@@ -25,7 +27,7 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
                 RETURN_IF_FAILED(parse(a, &n));
                 fa.push_back(n);
             }
-            *out = new Ast::FunctionCall(reference(p.second), std::move(fa));
+            *out = new Ast::FunctionCall(reference(p->second), std::move(fa));
             return Result::OK;
         }
     }
