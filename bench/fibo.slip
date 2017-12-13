@@ -1,13 +1,11 @@
 
-(define fib (lambda (n)
-    (cond
-        ((lt_i? n 2)
-             1)
-        (true
-            (add_i
-                (fib (sub_i n 1))
-                (fib (sub_i n 2)))))))
+(func fib (n:int):int
+    (if (lt_i? n 2:int)
+        1:int
+        (add_i
+            (fib (sub_i n 1:int))
+            (fib (sub_i n 2:int)))))
 
-(define main (lambda (argv)
-    (map (lambda (x) (print "Fib" x (fib x))) argv)))
+(func main ():int
+    (fib 5:int))
 

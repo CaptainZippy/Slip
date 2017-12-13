@@ -1,0 +1,6 @@
+
+(func harmonic (n : int):int
+    n)
+
+(func main ()
+    (harmonic 4:int))

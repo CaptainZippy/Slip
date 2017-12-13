@@ -1,7 +1,21 @@
 
-(func harmonic (n : double)
+(func harmonic (n : int) : double
+    (begin
+        (var i 0:int)
+        (var d 0:double)
+        (while (lt d n)
+            (set d (add (d (div 1.0 double))))
+    )
     (let ((acc n)) acc))
     
+
+(func main ():int
+    (begin
+        (print (harmonic 4:int))
+        0))
+
+
+
 ;begin
 ;   (for i (range 1 n)
 ;      (set! acc (add_f (div_f 1.0 (float i)) acc)))
@@ -9,7 +23,3 @@
     
 ;(define main (lambda (argv)
 ;    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
-
-(func main ()
-    (let ((x (harmonic 4:double)))
-        0:int))
