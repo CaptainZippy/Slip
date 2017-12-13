@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 
-void Result::failed(const char* what, const char* fmt, ...) {
-    printf("Failed '%s'", what);
+void Result::failed(const char* what, const char* file, int line, const char* fmt, ...) {
+    printf("%s:%i:Failed '%s'", file, line, what);
     if (fmt && fmt[0]) {
         printf(" - ");
         va_list ap;
