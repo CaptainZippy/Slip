@@ -35,6 +35,15 @@ namespace Ast {
         Named(Lex::Symbol* sym) : m_name(sym) {}
     };
 
+    struct If : Node {
+        AST_DECL();
+        Node* m_cond;
+        Node* m_true;
+        Node* m_false;
+
+        If(Node* c, Node* t, Node* f) : m_cond(c), m_true(t), m_false(f) {}
+    };
+
     struct Type : Named {
         AST_DECL();
         Type(std::string n);

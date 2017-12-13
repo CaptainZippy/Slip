@@ -45,6 +45,13 @@ namespace Ast {
     REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
+    REFLECT_BEGIN(If)
+    REFLECT_PARENT(Node)
+    REFLECT_FIELD2(m_cond, Flags::Child)
+    REFLECT_FIELD2(m_true, Flags::Child)
+    REFLECT_FIELD2(m_false, Flags::Child)
+    REFLECT_END()
+
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)

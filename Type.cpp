@@ -59,9 +59,11 @@ namespace Sema {
                 n->m_type = this->_create_function_type(deps);
             });
         }
+
         void operator()(Ast::Reference* n) {
             equal(n, n->m_target);
         }
+
         void operator()(Ast::Scope* n) {
             if (n->m_child) {
                 equal(n, n->m_child);
@@ -72,6 +74,11 @@ namespace Sema {
         }
         void operator()(Ast::Definition* n) {
             equal(n, n->m_value);
+        }
+
+        void operator()(Ast::If* n) {
+            equal(n->m_true, n->m_false);
+            equal(n, n->m_true);
         }
 
         Result resolve(array_view<Ast::Node*> nodes) {

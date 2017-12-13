@@ -93,6 +93,10 @@ namespace Parse {
     struct Let : public Parser {
         Result _parse(State* state, Args& args, Ast::Node** out) const override;
     };
+
+    struct If : public Parser {
+        Result _parse(State* state, Args& args, Ast::Node** out) const override;
+    };
     
     Result module(Lex::List* Lex, Ast::Module** out);
 }

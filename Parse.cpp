@@ -132,11 +132,33 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     return Result::OK;
 }
 
+ Result Parse::If::_parse(State* state, Args& args, Ast::Node** out) const {
+     auto lets = dynamic_cast<Lex::List*>(args.cur());
+     RETURN_RES_IF(Result::ERR, lets==nullptr);
+     RETURN_RES_IF(Result::ERR, args.size() != 3);
+     Ast::Node* cond;
+     RETURN_IF_FAILED(state->parse(args.cur(), &cond));
+     args.advance();
+
+     Ast::Node* iftrue;
+     RETURN_IF_FAILED(state->parse(args.cur(), &iftrue));
+     args.advance();
+
+     Ast::Node* iffalse;
+     RETURN_IF_FAILED(state->parse(args.cur(), &iffalse));
+     args.advance();
+
+     *out = new Ast::If(cond, iftrue, iffalse);
+     return Result::OK;
+ }
+
+
 
  Result Parse::module( Lex::List* Lex, Ast::Module** out) {
     State state;
     state.addParser( "define", new Define() );
     state.addParser( "func", new Func() );
+    state.addParser( "if", new If() );
     state.addParser( "let", new Let() );
     state.addSym( "int", &Ast::s_typeInt );
     state.addSym( "double", &Ast::s_typeDouble );
