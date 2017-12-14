@@ -48,7 +48,7 @@ namespace Reflect {
     struct Type {
         typedef void* (*MakeFunc)();
         typedef const Type* (*DynamicTypeFunc)(const void*);
-        typedef std::string (*ToStringFunc)(const void*);
+        typedef string_view (*ToStringFunc)(const void*);
         Kind kind;// { Kind::Void };
         const Type* parent;//{ nullptr };
         const Type* sub;//{ nullptr };
@@ -101,7 +101,16 @@ namespace Reflect {
     struct TypeOf< std::string > {
         static inline const Type* value() {
             static const Type t{ Kind::String, nullptr, nullptr, "char[]",
-                sizeof(std::string), nullptr, nullptr, [](const void* addr) { return *(std::string*)addr; } };
+                sizeof(std::string), nullptr, nullptr, [](const void* addr) { return string_view{ *(std::string*)addr }; } };
+            return &t;
+        }
+    };
+
+    template<>
+    struct TypeOf<istring> {
+        static inline const Type* value() {
+            static const Type t{ Kind::String, nullptr, nullptr, "char[]",
+                sizeof(istring), nullptr, nullptr, [](const void* addr) { return string_view(*(istring*)addr); } };
             return &t;
         }
     };

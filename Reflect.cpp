@@ -35,7 +35,7 @@ namespace Reflect {
                     }
                     for (auto c : reversed(chain)) {
                         if (c->toString) {
-                            out.write(c->toString(top.addr).c_str());
+                            out.write(c->toString(top.addr));
                         }
                         else {
                             for (auto f : c->fields) {
@@ -64,7 +64,7 @@ namespace Reflect {
                     break;
                 }
                 case Kind::String: {
-                    std::string s = top.type->toString(top.addr);
+                    string_view s = top.type->toString(top.addr);
                     out.write(string_concat("\"", s, "\""));
                     break;
                 }
