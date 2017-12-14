@@ -1,11 +1,16 @@
 #pragma once
 #if defined(_MSC_VER)
-#define _CRT_SECURE_NO_WARNINGS
-#define _ITERATOR_DEBUG_LEVEL 0
-#pragma warning(disable:4996)
-#include <windows.h>
+    #define _CRT_SECURE_NO_WARNINGS
+    #define _ITERATOR_DEBUG_LEVEL 0
+    #pragma warning(disable:4996)
+    #include <windows.h>
+    #ifdef _WIN64
+        typedef __int64 ssize_t;
+    #else
+        typedef __int32 ssize_t;
+    #endif
 #else
-#define __debugbreak() asm("int $3")
+    #define __debugbreak() asm("int $3")
 #endif
 #include <vector>
 #include <cctype>
