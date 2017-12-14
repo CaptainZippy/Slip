@@ -59,6 +59,10 @@ namespace Ast {
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
+    REFLECT_BEGIN(BinaryOperation)
+    REFLECT_PARENT(FunctionDecl)
+    REFLECT_END()
+
     REFLECT_BEGIN(Sequence)
     REFLECT_PARENT(Node)
     REFLECT_FIELD2(m_items, Flags::Child)
@@ -89,6 +93,7 @@ namespace Ast {
 
     Ast::Type s_typeType("Type");
     Ast::Type s_typeInt("int");
+    Ast::Type s_typeBool("bool");
     Ast::Type s_typeDouble("double");
     Ast::Type s_typeVoid("void");
     Ast::Type s_typeString("string");

@@ -56,6 +56,7 @@ namespace Ast {
 
     extern Ast::Type s_typeType;
     extern Ast::Type s_typeInt;
+    extern Ast::Type s_typeBool;
     extern Ast::Type s_typeDouble;
     extern Ast::Type s_typeVoid;
     extern Ast::Type s_typeString;
@@ -126,6 +127,17 @@ namespace Ast {
         }
     };
 
+    struct BinaryOperation : FunctionDecl {
+        AST_DECL();
+        BinaryOperation(string_view name, Argument* a, Argument* b, Type* ret )
+            : FunctionDecl(name) {
+            m_returnType = ret;
+            m_body = new Node();
+            m_body->m_type = ret;
+            m_args.push_back(a);
+            m_args.push_back(b);
+        }
+    };
 
     struct Sequence : Node {
         AST_DECL();
