@@ -193,64 +193,33 @@ auto erase_if(Cont& c, Lambda&& lambda) {
     return c.erase(std::remove_if(c.begin(), c.end(), lambda), c.end());
 }
 
-namespace Io {
-    struct TextOutput {
-        FILE* m_file;
-        bool m_close;
-        TextOutput()
-            : m_file(stdout)
-            , m_close(false){
-        }
-        TextOutput(const char* fname)
-            : m_file(fopen(fname,"w"))
-            , m_close(true) {
-        }
-        ~TextOutput() {
-            if (m_close) {
-                fclose(m_file);
-            }
-        }
-        void begin(const char* s) {
-            write(s);
-            m_indent.push_back(' ');
-            m_sep = false;
-        }
-        void begin(const std::string& s) {
-            begin(s.c_str());
-        }
-        void write(const char* s) {
-            if (s) {
-                fprintf(m_file, "%s", s);
-                auto n = std::strlen(s);
-                auto c = s[n - 1];
-                m_sep = isalnum(c);
-            }
-        }
-        void write(const std::string& s) {
-            write(s.c_str());
-        }
-        void write(const void* s) {
-            fprintf(m_file, "%p", s);
-            m_sep = true;
-        }
-        void sep() {
-            if (m_sep) {
-                fprintf(m_file, " ");
-                m_sep = false;
-            }
-        }
-        void end(const char* s = nullptr) {
-            m_indent.erase(m_indent.size() - 1);
-            write(s);
-        }
-        void nl() {
-            fprintf(m_file, "\n%s", m_indent.c_str());
-            m_sep = false;
-        }
-        std::string m_indent;
-        bool m_sep{ false };
-    };
-}
+
+
+struct string_view;
+
+// Interned string
+struct istring {
+    static istring make(const char* s);
+    static istring make(string_view s);
+
+    inline istring() : m_str(&s_empty[sizeof(size_t)]) {}
+
+    inline operator const char*() const {
+        return m_str;
+    }
+    inline const char* c_str() const {
+        return m_str;
+    }
+    inline size_t size() const {
+        return reinterpret_cast<const size_t*>(m_str)[-1];
+    }
+
+private:
+    static const char s_empty[];
+    istring(const char* s) : m_str(s) {}
+    const char* m_str;
+};
+
 
 // Readonly view of a possibly unterminated string
 struct string_view {
@@ -267,8 +236,14 @@ struct string_view {
     string_view(const char* s, size_t len)
         : m_begin(s), m_end(s+len) {
     }
+    string_view(const char* s, const char* e)
+        : m_begin(s), m_end(e) {
+    }
     string_view(const std::string& s)
         : m_begin(s.c_str()), m_end(s.c_str()+s.size()) {
+    }
+    string_view(istring s)
+        : m_begin(s.c_str()), m_end(s.c_str() + s.size()) {
     }
     size_t size() const {
         return m_end - m_begin;
@@ -282,29 +257,14 @@ struct string_view {
     explicit operator bool() const {
         return m_begin != m_end;
     }
+    explicit operator std::string() const {
+        return { m_begin, m_end };
+    }
 private:
     const char* m_begin;
     const char* m_end;
 };
 
-// Interned string
-struct istring {
-    static istring make(const char* s);
-    static istring make(string_view s);
-
-    operator const char*() const {
-        return m_str;
-    }
-    const char* c_str() const {
-        return m_str;
-    }
-    size_t size() const {
-        return reinterpret_cast<const size_t*>(m_str)[-1];
-    }
-private:
-    istring(const char* s) : m_str(s) {}
-    const char* m_str;
-};
 
 namespace std {
     template<> struct hash<string_view> {
@@ -336,3 +296,56 @@ std::string string_concat(const ARGS&...args) {
     return string_concat( array_view_t::make(strs) );
 }
 
+
+
+namespace Io {
+    struct TextOutput {
+        FILE* m_file;
+        bool m_close;
+        TextOutput()
+            : m_file(stdout)
+            , m_close(false) {
+        }
+        TextOutput(const char* fname)
+            : m_file(fopen(fname, "w"))
+            , m_close(true) {
+        }
+        ~TextOutput() {
+            if (m_close) {
+                fclose(m_file);
+            }
+        }
+        void begin(string_view s) {
+            write(s);
+            m_indent.push_back(' ');
+            m_sep = false;
+        }
+        void write(string_view s) {
+            if (s.size()) {
+                fwrite(s.begin(), 1, s.size(), m_file);
+                auto c = s.end()[-1];
+                m_sep = isalnum(c);
+            }
+        }
+        //void write(const void* s) {
+        //    fprintf(m_file, "%p", s);
+        //    m_sep = true;
+        //}
+        void sep() {
+            if (m_sep) {
+                fprintf(m_file, " ");
+                m_sep = false;
+            }
+        }
+        void end(string_view s = {}) {
+            m_indent.erase(m_indent.size() - 1);
+            write(s);
+        }
+        void nl() {
+            fprintf(m_file, "\n%s", m_indent.c_str());
+            m_sep = false;
+        }
+        std::string m_indent;
+        bool m_sep{ false };
+    };
+}

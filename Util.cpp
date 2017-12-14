@@ -68,6 +68,8 @@ std::size_t std::hash<string_view>::operator()(string_view const& s) const {
     return hash;
 }
 
+const char istring::s_empty[2 * sizeof(void*)] = {};
+
 istring istring::make(const char* s) {
     return make(string_view(s));
 }
@@ -79,7 +81,8 @@ istring istring::make(string_view s) {
         static Item* make(string_view v) {
             auto i = (Item*)malloc(sizeof(Item) + v.size() + 1);
             i->size = v.size();
-            memcpy(i->data, v.begin(), v.size()+1);
+            memcpy(i->data, v.begin(), v.size());
+            i->data[v.size()] = 0;
             return i;
         }
     };
