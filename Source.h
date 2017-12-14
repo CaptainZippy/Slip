@@ -10,8 +10,8 @@ namespace Lex {
     struct SourceLocation {
 
         view_ptr<const SourceNameAndContents> m_file;
-        long m_start;
-        long m_end;
+        ssize_t m_start;
+        ssize_t m_end;
 
         SourceLocation() : m_start( 0 ), m_end( 0 ) {
         }
