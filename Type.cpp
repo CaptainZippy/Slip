@@ -37,7 +37,7 @@ namespace Sema {
             });
         }
         void operator()(Ast::Argument* n) {
-            assert(n->m_name->m_decltype);
+            //assert(n->m_name->m_decltype); //TODO
             assert(n->m_type);
         }
         void operator()(Ast::Sequence* n) {
@@ -207,12 +207,12 @@ namespace Sema {
 
         Ast::Type* _create_function_type(array_view<Ast::Node*> sig) {
             std::string name;
-            name.append(sig[0]->m_type->text());
+            name.append(sig[0]->m_type->m_name);
             name.append(" (");
             const char* sep = "";
             for (auto a : sig.ltrim(1)) {
                 name.append(sep); sep = ", ";
-                name.append(a->m_type->text());
+                name.append(a->m_type->m_name);
             }
             name.append(")");
             auto r = new Ast::Type(name);

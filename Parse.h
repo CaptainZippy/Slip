@@ -1,5 +1,6 @@
 #pragma once
 #include "Ast.h"
+#include "Lex.h"
 
 namespace Parse {
 
@@ -31,13 +32,15 @@ namespace Parse {
             syms.pop_back();
         }
 
-        void addParser(const std::string& sym, Parser* value) {
-            auto p = syms.back().insert_or_assign(sym, Pair{ value, nullptr } );
+        void addParser(string_view sym, Parser* value) {
+            auto s = istring::make(sym);
+            auto p = syms.back().insert_or_assign(s, Pair{ value, nullptr } );
             assert(p.second);
         }
 
-        void addSym(const std::string& sym, Ast::Named* node) {
-            auto p = syms.back().insert_or_assign(sym, Pair{ nullptr, node });
+        void addSym(string_view sym, Ast::Named* node) {
+            auto s = istring::make(sym);
+            auto p = syms.back().insert_or_assign(s, Pair{ nullptr, node });
             assert(p.second);
         }
 
@@ -70,17 +73,18 @@ namespace Parse {
             return new Ast::Reference(n);
         }
 
-        Result lookup(const std::string& sym, const Pair** out) const {
+        Result lookup(string_view sym, const Pair** out) const {
+            auto s = istring::make(sym);
             for (auto&& cur : reversed(syms)) {
-                auto x = cur.find(sym);
+                auto x = cur.find(s);
                 if (x != cur.end()) {
                     *out = &x->second;
                     return Result::OK;
                 }
             }
-            RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", sym.c_str());
+            RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", s.c_str());
         }
-        std::list< std::map<std::string, Pair> > syms;
+        std::list< std::map<istring, Pair> > syms;
     };
 
     struct Define : public Parser {

@@ -31,18 +31,18 @@ namespace Code {
             assert(0);
         }
         void operator()(Ast::Reference* n) {
-            out.write( n->m_target->m_name->text() );
+            out.write( n->m_target->m_name );
         }
         void operator()(Ast::Argument* n) {
-            out.write(n->m_name->text());
+            out.write(n->m_name);
         }
         void operator()(Ast::Number* n) {
-            out.write(n->m_num->text());
+            out.write(n->m_num);
         }
         void operator()(Ast::Definition* n) {
             out.nl();
-            out.write(string_concat(n->m_type->text(), " ", 
-                n->m_name->text(), " = "));
+            out.write(string_concat(n->m_type->m_name, " ",
+                n->m_name, " = "));
             dispatch(n->m_value);
             out.write(";");
         }
@@ -64,19 +64,19 @@ namespace Code {
         }
         void operator()(Ast::FunctionDecl* n) {
             out.nl();
-            out.begin(string_concat(n->m_body->m_type->text(), " ", n->m_name->text(), "("));
+            out.begin(string_concat(n->m_body->m_type->m_name, " ", n->m_name, "("));
             out.nl();
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_concat(a->m_type->text(), " ", a->m_name->text(), sep));
+                out.write(string_concat(a->m_type->m_name, " ", a->m_name, sep));
                 sep = ", ";
             }
             out.write(") {");
             out.nl();
             int scope = pushScope();
-            out.write(string_format("%s _%i;", n->m_body->m_type->text(), scope));
+            out.write(string_format("%s _%i;", n->m_body->m_type->m_name, scope));
             dispatch(n->m_body);
             out.write(string_format("return _%i;", scope));
             popScope();

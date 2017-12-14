@@ -34,7 +34,8 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
         Ast::Type* t;
         RETURN_IF_FAILED(this->_parseType(num->m_decltype, &t));
-        auto r = new Ast::Number(num);
+        auto r = new Ast::Number( num->text() );
+        r->m_loc = num->m_loc;
         r->m_type = t;
         *out = r;
         return Result::OK;
@@ -42,7 +43,8 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     else if (auto str = dynamic_cast<Lex::String*>(atom)) {
         Ast::Type* t;
         RETURN_IF_FAILED(this->_parseType(str->m_decltype, &t));
-        auto r = new Ast::String(str);
+        auto r = new Ast::String(str->text());
+        r->m_loc = str->m_loc;
         r->m_type = t;
         *out = r;
         return Result::OK;
@@ -57,16 +59,19 @@ Result Parse::Define::_parse( State* state, Args& args, Ast::Node** out ) const 
     RETURN_IF_FAILED(state->parse(args.cur(), &val));
     args.advance();
     RETURN_RES_IF(Result::ERR, args.used()==false);
-    auto ret = new Ast::Definition( sym, val );
+    auto ret = new Ast::Definition( sym->text(), val );
+    ret->m_loc = sym->m_loc;
     state->addSym( sym->text(), ret );
     *out = ret;
     return Result::OK;
 }
 
 Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
-    auto func = new Ast::FunctionDecl(state->symbol(args.cur()));
+    auto sym = state->symbol(args.cur());
+    auto func = new Ast::FunctionDecl(sym->text());
+    func->m_loc = sym->m_loc;
     args.advance();
-    state->addSym(func->m_name->text(), func);
+    state->addSym(func->m_name, func);
     state->enterScope();
     auto argsList = dynamic_cast<Lex::List*>(args.cur());
     if (auto a = argsList->m_decltype) {
@@ -79,7 +84,8 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     for( auto item : argsList->items ) {
         auto sym = state->symbol(item);
         RETURN_RES_IF(Result::ERR, sym == nullptr);
-        auto arg = new Ast::Argument(sym);
+        auto arg = new Ast::Argument(sym->text());
+        arg->m_loc = sym->m_loc;
         Ast::Type* t;
         RETURN_IF_FAILED(state->_parseType(item->m_decltype, &t));
         arg->m_type = t;
@@ -92,7 +98,7 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     RETURN_RES_IF(Result::ERR, args.used()==false );
 
     for( auto a : func->m_args ) {
-        state->addSym( a->m_name->text(), a );
+        state->addSym( a->m_name, a );
     }
     Ast::Node* body;
     RETURN_IF_FAILED(state->parse( rhs, &body ));
@@ -121,7 +127,8 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
         RETURN_RES_IF(Result::ERR, sym);
         Ast::Node* val;
         RETURN_IF_FAILED(state->parse(cur->items[1], &val));
-        auto def = new Ast::Definition(sym, val);
+        auto def = new Ast::Definition(sym->text(), val);
+        def->m_loc = sym->m_loc;
         state->addSym(sym->text(), def);
         seq->m_items.push_back(def);
     }

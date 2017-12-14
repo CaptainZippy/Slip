@@ -1,6 +1,6 @@
 #pragma once
 #include "Reflect.h"
-#include "Lex.h"
+#include "Source.h"
 
 namespace Sema {
     struct TypeInfo;
@@ -26,13 +26,14 @@ namespace Ast {
 
         Type* m_type{ nullptr };
         Sema::TypeInfo* m_data{ nullptr };
+        Lex::SourceLocation m_loc;
     };
 
     struct Named : Node {
         AST_DECL();
-        Lex::Symbol* m_name = nullptr;
+        istring m_name{};
 
-        Named(Lex::Symbol* sym) : m_name(sym) {}
+        Named(string_view sym) : m_name(istring::make(sym)) {}
     };
 
     struct If : Node {
@@ -46,16 +47,9 @@ namespace Ast {
 
     struct Type : Named {
         AST_DECL();
-        Type(std::string n);
-
-        Type(Lex::Symbol* sym)
-            : Named(sym)
-            , m_text(sym->text()) {
+        Type(string_view sym)
+            : Named(istring::make(sym)) {
         }
-        const char* text() const {
-            return m_text.c_str();
-        }
-        std::string m_text;
         Ast::Type* m_extra{ nullptr }; //TODO func return type
         std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
     };
@@ -74,23 +68,23 @@ namespace Ast {
 
     struct Number : Node {
         AST_DECL();
-        Number( Lex::Number* n) : m_num(n) {}
-        Lex::Number* m_num;
+        Number( string_view n) : m_num(n) {}
+        std::string m_num;
 
         static std::string toString(const void* p) {
             auto n = static_cast<const Number*>(p);
-            return n->m_num->text();
+            return n->m_num;
         }
     };
     
     struct String : Node {
         AST_DECL();
-        String(Lex::String* n) : m_str(n) {}
-        Lex::String* m_str;
+        String(string_view n) : m_str(n) {}
+        std::string m_str;
 
         static std::string toString(const void* p) {
             auto n = static_cast<const String*>(p);
-            return n->m_str->text();
+            return n->m_str;
         }
     };
 
@@ -112,7 +106,7 @@ namespace Ast {
 
     struct Argument : Named {
         AST_DECL();
-        Argument(Lex::Symbol* s) : Named(s) {
+        Argument(string_view s) : Named(s) {
         }
     };
 
@@ -123,10 +117,10 @@ namespace Ast {
         Ast::Node* m_returnType{ nullptr };
         Node* m_body{ nullptr };
 
-        FunctionDecl(Lex::Symbol* name)
+        FunctionDecl(string_view name)
             : Named(name) {
         }
-        FunctionDecl( Lex::Symbol* name, std::vector<Argument*>& args, Node* body )
+        FunctionDecl(string_view name, std::vector<Argument*>& args, Node* body )
             : Named(name), m_body(body) {
             m_args.swap( args );
         }
@@ -159,7 +153,7 @@ namespace Ast {
 
         Node* m_value = nullptr;
 
-        Definition( Lex::Symbol* sym, Node* value ) : Named( sym ), m_value( value ) {}
+        Definition(string_view sym, Node* value ) : Named( sym ), m_value( value ) {}
     };
 
     void print(Node* node);

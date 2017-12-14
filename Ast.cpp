@@ -93,16 +93,9 @@ namespace Ast {
     Ast::Type s_typeVoid("void");
     Ast::Type s_typeString("string");
 
-    Type::Type(std::string n)
-        : Named(nullptr)
-        , m_text(std::move(n)) {
-        m_type = &s_typeType;
-    }
-
-    
     void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
         if(auto f = top.type->toString ) {
-            std::string s = (*f)(top.addr);
+            string_view s = (*f)(top.addr);
             out.write(s);
             return;
         }
@@ -170,7 +163,7 @@ namespace Ast {
                 break;
             }
             case Reflect::Kind::String: {
-                std::string s = top.type->toString(top.addr);
+                string_view s = top.type->toString(top.addr);
                 out.write(string_concat("\"", s, "\""));
                 break;
             }

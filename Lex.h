@@ -33,8 +33,9 @@ namespace Lex {
         REFLECT_DECL();
         Value() {}
         Value( const SourceLocation& loc ) : Atom( loc ) {}
-        std::string text() const {
-            return m_loc.m_file->m_contents.substr( m_loc.m_start, m_loc.m_end - m_loc.m_start );
+        string_view text() const {
+            auto s = m_loc.m_file->m_contents.c_str();
+            return { s + m_loc.m_start, s + m_loc.m_end };
         }
     };
     
