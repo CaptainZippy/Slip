@@ -1,15 +1,17 @@
 #include "pch/Pch.h"
 
 void Result::failed(const char* what, const char* file, int line, const char* fmt, ...) {
-    printf("%s:%i:Failed '%s'", file, line, what);
+    printf("%s:%i:", file, line);
     if (fmt && fmt[0]) {
-        printf(" - ");
         va_list ap;
         va_start(ap, fmt);
         vprintf(fmt, ap);;
         va_end(ap);
     }
-    printf("\n");
+    else {
+        printf("Failed");
+    }
+    printf(" - '%s'\n", what);
 }
 
 

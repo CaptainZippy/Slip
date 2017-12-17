@@ -230,6 +230,9 @@ struct string_view {
     string_view(const char (&c)[N])
         : m_begin(c), m_end(c+N) {
     }
+    string_view(nullptr_t s)
+        : m_begin(s), m_end(s) {
+    }
     string_view(const char* s)
         : m_begin(s), m_end(s+std::strlen(s)) {
     }
