@@ -170,9 +170,7 @@ namespace Sema {
                         next.push_back(cur);
                     }
                 }
-                if (todo.size() == next.size()) {
-                    return Result::ERR;
-                }
+                RETURN_RES_IF(Result::ERR, todo.size() == next.size(), "Failed to make progress");
                 todo.swap(next);
             }
 

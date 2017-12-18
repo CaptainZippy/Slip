@@ -45,15 +45,6 @@ namespace Ast {
         If(Node* c, Node* t, Node* f) : m_cond(c), m_true(t), m_false(f) {}
     };
 
-    struct Type : Named {
-        AST_DECL();
-        Type(string_view sym)
-            : Named(istring::make(sym)) {
-        }
-        Ast::Type* m_extra{ nullptr }; //TODO func return type
-        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
-    };
-
     extern Ast::Type s_typeType;
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeBool;
@@ -61,6 +52,17 @@ namespace Ast {
     extern Ast::Type s_typeVoid;
     extern Ast::Type s_typeString;
 
+    struct Type : Named {
+        AST_DECL();
+        Type(string_view sym)
+            : Named(istring::make(sym)) {
+            m_type = &s_typeType;
+        }
+        Ast::Type* m_extra{ nullptr }; //TODO func return type
+        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
+    };
+
+    
 
     struct Decl : Node {
         AST_DECL();
@@ -107,7 +109,8 @@ namespace Ast {
 
     struct Argument : Named {
         AST_DECL();
-        Argument(string_view s) : Named(s) {
+        Argument(string_view s, Type* t=nullptr) : Named(s) {
+            m_type = t;
         }
     };
 
