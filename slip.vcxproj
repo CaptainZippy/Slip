@@ -178,6 +178,7 @@
     <None Include="bench\moments.slip" />
     <None Include="bench\nestedloop.slip" />
     <None Include="bench\nsieve.slip" />
+    <None Include="deps.dgml" />
     <None Include="slip.natvis">
       <SubType>Designer</SubType>
     </None>

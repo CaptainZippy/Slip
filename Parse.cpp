@@ -172,9 +172,9 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     state.addSym( "int", &Ast::s_typeInt );
     state.addSym( "double", &Ast::s_typeDouble );
     state.addSym( "void", &Ast::s_typeVoid );
-    state.addSym("lt_i?", new Ast::BinaryOperation("<", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
-    state.addSym("add_i", new Ast::BinaryOperation("+", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("sub_i", new Ast::BinaryOperation("-", new Ast::Argument("a",&Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("lt_i?", new Ast::BinaryOperation("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
+    state.addSym("add_i", new Ast::BinaryOperation("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("sub_i", new Ast::BinaryOperation("sub", new Ast::Argument("a",&Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
 
     auto module = new Ast::Module();
     for (auto c : Lex->items) {

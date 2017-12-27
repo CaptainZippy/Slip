@@ -58,8 +58,8 @@ namespace Ast {
             : Named(istring::make(sym)) {
             m_type = &s_typeType;
         }
-        Ast::Type* m_extra{ nullptr }; //TODO func return type
-        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
+        //Ast::Type* m_extra{ nullptr }; //TODO func return type
+        //std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
     };
 
     

@@ -11,7 +11,7 @@ namespace Ast {
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
-//    REFLECT_PARENT(Named)
+    REFLECT_FIELD(m_type)
     REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
@@ -137,7 +137,7 @@ namespace Ast {
                     for (auto c : reversed(chain)) {
                         for (auto f : c->fields) {
                             if ((f.flags & Flags::Child) == 0) {
-                                out.write(string_concat(" ", f.name, "={ "));
+                                out.write(string_concat(" ", f.name, "={"));
                                 print(top[f], out, true);
                                 out.write("}");
                             }
@@ -186,6 +186,7 @@ namespace Ast {
     }
 
     void print(Node* node, Io::TextOutput& out) {
+        if (!node) return;
         Reflect::Var top{ node };
         print(top, out, true);
         out.nl();

@@ -108,7 +108,7 @@ namespace Code {
     };
     Result generate(Ast::Module* module) {
         Generator g;
-        Ast::dispatch(module, g);
+        //Ast::dispatch(module, g);
         return Result::OK;
     }
 }
