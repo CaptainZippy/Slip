@@ -22,7 +22,7 @@ std::string string_format(const char* fmt, ...) {
 
     while (1) {
         va_start(ap, fmt);
-        int n = vsnprintf(&str[0], str.size(), fmt, ap) + 1;
+        int n = vsnprintf(&str[0], str.size(), fmt, ap) + 1; // incl nul
         va_end(ap);
 
         if (n < 0) {
@@ -32,7 +32,7 @@ std::string string_format(const char* fmt, ...) {
             str.resize(n);
         }
         else {
-            str.resize(n);
+            str.resize(n-1);
             return str;
         }
     }
