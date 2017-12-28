@@ -26,14 +26,15 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceRoot}"
+                "${workspaceRoot}",
+                "/usr/include/c++/6",
+                "/usr/include/x86_64-linux-gnu/c++/6"
             ],
             "defines": [],
             "intelliSenseMode": "clang-x64",
             "browse": {
                 "path": [
-                    "${workspaceRoot}",
-                    "/usr/include/c++/6"
+                    "${workspaceRoot}"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
