@@ -254,7 +254,7 @@ namespace Sema {
     struct ConstraintSolver {
         Result dispatch(ConstraintBuilder& builder) {
 
-            // apply explicit declarations
+            // apply explicit declarations in source
             for (auto target : builder.m_targets) {
                 assert(target->type == nullptr);
                 assert(target->node);
@@ -264,27 +264,36 @@ namespace Sema {
                 target = nullptr;
             }
 
+			// 
             std::vector<TypeInfo*> todo = builder.m_targets;
             do {
                 std::vector<TypeInfo*> again;
                 for (auto target : todo) {
+					//HACK: if we didn't resolve and there is exactly one type constraint
+					// then lets take the constraint as the type.
                     if (target->type == nullptr) {
                         if (target->isa.size() == 1) {
                             if (auto t = target->isa[0]->type) {
                                 target->resolve( t );
                             }
-                            else {
+                            else { // constraint type not known yet
                                 again.push_back(target);
                             }
                         }
-                        else {
+                        else { //TODO: multiple intersecting constraints
                             again.push_back(target);
                         }
                     }
                 }
+				RETURN_RES_IF( Result::ERR, again.size()==todo.size(), "Failed to resolve");
                 again.swap(todo);
             } while (todo.size());
             print(builder);
+
+			// Write results back to the ast
+            for (auto target : builder.m_targets) {
+                target->node->m_type = target->type;
+            }
 
             return Result::OK;
         }
