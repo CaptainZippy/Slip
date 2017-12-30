@@ -3,7 +3,7 @@
     (if (lt_i? n 2:int)
         1:int
         (add_i
-            (fib (sub_i n 1:int))
+            (fib (sub_i n 1))
             (fib (sub_i n 2:int)))))
 
 (func main ():int

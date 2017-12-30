@@ -53,6 +53,7 @@ namespace Parse {
         }
 
         Result _parseType(Lex::Atom* atom, Ast::Type** out) {
+            if (atom == nullptr) { *out = nullptr; return Result::OK; }
             auto sym = dynamic_cast<Lex::Symbol*>(atom);
             RETURN_RES_IF(Result::ERR, sym == nullptr);
             const Pair* p;
