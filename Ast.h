@@ -182,10 +182,10 @@ namespace Ast {
         #undef AST_NODE
     }
 
-    template <typename Handler>
-    auto dispatch(Node* n, Handler&& handler) {
+    template <typename Handler, typename...Args>
+    auto dispatch(Node* n, Handler&& handler, Args...args) {
         switch (n->tag()) {
-            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n));
+            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n), args...);
             #include "Ast.inc"
             #undef AST_NODE
         }
