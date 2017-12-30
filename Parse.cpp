@@ -77,8 +77,7 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     if (auto a = argsList->m_decltype) {
         Ast::Type* t;
         RETURN_IF_FAILED(state->_parseType(a, &t));
-        auto r = new Ast::Node;
-        r->m_type = t;
+        auto r = new Ast::Node; r->m_type = t;
         func->m_returnType = r;
     }
     for( auto item : argsList->items ) {

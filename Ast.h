@@ -58,7 +58,7 @@ namespace Ast {
             : Named(istring::make(sym)) {
             m_type = &s_typeType;
         }
-        //Ast::Type* m_extra{ nullptr }; //TODO func return type
+        Ast::Type* m_extra{ nullptr }; //TODO func return type
         //std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
     };
 
@@ -134,7 +134,8 @@ namespace Ast {
         AST_DECL();
         BinaryOperation(string_view name, Argument* a, Argument* b, Type* ret )
             : FunctionDecl(name) {
-            m_returnType = ret;
+            m_returnType = new Node();
+            m_returnType->m_type = ret;
             m_body = new Node();
             m_body->m_type = ret;
             m_args.push_back(a);
