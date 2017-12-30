@@ -186,6 +186,7 @@ namespace Ast {
     auto dispatch(Node* n, Handler&& handler, Args...args) {
         switch (n->tag()) {
             #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n), args...);
+            default:
             #include "Ast.inc"
             #undef AST_NODE
         }
