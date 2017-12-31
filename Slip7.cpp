@@ -52,10 +52,9 @@ namespace Code {
         std::string operator()(Ast::Scope* n) {
             auto id = newVarId();
             out.write(string_format("%s %s", n->m_type->m_name.c_str(), n->m_name));
-            out.begin("{");
+            out.begin(" {\n");
             auto r = dispatch(n->m_child);
-            out.end("}");
-            out.nl();
+            out.end("}\n");
             out.write(string_format("%s = %s", id.c_str(), n->m_name));
             return id;
         }
@@ -63,55 +62,41 @@ namespace Code {
         std::string operator()(Ast::If* n) {
             auto ret = newVarId();
             out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
-            out.begin("{");
-            out.nl();
+            out.begin(" {\n");
             auto cond = dispatch(n->m_cond);
-            out.begin(string_format("if(%s) {", cond.c_str()));
-            out.nl();
+            out.begin(string_format("if(%s) {\n", cond.c_str()));
             std::string t = dispatch(n->m_true);
-            out.write(string_concat(ret, " = ", t, ";"));
-            out.nl();
-            out.end("}");
-            out.nl();
-            out.begin("else {");
-            out.nl();
+            out.write(string_concat(ret, " = ", t, ";\n"));
+            out.end("}\n");
+            out.begin("else {\n");
             std::string f = dispatch(n->m_false);
-            out.write(string_concat(ret, " = ", f, ";"));
-            out.nl();
-            out.end("}}");
-            out.nl();
+            out.write(string_concat(ret, " = ", f, ";\n"));
+            out.end("}");
+            out.end("}\n");
             return ret;
         }
 
         std::string operator()(Ast::Cond* n) {
             auto ret = newVarId();
             out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
-            out.begin("{");
-            out.nl();
+            out.begin(" {\n");
             for (auto c : n->m_cases) {
                 auto cond = dispatch(c.first);
-                out.begin(string_format("if(%s) {", cond.c_str()));
-                out.nl();
+                out.begin(string_format("if(%s) {\n", cond.c_str()));
                 std::string t = dispatch(c.second);
-                out.write(string_concat(ret, " = ", t, ";"));
-                out.nl();
-                out.end("}");
-                out.nl();
-                out.begin("else {");
-                out.nl();
+                out.write(string_concat(ret, " = ", t, ";\n"));
+                out.end("}\n");
+                out.begin("else {\n");
             }
             for (auto c : n->m_cases) {
                 out.end("}");
             }
-            out.end("}");
-            out.nl();
+            out.end("\n}\n");
             return ret;
         }
 
         std::string operator()(Ast::FunctionDecl* n) {
-            out.nl();
-            out.begin(string_concat(n->m_body->m_type->m_name, " ", n->m_name, "("));
-            out.nl();
+            out.begin(string_concat("\n", n->m_body->m_type->m_name, " ", n->m_name, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
@@ -119,13 +104,10 @@ namespace Code {
                 out.write(string_concat(sep, a->m_type->m_name, " ", a->m_name));
                 sep = ", ";
             }
-            out.write(") {");
-            out.nl();
+            out.write(") {\n");
             std::string ret = dispatch(n->m_body);
-            out.nl();
-            out.write(string_concat("return ", ret, ";"));
-            out.end("}");
-            out.nl();
+            out.write(string_concat("return ", ret, ";\n"));
+            out.end("}\n");
             return n->m_name.std_str();
         }
 
@@ -142,8 +124,7 @@ namespace Code {
                 out.write(string_concat(sep, a));
                 sep = ", ";
             }
-            out.write(");");
-            out.nl();
+            out.write(");\n");
             return retId;
         }
 

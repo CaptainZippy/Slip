@@ -180,6 +180,9 @@ namespace Detail {
 template <typename T>
 Detail::reverse_wrapper<T> reversed(T&& iterable) { return { iterable }; }
 
+template <typename T, typename V>
+auto find(T&& iterable, const V& v) { return std::find(iterable.begin(), iterable.end(), v); }
+
 template <typename Cont, typename Lambda>
 bool all_of(const Cont& c, Lambda&& lambda) {
     return std::all_of(c.begin(), c.end(), lambda);
@@ -264,6 +267,9 @@ struct string_view {
     explicit operator bool() const {
         return m_begin != m_end;
     }
+    const char* strchr(char c) const {
+        return static_cast<const char*>(memchr(m_begin, c, size()));
+    }
     explicit operator std::string() const {
         return { m_begin, m_end };
     }
@@ -307,8 +313,16 @@ std::string string_concat(const ARGS&...args) {
 
 namespace Io {
     struct TextOutput {
-        FILE* m_file;
-        bool m_close;
+        FILE* m_file{ nullptr };
+        bool m_close{ false };
+        std::string m_indent;
+        enum class State {
+            Normal,
+            Start,
+            Mid,
+        };
+        State m_state{ State::Normal };
+
         TextOutput()
             : m_file(stdout)
             , m_close(false) {
@@ -325,34 +339,29 @@ namespace Io {
         void begin(string_view s) {
             write(s);
             m_indent.push_back(' ');
-            m_sep = false;
+            //m_sep = false;
         }
-        void write(string_view s) {
-            if (s.size()) {
-                fwrite(s.begin(), 1, s.size(), m_file);
-                auto c = s.end()[-1];
-                m_sep = isalnum(c);
-            }
-        }
+
+        void write(string_view s);
+        void _write(string_view s);
+
         //void write(const void* s) {
         //    fprintf(m_file, "%p", s);
         //    m_sep = true;
         //}
         void sep() {
-            if (m_sep) {
-                fprintf(m_file, " ");
-                m_sep = false;
-            }
+            //if (m_sep) {
+            //    fprintf(m_file, " ");
+            //    m_sep = false;
+            //}
         }
         void end(string_view s = {}) {
             m_indent.erase(m_indent.size() - 1);
             write(s);
         }
         void nl() {
-            fprintf(m_file, "\n%s", m_indent.c_str());
-            m_sep = false;
+            fprintf(m_file, "\n");
+            m_state = State::Start;
         }
-        std::string m_indent;
-        bool m_sep{ false };
     };
 }

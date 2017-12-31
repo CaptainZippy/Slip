@@ -137,8 +137,7 @@ namespace Ast {
                     }
                 }
                 else {
-                    out.nl();
-                    out.write(string_format("%s "/*0x%p*/, top.type->name, top.addr));
+                    out.write(string_format("\n%s "/*0x%p*/, top.type->name, top.addr));
                     for (auto c : reversed(chain)) {
                         for (auto f : c->fields) {
                             if ((f.flags & Flags::Child) == 0) {

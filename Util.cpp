@@ -98,3 +98,29 @@ istring istring::make(string_view s) {
 
     return istring(item->data);
 }
+
+void Io::TextOutput::_write(string_view s) {
+    switch (m_state) {
+        case State::Start:
+            fwrite(m_indent.c_str(), 1, m_indent.size(), m_file);
+            break;
+        default:
+            break;
+    }
+    fwrite(s.begin(), 1, s.size(), m_file);
+    m_state = State::Normal;
+}
+
+
+void Io::TextOutput::write(string_view s) {
+    while (const char* n = s.strchr('\n')) {
+        _write( string_view(s.begin(), n+1) );
+        m_state = State::Start;
+        s = string_view(n + 1, s.end());
+    }
+    if (s.size()) {
+        _write(s);
+        //auto c = s.end()[-1];
+        //m_sep = isalnum(c);
+    }
+}
