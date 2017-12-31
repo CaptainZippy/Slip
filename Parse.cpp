@@ -179,6 +179,17 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
      return Result::OK;
  }
 
+ Result Parse::Begin::_parse(State* state, Args& args, Ast::Node** out) const {
+     *out = nullptr;
+     auto ret = new Ast::Sequence;
+     for (auto arg : args) {
+         Ast::Node* n;
+         RETURN_IF_FAILED(state->parse(arg, &n));
+         ret->m_items.push_back(n);
+     }
+     *out = ret;
+     return Result::OK;
+ }
 
 
  Result Parse::module( Lex::List* Lex, Ast::Module** out) {
@@ -188,6 +199,7 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     state.addParser( "if", new If() );
     state.addParser( "cond", new Cond() );
     state.addParser( "let", new Let() );
+    state.addParser( "begin", new Begin() );
     state.addSym( "int", &Ast::s_typeInt );
     state.addSym( "double", &Ast::s_typeDouble );
     state.addSym( "void", &Ast::s_typeVoid );

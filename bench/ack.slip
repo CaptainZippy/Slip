@@ -6,12 +6,13 @@
         ((eq_i? n 0:int)
             (ack (sub_i m 1:int) 1:int))
         (true
-            (ack (sub_i m 1:int) (ack m (sub_i n 1:int)))))))
+            (ack (sub_i m 1:int) (ack m (sub_i n 1:int))))))
+
+;(define x (if (vec_size argv) (vec_idx argv 0) 6))
+;(print "Ack" 3 x "=" (ackermann 3:int x))
 
 (func main ():int (begin
-    ;(define x (if (vec_size argv) (vec_idx argv 0) 6))
-    (let x 6:int)
-    (print "Ack" 3 x "=" (ackermann 3:int x))
-    0)))
+    (ack 3:int 6:int)
+    0:int))
 
 
