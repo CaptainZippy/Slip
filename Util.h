@@ -51,6 +51,7 @@ struct array_view {
     const T& back() const { return *(m_end-1); }
     array_view<T> ltrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin + n, m_end); }
     array_view<T> rtrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin, m_end - n); }
+    std::vector<T> std_vec() const { return std::vector<T>(m_begin, m_end); }
     const T* m_begin;
     const T* m_end;
 };
