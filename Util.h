@@ -1,5 +1,58 @@
 #pragma once
 
+#define Error Slip::Detail::_Error{__FILE__, __LINE__}
+typedef unsigned long long uptr;
+
+namespace Slip {
+    namespace Detail {
+        struct _Error {
+            const char* file;
+            int line;
+            int col;
+            char buf[512];
+            _Error& fmt(const char* fmt, ...) {
+                va_list va;
+                va_start(va, fmt);
+                int cnt = snprintf(buf, sizeof(buf), "%s(%i,%i):error:", file, line, col);
+                vsnprintf(&buf[cnt], sizeof(buf) - cnt, fmt, va);
+                va_end(va);
+                return *this;
+            }
+            _Error& at(const char* f, int l, int c = 0) {
+                file = f;
+                line = l;
+                col = c;
+                return *this;
+            }
+            template<typename LOC>
+            _Error& at(const LOC& loc) {
+                return at(loc.filename(), loc.line(), loc.col());
+            }
+            ~_Error() {
+                print(buf);
+            }
+        protected:
+            void print(const char* s) {
+                printf("%s", s);
+                //OutputDebugStringA( s );
+            }
+        };
+    }
+}
+
+inline void error(const char* msg) {
+    __debugbreak();
+}
+template<typename T>
+void assert2(T t, const char* msg) {
+    if (!t) {
+        Error.fmt(msg);
+        __debugbreak();
+    }
+}
+#define assert(A) if(!(A)) __debugbreak()
+#define cast(T,a) dynamic_cast<T*>(a)
+
 struct Result {
     enum Code { OK = 0, ERR = 1 };
     Result(Code c) : code(c) {}
