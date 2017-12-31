@@ -97,6 +97,17 @@ namespace Reflect {
             return &t;
         }
     };
+    template<typename T, typename U>
+    struct TypeOf< std::pair<T,U> > {
+        static inline const Type* value() {
+            typedef std::pair<T, U> pair;
+            static const Field f[2] = {
+                {"first", TypeOf<T>::value(), offsetof(pair, first), 1 },
+                {"second", TypeOf<U>::value(), offsetof(pair,second), 1 } };
+            static const Type t{ Kind::Record, nullptr, nullptr, "Pair<T,U>", sizeof(std::pair<T,U>), nullptr,nullptr,nullptr, {&f[0],&f[2]} };
+            return &t;
+        }
+    };
     template<>
     struct TypeOf< std::string > {
         static inline const Type* value() {

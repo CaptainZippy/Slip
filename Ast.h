@@ -45,6 +45,11 @@ namespace Ast {
         If(Node* c, Node* t, Node* f) : m_cond(c), m_true(t), m_false(f) {}
     };
 
+    struct Cond : Node {
+        AST_DECL();
+        std::vector< std::pair<Node*, Node*> > m_cases;
+    };
+
     extern Ast::Type s_typeType;
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeBool;

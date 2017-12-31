@@ -141,8 +141,6 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
 }
 
  Result Parse::If::_parse(State* state, Args& args, Ast::Node** out) const {
-     auto lets = dynamic_cast<Lex::List*>(args.cur());
-     RETURN_RES_IF(Result::ERR, lets==nullptr);
      RETURN_RES_IF(Result::ERR, args.size() != 3);
      Ast::Node* cond;
      RETURN_IF_FAILED(state->parse(args.cur(), &cond));
@@ -160,6 +158,27 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
      return Result::OK;
  }
 
+ Result Parse::Cond::_parse(State* state, Args& args, Ast::Node** out) const {
+     *out = nullptr;
+     RETURN_RES_IF(Result::ERR, args.size() < 1);
+     std::vector< std::pair<Ast::Node*, Ast::Node*> > cases;
+     for (auto arg : args) {
+         auto pair = dynamic_cast<Lex::List*>(arg);
+         RETURN_RES_IF(Result::ERR, pair == nullptr);
+         RETURN_RES_IF(Result::ERR, pair->size() != 2);
+
+         Ast::Node* cond;
+         RETURN_IF_FAILED(state->parse(pair->items[0], &cond));
+         Ast::Node* iftrue;
+         RETURN_IF_FAILED(state->parse(pair->items[1], &iftrue));
+         cases.emplace_back(cond, iftrue);
+     }
+     auto cond = new Ast::Cond;
+     cond->m_cases.swap(cases);
+     *out = cond;
+     return Result::OK;
+ }
+
 
 
  Result Parse::module( Lex::List* Lex, Ast::Module** out) {
@@ -167,13 +186,17 @@ Result Parse::Func::_parse( State* state, Args& args, Ast::Node** out ) const {
     state.addParser( "define", new Define() );
     state.addParser( "func", new Func() );
     state.addParser( "if", new If() );
+    state.addParser( "cond", new Cond() );
     state.addParser( "let", new Let() );
     state.addSym( "int", &Ast::s_typeInt );
     state.addSym( "double", &Ast::s_typeDouble );
     state.addSym( "void", &Ast::s_typeVoid );
+    state.addSym("eq_i?", new Ast::BinaryOperation("eq", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("lt_i?", new Ast::BinaryOperation("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("add_i", new Ast::BinaryOperation("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("sub_i", new Ast::BinaryOperation("sub", new Ast::Argument("a",&Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("sub_i", new Ast::BinaryOperation("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
+    state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 
     auto module = new Ast::Module();
     for (auto c : Lex->items) {

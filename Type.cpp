@@ -185,6 +185,15 @@ namespace Sema {
             dispatch(n->m_cond);
         }
 
+        void operator()(Ast::Cond* n) {
+            for (auto c : n->m_cases) {
+                //isa(c.first, &Ast::s_typeBool);
+                dispatch(c.first);
+                dispatch(c.second);
+                isa(c.second, n);
+            }
+        }
+
     public:
 
         std::vector<Ast::Node*> m_visited;

@@ -1,19 +1,17 @@
-(define if (vau (c t f) e
-    (cond ((evsym c e) (evsym t e))
-        (true (evsym f e)))))
 
-(define ack (lambda (m n)
+(func ack (m:int n:int):int
     (cond
-        ((eq_i? m 0)
-            (add_i n 1))
-        ((eq_i? n 0)
-            (ack (sub_i m 1) 1))
+        ((eq_i? m 0:int)
+            (add_i n 1:int))
+        ((eq_i? n 0:int)
+            (ack (sub_i m 1:int) 1:int))
         (true
-            (ack (sub_i m 1) (ack m (sub_i n 1)))))))
+            (ack (sub_i m 1:int) (ack m (sub_i n 1:int)))))))
 
-(define main (lambda (argv) (begin
-    (define x (if (vec_size argv) (vec_idx argv 0) 6))
-    (print "Ack" 3 x "=" (ack 3 x))
+(func main ():int (begin
+    ;(define x (if (vec_size argv) (vec_idx argv 0) 6))
+    (let x 6:int)
+    (print "Ack" 3 x "=" (ackermann 3:int x))
     0)))
 
 

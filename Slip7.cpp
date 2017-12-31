@@ -83,6 +83,31 @@ namespace Code {
             return ret;
         }
 
+        std::string operator()(Ast::Cond* n) {
+            auto ret = newVarId();
+            out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
+            out.begin("{");
+            out.nl();
+            for (auto c : n->m_cases) {
+                auto cond = dispatch(c.first);
+                out.begin(string_format("if(%s) {", cond.c_str()));
+                out.nl();
+                std::string t = dispatch(c.second);
+                out.write(string_concat(ret, " = ", t, ";"));
+                out.nl();
+                out.end("}");
+                out.nl();
+                out.begin("else {");
+                out.nl();
+            }
+            for (auto c : n->m_cases) {
+                out.end("}");
+            }
+            out.end("}");
+            out.nl();
+            return ret;
+        }
+
         std::string operator()(Ast::FunctionDecl* n) {
             out.nl();
             out.begin(string_concat(n->m_body->m_type->m_name, " ", n->m_name, "("));
@@ -91,7 +116,7 @@ namespace Code {
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_concat(a->m_type->m_name, " ", a->m_name, sep));
+                out.write(string_concat(sep, a->m_type->m_name, " ", a->m_name));
                 sep = ", ";
             }
             out.write(") {");

@@ -52,6 +52,11 @@ namespace Ast {
     REFLECT_FIELD2(m_false, Flags::Child)
     REFLECT_END()
 
+    REFLECT_BEGIN(Cond)
+    REFLECT_PARENT(Node)
+    REFLECT_FIELD2(m_cases, Flags::Child)
+    REFLECT_END()
+
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)
