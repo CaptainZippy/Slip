@@ -10,7 +10,7 @@
 #include "Reflect.h"
 #include "Ast.h"
 #include "Parse.h"
-#include "Type.h"
+#include "Sema.h"
 #include "Backend.h"
 
 Result compile(const char* fname) {

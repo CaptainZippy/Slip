@@ -1,6 +1,6 @@
 #include "pch/Pch.h"
 #include "Ast.h"
-#include "Type.h"
+#include "Sema.h"
 
 namespace Sema {
     typedef std::function< void() > Callback;
