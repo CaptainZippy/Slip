@@ -23,6 +23,7 @@ namespace Sema {
         name.append(ret->m_name);
         auto r = new Ast::Type(name);
         r->m_extra = ret;
+        r->m_args = sig.std_vec();
         return r;
     }
 
@@ -223,7 +224,7 @@ namespace Sema {
             tc->func->add_dep(tc);
             for (auto a : args) {
                 auto ia = info(a);
-                //ia->add_dep(tc);
+                //isa(a, ???);
                 tc->args.push_back(ia);
             }
             m_typeDeps.push_back(tc);

@@ -59,7 +59,7 @@ namespace Ast {
             m_type = &s_typeType;
         }
         Ast::Type* m_extra{ nullptr }; //TODO func return type
-        //std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
+        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
     };
 
     
