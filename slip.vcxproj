@@ -147,6 +147,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Ast.cpp" />
+    <ClCompile Include="Backend.cpp" />
     <ClCompile Include="Parse.cpp" />
     <ClCompile Include="pch/Pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -161,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
+    <ClInclude Include="Backend.h" />
     <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h" />
     <ClInclude Include="Reflect.h" />
