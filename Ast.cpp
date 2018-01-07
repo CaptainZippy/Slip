@@ -64,10 +64,6 @@ namespace Ast {
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
-    REFLECT_BEGIN(BinaryOperation)
-    REFLECT_PARENT(FunctionDecl)
-    REFLECT_END()
-
     REFLECT_BEGIN(Sequence)
     REFLECT_PARENT(Node)
     REFLECT_FIELD2(m_items, Flags::Child)

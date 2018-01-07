@@ -310,10 +310,11 @@ Result Parse::module(Lex::List* Lex, Ast::Module** out) {
     state.addSym("int", &Ast::s_typeInt);
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);
-    state.addSym("eq_i?", new Ast::BinaryOperation("eq", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
-    state.addSym("lt_i?", new Ast::BinaryOperation("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
-    state.addSym("add_i", new Ast::BinaryOperation("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("sub_i", new Ast::BinaryOperation("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("eq_i?", Ast::FunctionDecl::makeBinaryOp("eq", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
+    state.addSym("lt_i?", Ast::FunctionDecl::makeBinaryOp("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
+    state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("puts", new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 

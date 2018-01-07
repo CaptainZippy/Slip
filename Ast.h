@@ -129,22 +129,26 @@ namespace Ast {
         FunctionDecl(string_view name)
             : Named(name) {
         }
-        FunctionDecl(string_view name, std::vector<Argument*>& args, Node* body )
-            : Named(name), m_body(body) {
-            m_args.swap( args );
-        }
-    };
 
-    struct BinaryOperation : FunctionDecl {
-        AST_DECL();
-        BinaryOperation(string_view name, Argument* a, Argument* b, Type* ret )
-            : FunctionDecl(name) {
-            m_returnType = new Node();
-            m_returnType->m_type = ret;
-            m_body = new Node();
-            m_body->m_type = ret;
-            m_args.push_back(a);
-            m_args.push_back(b);
+        static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret) {
+            auto f = new FunctionDecl(name);
+            f->m_returnType = new Node();
+            f->m_returnType->m_type = ret;
+            f->m_body = new Node();
+            f->m_body->m_type = ret;
+            f->m_args.push_back(a);
+            f->m_args.push_back(b);
+            return f;
+        }
+
+        static FunctionDecl* makeIntrinsic(string_view name, Argument* a, Type* ret) {
+            auto f = new FunctionDecl(name);
+            f->m_returnType = new Node();
+            f->m_returnType->m_type = ret;
+            f->m_body = new Node();
+            f->m_body->m_type = ret;
+            f->m_args.push_back(a);
+            return f;
         }
     };
 
