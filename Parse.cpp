@@ -315,6 +315,7 @@ Result Parse::module(Lex::List* Lex, Ast::Module** out) {
     state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("puts", new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
+    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("puti", new Ast::Argument("s", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 

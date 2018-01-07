@@ -88,7 +88,6 @@ namespace Sema {
         std::vector<TypeInfo*> args;
 
         virtual void trigger() {
-            //TODO: check args vs func args
             FuncInfo* fi = func->func;
             assert(fi);
             target->resolve(fi->ret->type);
@@ -341,6 +340,11 @@ namespace Sema {
             print(builder);
 
             // type checks!
+            for (auto target : builder.m_targets) {
+                for (auto is : target->isa) {
+                    assert(target->type == is->type);
+                }
+            }
 
             // Write results back to the ast
             for (auto target : builder.m_targets) {

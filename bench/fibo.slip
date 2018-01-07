@@ -8,5 +8,5 @@
 
 (func main ():int
     ;(fib 5:int))
-    (puts (fib 5)))
+    (puti (fib 5)))
 
