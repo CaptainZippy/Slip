@@ -1,6 +1,9 @@
 # Git merge files
 *.orig
 
+# Local untracked files 
+local
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
