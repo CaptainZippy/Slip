@@ -1,6 +1,12 @@
 
 # TODO
 
+# print
+# args to main
+# func overloads
+# generics
+# ranges/iterators
+
 # debug logging
 # source locations
 # tail recursion
