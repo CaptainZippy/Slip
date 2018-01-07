@@ -27,10 +27,17 @@ namespace Sema {
         return r;
     }
 
+    struct FuncInfo {
+        TypeInfo* ret{ nullptr };
+        std::vector<TypeInfo*> args;
+    };
+
+
     struct TypeInfo {
         bool dispatched{ false };
         Ast::Node* node{ nullptr };
         Ast::Type* type{ nullptr };
+        FuncInfo* func{ nullptr };
         std::vector<TypeInfo*> isa;
         std::vector<TypeDep*> deps;
 
@@ -81,8 +88,10 @@ namespace Sema {
         std::vector<TypeInfo*> args;
 
         virtual void trigger() {
-            // check args vs func args
-            target->resolve(func->type->m_extra);
+            //TODO: check args vs func args
+            FuncInfo* fi = func->func;
+            assert(fi);
+            target->resolve(fi->ret->type);
         }
     };
 
@@ -119,11 +128,11 @@ namespace Sema {
         }
 
         void operator()(Ast::FunctionCall* n) {
-            applicable(n, n->m_func, n->m_args);
             dispatch(n->m_func);
             for (auto a : n->m_args) {
                 dispatch(a);
             }
+            applicable(n, n->m_func, n->m_args);
         }
 
         void operator()(Ast::Argument* n) {
@@ -143,22 +152,30 @@ namespace Sema {
         }
 
         void operator()(Ast::FunctionDecl* n) {
+            auto in = info(n);
+            in->func = new FuncInfo;
             if (n->m_returnType) {
                 synth(n, n->m_returnType, n->m_args);
                 isa(n->m_body, n->m_returnType);
+                in->func->ret = info(n->m_returnType);
             }
             else {
                 synth(n, n->m_body, n->m_args);
+                in->func->ret = info(n->m_body);
             }
-            dispatch(n->m_body);
             for (auto a : n->m_args) {
                 dispatch(a);
+                in->func->args.push_back(info(a));
             }
+            dispatch(n->m_body);
         }
 
         void operator()(Ast::Reference* n) {
             isa(n, n->m_target);
             dispatch(n->m_target);
+            if (auto f = n->m_target->m_data->func) {
+                info(n)->func = f;
+            }
         }
 
         void operator()(Ast::Scope* n) {
@@ -230,21 +247,32 @@ namespace Sema {
             auto tc = new FuncApplCheck();
             tc->target = info(tgt);
             tc->func = info(func);
+            FuncInfo* fi = tc->func->func;
+            assert(fi);
             tc->func->add_dep(tc);
-            for (auto a : args) {
-                auto ia = info(a);
-                //isa(a, ???);
-                tc->args.push_back(ia);
+            assert(fi->args.size() == args.size());
+            for (unsigned i = 0; i < args.size(); ++i) {
+                auto ai = info(args[i]);
+                ai->isa.push_back(fi->args[i]);
+                tc->args.push_back(ai);
             }
+            tc->target->isa.push_back(fi->ret);
             m_typeDeps.push_back(tc);
+        }
+
+        void isa(TypeInfo* tgt, TypeInfo* src) {
+            if (find(tgt->isa, src) == tgt->isa.end()) {
+                tgt->isa.push_back(src);
+            }
         }
 
         void isa(Ast::Node* tgt, Ast::Node* src) {
             auto itgt = info(tgt);
             auto isrc = info(src);
-            itgt->isa.push_back(isrc);
-            //itgt->add_dep(isrc);
+            isa(itgt, isrc);
         }
+
+
 
         void synth(Ast::Node* tgt, Ast::Node* ret, array_view<Ast::Argument*> args) {
             auto ts = new FuncDeclSynth();
@@ -281,24 +309,38 @@ namespace Sema {
                 for (auto target : todo) {
                     //HACK: if we didn't resolve and there is exactly one type constraint
                     // then lets take the constraint as the type.
+                    bool resolved = false;
                     if (target->type == nullptr) {
-                        if (target->isa.size() == 1) {
+                        if (target->isa.size()==1) {
                             if (auto t = target->isa[0]->type) {
                                 target->resolve( t );
-                            }
-                            else { // constraint type not known yet
-                                again.push_back(target);
+                                resolved = true;
                             }
                         }
                         else { //TODO: multiple intersecting constraints
+                            std::set<Ast::Type*> types;
+                            std::for_each(target->isa.begin(), target->isa.end(),
+                                [&types](const TypeInfo* t) { types.insert(t->type); });
+                            if (types.size() == 1) {
+                                if (auto t = *types.begin()) {
+                                    target->resolve(t);
+                                    resolved = true;
+                                }
+                            }
+                        }
+
+                        if (resolved == false) {
                             again.push_back(target);
                         }
                     }
+                    
                 }
                 RETURN_RES_IF( Result::ERR, again.size()==todo.size(), "Failed to resolve");
                 again.swap(todo);
             } while (todo.size());
             print(builder);
+
+            // type checks!
 
             // Write results back to the ast
             for (auto target : builder.m_targets) {

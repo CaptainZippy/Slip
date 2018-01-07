@@ -1,11 +1,12 @@
 
 (func fib (n:int):int
-    (if (lt_i? n 2:int)
-        1:int
+    (if (lt_i? n 2)
+        1
         (add_i
-            (fib (sub_i n 1:int))
-            (fib (sub_i n 2:int)))))
+            (fib (sub_i n 1))
+            (fib (sub_i n 2)))))
 
 (func main ():int
-    (fib 5:int))
+    ;(fib 5:int))
+    (puts (fib 5)))
 
