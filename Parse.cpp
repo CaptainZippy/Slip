@@ -73,15 +73,7 @@ namespace Parse {
 
         Result parse(Lex::Atom* atom, Ast::Node** out);
 
-        Result evaluate(Ast::Node* node, Ast::Node** out) {
-            if (auto ref = dynamic_cast<Ast::Reference*>(node)) {
-                RETURN_RES_IF(Result::ERR, !ref);
-                *out = ref->m_target;
-                return Result::OK;
-            }
-
-            return Result::ERR;
-        }
+        Result evaluate(Ast::Node* node, Ast::Node** out);
 
         //protected:
 
@@ -104,6 +96,40 @@ namespace Parse {
         std::list< std::map<istring, Pair> > syms;
     };
 
+    struct Evaluator : public State {
+
+        Result dispatch(Ast::Node* node, Ast::Node** out) {
+            return Ast::dispatch(node, *this, out);
+        }
+
+        Result operator()(Ast::Node* node, Ast::Node** out) {
+            return Result::ERR;
+        }
+
+        Result operator()(Ast::Reference* node, Ast::Node** out) {
+            *out = node->m_target;
+            return Result::OK;
+        }
+
+        Result operator()(Ast::FunctionCall* node, Ast::Node** out) {
+            Ast::Node* funcnode;
+            RETURN_IF_FAILED( dispatch(node->m_func, &funcnode) );
+            auto func = dynamic_cast<Ast::FunctionDecl*>(funcnode);
+            RETURN_RES_IF(Result::ERR, !func);
+            Ast::Node* ret;
+            std::vector<Ast::Node*> args;
+            for (auto a : node->m_args) { // todo defer arg evaluation to caller
+                Ast::Node* e;
+                RETURN_IF_FAILED(dispatch(a, &e));
+                args.push_back(e);
+            }
+            RETURN_IF_FAILED(func->invoke(this, args, &ret));
+            *out = ret;
+            return Result::OK;
+        }
+
+    };
+
     struct Define;
     struct Func;
     struct Let;
@@ -111,6 +137,13 @@ namespace Parse {
     struct Cond;
     struct Begin;
 }
+
+Result Parse::State::evaluate(Ast::Node* node, Ast::Node** out) {
+    *out = nullptr;
+    RETURN_IF_FAILED(static_cast<Evaluator*>(this)->dispatch(node, out) );
+    return Result::OK;
+}
+
 
 Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
@@ -315,6 +348,15 @@ struct Parse::Begin : Parse::Parser {
     }
 };
 
+static Result array_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
+    RETURN_RES_IF(Result::ERR, args.size() != 1);
+    Ast::Type* t = dynamic_cast<Ast::Type*>(args[0]);
+    RETURN_RES_IF(Result::ERR, !t);
+    auto type = new Ast::Type(string_concat("array.", t->m_name));
+    *out = type;
+    return Result::OK;
+}
+
 
 Result Parse::module(Lex::List* lex, Ast::Module** out) {
     State state;
@@ -332,9 +374,9 @@ Result Parse::module(Lex::List* lex, Ast::Module** out) {
     state.addSym("lt_i?", Ast::FunctionDecl::makeBinaryOp("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
-    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", new Ast::Argument("s", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", new Ast::Argument("s", &Ast::s_typeType), &Ast::s_typeType));
+    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", nullptr, new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
+    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", nullptr, new Ast::Argument("s", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", array_intrin, new Ast::Argument("s", &Ast::s_typeType), &Ast::s_typeType));
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 

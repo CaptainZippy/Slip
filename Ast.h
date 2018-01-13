@@ -2,6 +2,10 @@
 #include "Reflect.h"
 #include "Source.h"
 
+namespace Parse {
+    struct Evaluator;
+}
+
 namespace Sema {
     struct TypeInfo;
 }
@@ -64,7 +68,7 @@ namespace Ast {
             m_type = &s_typeType;
         }
         Ast::Type* m_extra{ nullptr }; //TODO func return type
-        std::vector<Ast::Type*> m_args{ nullptr }; //TODO func arg types
+        std::vector<Ast::Type*> m_args; //TODO func arg types
     };
 
     
@@ -121,14 +125,27 @@ namespace Ast {
 
     struct FunctionDecl : Named {
         AST_DECL();
+        typedef Result (*Intrinsic)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
 
         std::vector< Argument* > m_args;
         Ast::Node* m_returnType{ nullptr };
         Node* m_body{ nullptr };
+        Intrinsic m_intrinsic{ nullptr };
+
 
         FunctionDecl(string_view name)
             : Named(name) {
         }
+
+        Result invoke(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out) {
+            RETURN_RES_IF(Result::ERR, args.size() != m_args.size());
+            //todo check args
+            if (m_intrinsic) {
+                return (*m_intrinsic)(eval, args, out);
+            }
+            return Result::ERR;
+        }
+
 
         static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret) {
             auto f = new FunctionDecl(name);
@@ -141,8 +158,9 @@ namespace Ast {
             return f;
         }
 
-        static FunctionDecl* makeIntrinsic(string_view name, Argument* a, Type* ret) {
+        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Argument* a, Type* ret) {
             auto f = new FunctionDecl(name);
+            f->m_intrinsic = intrin;
             f->m_returnType = new Node();
             f->m_returnType->m_type = ret;
             f->m_body = new Node();

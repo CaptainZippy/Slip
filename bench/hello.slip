@@ -1,5 +1,5 @@
 
-(func main ():int (begin
+(func main (argv:(array string)):int (begin
     (puts "hello world\n")
     0))
 
