@@ -86,33 +86,33 @@ template<typename T>
 struct array_view {
     typedef T* iterator;
     array_view() : m_begin(nullptr), m_end(nullptr) {}
-    template<int N>
-    array_view(const T(&t)[N]) : m_begin(t), m_end(m_begin + N) {}
-    array_view(const T* s, const T* e) : m_begin(s), m_end(e) {}
-    array_view(const T* s, uptr n) : m_begin(s), m_end(s + n) {}
-    array_view(const std::vector<T>& a) : m_begin(a.data()), m_end(m_begin + a.size()) {}
-    void operator=(const array_view<T>& a) {
+    template<typename U, size_t N> array_view(U(&t)[N]) : m_begin(t), m_end(m_begin + N) { static_assert(sizeof(T) == sizeof(U),""); }
+    template<typename U> array_view(U* s, U* e) : m_begin(s), m_end(e) { static_assert(sizeof(T) == sizeof(U), ""); }
+    template<typename U> array_view(U* s, size_t n) : m_begin(s), m_end(s + n) { static_assert(sizeof(T) == sizeof(U), ""); }
+    template<typename U> array_view(array_view<U> u) : m_begin(u.m_begin), m_end(u.m_end) { static_assert(sizeof(T) == sizeof(U), ""); }
+    array_view(std::vector<T>& a) : m_begin(a.data()), m_end(m_begin + a.size()) {}
+    void operator=(array_view<T> a) {
         m_begin = a.m_begin;
         m_end = a.m_end;
     }
 
     size_t size() const { return m_end - m_begin; }
-    const T& operator[](unsigned i) const { assert(i < size()); return m_begin[i]; }
-    const T* begin() const { return m_begin; }
-    const T* end() const { return m_end; }
-    const T& front() const { return *(m_begin); }
-    const T& back() const { return *(m_end-1); }
+    T& operator[](unsigned i) const { assert(i < size()); return m_begin[i]; }
+    T* begin() const { return m_begin; }
+    T* end() const { return m_end; }
+    T& front() const { return *(m_begin); }
+    T& back() const { return *(m_end-1); }
     array_view<T> ltrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin + n, m_end); }
     array_view<T> rtrim(unsigned n) const { assert(n <= size()); return array_view<T>(m_begin, m_end - n); }
     std::vector<T> std_vec() const { return std::vector<T>(m_begin, m_end); }
-    const T* m_begin;
-    const T* m_end;
+    T* m_begin;
+    T* m_end;
 };
 
 
 namespace array_view_t {
     template<typename T>
-    array_view<T> from_single(const T& t) { return array_view<T>(&t, &t + 1); }
+    array_view<T> from_single(T& t) { return array_view<T>(&t, &t + 1); }
     template<typename T, int N>
     array_view<T> make(T(&t)[N]) { return array_view<T>(t, t + N); }
     template<typename T>
@@ -177,6 +177,11 @@ struct Iter {
         T* t = v.size() ? &v[0] : nullptr;
         m_begin = t;
         m_end = t + v.size();
+    }
+
+    Iter(array_view<T> v) {
+        m_begin = v.begin();
+        m_end = v.end();
     }
 
     T cur() const {

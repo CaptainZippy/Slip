@@ -154,6 +154,9 @@ namespace Ast {
 
     struct Sequence : Node {
         AST_DECL();
+        array_view<Node*> items() {
+            return m_items;
+        }
         std::vector<Node*> m_items;
     };
 

@@ -51,7 +51,7 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                     throw 0;
                 }
                 auto l = new List( in.location( start, in.tell() ) );
-                l->items.swap( c );
+                l->m_items.swap( c );
                 return l;
             }
             case ')':

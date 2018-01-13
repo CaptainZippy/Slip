@@ -57,12 +57,18 @@ namespace Lex {
     struct List : public Atom {
         List( const SourceLocation& loc ) : Atom( loc ) {
         }
-        int size() const {
-            return (int) items.size();
+        size_t size() const {
+            return m_items.size();
+        }
+	    Atom* at(int i) const {
+            return m_items[i];
         }
         void append( Atom* a ) {
-            items.push_back( a );
+            m_items.push_back( a );
         }
-        std::vector< Atom* > items;
+        array_view< Atom* > items() {
+            return m_items;
+        }
+        std::vector< Atom* > m_items;
     };
 }

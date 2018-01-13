@@ -32,7 +32,7 @@ namespace {
             return n->m_name.std_str();
         }
         std::string operator()(Ast::Sequence* n) {
-            for (auto a : array_view_t::make(n->m_items).rtrim(1)) {
+            for (auto a : n->items().rtrim(1)) {
                 dispatch(a);
                 out.nl();
             }
