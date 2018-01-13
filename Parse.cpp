@@ -53,19 +53,35 @@ namespace Parse {
         }
 
         Result _parseType(Lex::Atom* atom, Ast::Type** out) {
-            if (atom == nullptr) { *out = nullptr; return Result::OK; }
-            auto sym = dynamic_cast<Lex::Symbol*>(atom);
-            RETURN_RES_IF(Result::ERR, sym == nullptr);
-            const Pair* p;
-            RETURN_IF_FAILED(lookup(sym->text(), &p));
-            RETURN_RES_IF(Result::ERR, p->first != nullptr);
-            auto t = dynamic_cast<Ast::Type*>(p->second);
-            RETURN_RES_IF(Result::ERR, t == nullptr);
-            *out = t;
-            return Result::OK;
+            if (atom == nullptr) {
+                *out = nullptr;
+                return Result::OK;
+            }
+            else {
+                Ast::Node* pt;
+                RETURN_IF_FAILED(parse(atom, &pt));
+                Ast::Node* et;
+                RETURN_IF_FAILED(evaluate(pt, &et));
+                auto t = dynamic_cast<Ast::Type*>(et);
+                RETURN_RES_IF(Result::ERR, !t);
+                *out = t;
+                return Result::OK;
+            }
+            return Result::ERR;
         }
 
+
         Result parse(Lex::Atom* atom, Ast::Node** out);
+
+        Result evaluate(Ast::Node* node, Ast::Node** out) {
+            if (auto ref = dynamic_cast<Ast::Reference*>(node)) {
+                RETURN_RES_IF(Result::ERR, !ref);
+                *out = ref->m_target;
+                return Result::OK;
+            }
+
+            return Result::ERR;
+        }
 
         //protected:
 
@@ -175,7 +191,8 @@ struct Parse::Func : Parse::Parser {
         if (auto a = argsList->m_decltype) {
             Ast::Type* t;
             RETURN_IF_FAILED(state->_parseType(a, &t));
-            auto r = new Ast::Node; r->m_type = t;
+            auto r = new Ast::Node;
+            r->m_type = t;
             func->m_returnType = r;
         }
         for (auto item : argsList->items()) {
@@ -310,12 +327,14 @@ Result Parse::module(Lex::List* lex, Ast::Module** out) {
     state.addSym("int", &Ast::s_typeInt);
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);
+    state.addSym("string", &Ast::s_typeString);
     state.addSym("eq_i?", Ast::FunctionDecl::makeBinaryOp("eq", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("lt_i?", Ast::FunctionDecl::makeBinaryOp("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
     state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", new Ast::Argument("s", &Ast::s_typeInt), &Ast::s_typeInt));
+    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", new Ast::Argument("s", &Ast::s_typeType), &Ast::s_typeType));
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 
