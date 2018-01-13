@@ -6,7 +6,8 @@
             (fib (sub_i n 1))
             (fib (sub_i n 2)))))
 
-(func main ():int
-    ;(fib 5:int))
-    (puti (fib 5)))
+(func main ():int (begin
+    (puts "Fib 12=")
+    (puti (fib 12))
+    0))
 
