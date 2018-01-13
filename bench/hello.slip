@@ -1,4 +1,5 @@
 
-(define main (lambda (argv)
-    (print "hello world\n")))
+(func main ():int (begin
+    (puts "hello world\n")
+    0))
 

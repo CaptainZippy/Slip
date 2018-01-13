@@ -223,7 +223,7 @@ struct Parse::Let : Parse::Parser {
             RETURN_RES_IF(Result::ERR, !cur);
             RETURN_RES_IF(Result::ERR, cur->size() != 2);
             auto sym = dynamic_cast<Lex::Symbol*>(cur->at(0));
-            RETURN_RES_IF(Result::ERR, sym);
+            RETURN_RES_IF(Result::ERR, !sym);
             Ast::Node* val;
             RETURN_IF_FAILED(state->parse(cur->at(1), &val));
             auto def = new Ast::Definition(sym->text(), val);

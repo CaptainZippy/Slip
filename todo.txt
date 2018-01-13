@@ -1,7 +1,7 @@
 
 # TODO
 
-# print
+# array
 # args to main
 # func overloads
 # generics
