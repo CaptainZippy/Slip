@@ -27,7 +27,7 @@ namespace {
             return n->m_num;
         }
         std::string operator()(Ast::String* n) {
-            return string_concat("\"", n->m_str, "\"");
+            return string_concat("\"", n->m_str, "\"_str");
         }
         std::string operator()(Ast::Definition* n) {
             auto val = dispatch(n->m_value);

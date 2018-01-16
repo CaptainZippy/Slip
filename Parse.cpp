@@ -75,6 +75,19 @@ namespace Parse {
 
         Result evaluate(Ast::Node* node, Ast::Node** out);
 
+        Result getOrCreateArrayType(Ast::Type* elemType, Ast::Type** out)
+        {
+            auto it = m_arrays.find(elemType);
+            if (it == m_arrays.end())
+            {
+                auto t = new Ast::Type(string_concat("array_", elemType->m_name));
+                t->m_elemType = t;
+                it = m_arrays.emplace(elemType, t).first;
+            }
+            *out = it->second;
+            return Result::OK;
+        }
+
         //protected:
 
         typedef std::pair<Parser*, Ast::Named*> Pair;
@@ -94,6 +107,7 @@ namespace Parse {
             RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", s.c_str());
         }
         std::list< std::map<istring, Pair> > syms;
+        std::map< Ast::Type*, Ast::Type* > m_arrays;
     };
 
     struct Evaluator : public State {
@@ -350,12 +364,25 @@ struct Parse::Begin : Parse::Parser {
 
 static Result array_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
     RETURN_RES_IF(Result::ERR, args.size() != 1);
-    Ast::Type* t = dynamic_cast<Ast::Type*>(args[0]);
-    RETURN_RES_IF(Result::ERR, !t);
-    auto type = new Ast::Type(string_concat("array.", t->m_name));
-    *out = type;
+    Ast::Type* et = dynamic_cast<Ast::Type*>(args[0]);
+    Ast::Type* at;
+    RETURN_IF_FAILED(eval->getOrCreateArrayType(et, &at));
+    *out = at;
     return Result::OK;
 }
+
+static Result array_size_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
+    *out = nullptr;
+    RETURN_RES_IF(Result::ERR, args.size() != 1);
+    return Result::ERR;
+}
+
+static Result array_at_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
+    *out = nullptr;
+    RETURN_RES_IF(Result::ERR, args.size() != 2);
+    return Result::ERR;
+}
+
 
 
 Result Parse::module(Lex::List* lex, Ast::Module** out) {
@@ -374,9 +401,17 @@ Result Parse::module(Lex::List* lex, Ast::Module** out) {
     state.addSym("lt_i?", Ast::FunctionDecl::makeBinaryOp("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
     state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
     state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", nullptr, new Ast::Argument("s", &Ast::s_typeString), &Ast::s_typeInt));
-    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", nullptr, new Ast::Argument("s", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", array_intrin, new Ast::Argument("s", &Ast::s_typeType), &Ast::s_typeType));
+    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", nullptr, &Ast::s_typeInt, { new Ast::Argument("s", &Ast::s_typeString) } ));
+    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", nullptr, &Ast::s_typeInt, { new Ast::Argument("s", &Ast::s_typeInt) }));
+    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", array_intrin, &Ast::s_typeType, { new Ast::Argument("s", &Ast::s_typeType) }));
+    {
+        Ast::Type* at;
+        state.getOrCreateArrayType(&Ast::s_typeString, &at);
+        state.addSym("size", Ast::FunctionDecl::makeIntrinsic("array_size", array_size_intrin, &Ast::s_typeInt, { new Ast::Argument("a", at) }));
+        state.addSym("at", Ast::FunctionDecl::makeIntrinsic("array_at", array_at_intrin, &Ast::s_typeString,
+            { new Ast::Argument("a", at), new Ast::Argument("i", &Ast::s_typeInt) }));
+    }
+
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 

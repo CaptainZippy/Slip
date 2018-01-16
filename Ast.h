@@ -67,6 +67,7 @@ namespace Ast {
             : Named(istring::make(sym)) {
             m_type = &s_typeType;
         }
+        Ast::Type* m_elemType{ nullptr }; //TODO ptr/array type
         Ast::Type* m_extra{ nullptr }; //TODO func return type
         std::vector<Ast::Type*> m_args; //TODO func arg types
     };
@@ -158,14 +159,14 @@ namespace Ast {
             return f;
         }
 
-        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Argument* a, Type* ret) {
+        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args) {
             auto f = new FunctionDecl(name);
             f->m_intrinsic = intrin;
             f->m_returnType = new Node();
             f->m_returnType->m_type = ret;
             f->m_body = new Node();
             f->m_body->m_type = ret;
-            f->m_args.push_back(a);
+            f->m_args = args;
             return f;
         }
     };

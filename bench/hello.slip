@@ -1,5 +1,9 @@
 
 (func main (argv:(array string)):int (begin
-    (puts "hello world\n")
+    (puts "hello ")
+    (puts (if (size argv)
+        (at argv 1)
+        "world\n"
+        ))
     0))
 
