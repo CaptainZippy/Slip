@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="Lex::Symbol">
-        <DisplayString>sym={m_sym,s}</DisplayString>
-    </Type>
-    <Type Name="Lex::String">
-        <DisplayString>str={m_str}</DisplayString>
+    <Type Name="Lex::Value">
+        <DisplayString>text={m_loc.m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_loc.m_start, [m_loc.m_end-m_loc.m_start]s8}</DisplayString>
     </Type>
     <Type Name="Lex::List">
         <Expand>
-            <ExpandedItem>items</ExpandedItem>
+            <ExpandedItem>m_items,view(simple)</ExpandedItem>
         </Expand>
     </Type>
     <Type Name="array_view&lt;*&gt;">
@@ -28,11 +25,11 @@
         </Expand>
     </Type>
     <Type Name="Lex::SourceLocation">
-        <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_off}</DisplayString>
+        <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
         <DisplayString>file="unnamed"</DisplayString>
     </Type>
     <Type Name="Ast::Node">
-        <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_off}</DisplayString>
+        <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
         <DisplayString>file="unnamed"</DisplayString>
     </Type>
 </AutoVisualizer>
