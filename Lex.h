@@ -9,9 +9,11 @@ namespace Lex {
     struct String;
     struct Symbol;
 
-    Atom* parse_string( Input& in );
-    Atom* parse_one( Input& in );
+        /// Load a file and parse it
     Result parse_file( SourceManager& sm, const char* fname, List** out );
+        /// Parse the given input
+    Result parse_input( Input& in, Atom** out );
+    Result parse_one( Input& in, Atom** out );
 
 
     struct Atom : public Reflect::AbstractReflected {

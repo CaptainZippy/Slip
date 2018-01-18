@@ -72,6 +72,10 @@ struct Result {
         Result::failed(#COND, __FILE__, __LINE__, "" __VA_ARGS__); \
         return RES; } } while(0)
 
+#define RETURN_RES_IF_REACHED(RES, ...) do { \
+    Result::failed("Failed", __FILE__, __LINE__, "" __VA_ARGS__); \
+    return RES; } while(0)
+
 template<typename T>
 struct view_ptr {
     view_ptr() : m_ptr(nullptr) {}

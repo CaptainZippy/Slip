@@ -23,11 +23,12 @@ const char* Lex::Atom::indent( int n ) {
 }
 
 
-Lex::Atom* Lex::parse_one( Input& in ) {
-    while( 1 ) {
+Result Lex::parse_one( Input& in, Lex::Atom** out) {
+    *out = nullptr;
+    while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
-                return nullptr;
+                RETURN_RES_IF_REACHED(Result::ERR, "null in input");
             case ' ':
             case '\r':
             case '\n':
@@ -36,31 +37,40 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                 break;
             case ';':
                 while( int c = in.next() ) {
-                    if( c == '\n' ) { break; }
+                    if( c == '\n' || c == -1 ) { break; }
                 }
                 break;
             case '(': {
                 std::vector<Atom*> c;
                 auto start = in.tell();
                 in.next();
-                while( Atom* a = parse_string( in ) ) {
-                    c.push_back( a );
+                while( 1 ) {
+                    Atom* a;
+                    RETURN_IF_FAILED(parse_input(in, &a));
+                    if (a) {
+                        c.push_back(a);
+                    }
+                    else {
+                        break;
+                    }
                 }
-                if( in.next() != ')' ) {
-                    Error.at( in.location( start, in.tell() ) ).fmt( "Missing ')' for list begun here" );
-                    throw 0;
-                }
+                RETURN_RES_IF(Result::ERR, in.next() != ')', "Missing ')' for list begun here");
+                //Error.at( in.location( start, in.tell() ) ).fmt(  );
+
                 auto l = new List( in.location( start, in.tell() ) );
                 l->m_items.swap( c );
-                return l;
+                *out = l;
+                return Result::OK;
             }
             case ')':
-                return nullptr;
+                return Result::OK;
             case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9': {
+            case '5': case '6': case '7': case '8': case '9': { // number
                 auto start = in.tell();
+                in.next();
                 bool isFloat = false;
-                while( int c = in.peek() ) {
+                while( in.available() ) {
+                    int c = in.peek();
                     //if(isdigit(c) || isalpha(c) || c == '_'){
                     if( isdigit( c ) ) {
                         in.next();
@@ -71,20 +81,20 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                     }
                     else break;
                 }
-                return new Number( in.location( start, in.tell() ) );
+                *out = new Number( in.location( start, in.tell() ) );
+                return Result::OK;
             }
-            case '"': {
+            case '"': { // string
                 in.next();
                 auto start = in.tell();
                 while( 1 ) {
-                    switch( in.next() ) {
-                        case -1:
-                        case 0:
-                            Error.at( in.location() ).fmt( "End of input while parsing quoted string" );
-                            return nullptr;
+                    switch(in.next()) {
+                        case -1: RETURN_RES_IF_REACHED(Result::ERR, "EOF in string");
+                        case 0: RETURN_RES_IF_REACHED(Result::ERR, "Null in input");
                         case '"':
                         {
-                            return new String( in.location( start, in.tell() - 1 ) );
+                            *out = new String( in.location( start, in.tell() - 1 ) );
+                            return Result::OK;
                         }
                         default:
                             break;
@@ -92,42 +102,56 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                 }
                 break;
             }
-            default: {
+            default: { // symbol
                 if( isalpha( in.peek() ) || in.peek() == '_' || in.peek() == '@' ) {
                     auto start = in.tell();
                     in.next();
-                    while( int c = in.peek() ) {
+                    while( in.available() ) {
+                        int c = in.peek();
                         if( isdigit( c ) || isalpha( c ) || c == '@' || c == '_' || c == '?' || c == '!' ) {
                             in.next();
                         }
-                        else break;
+                        else {
+                            break;
+                        }
                     }
-                    return new Symbol( in.location( start, in.tell() ) );
+                    *out = new Symbol( in.location( start, in.tell() ) );
+                    return Result::OK;
                 }
-                else throw 0;
+                RETURN_RES_IF_REACHED(Result::ERR, "unexpected");
             }
         }
     }
+    return Result::OK;
 }
 
-Lex::Atom* Lex::parse_string( Input& in ) {
-    if( Atom* a = parse_one( in ) ) {
+Result Lex::parse_input( Input& in, Lex::Atom** out) {
+    Atom* a;
+    RETURN_IF_FAILED(parse_one(in, &a));
+    if( a ) {
         in.eatwhite();
-        if( in.peek() == ':' ) {
+        if( in.available() && in.peek() == ':' ) {
             in.next();
-            a->m_decltype = parse_one( in );
+            RETURN_IF_FAILED(parse_one(in, &a->m_decltype));
         }
-        return a;
     }
-    return nullptr;
+    *out = a;
+    return Result::OK;
 }
 
 Result Lex::parse_file( SourceManager& sm, const char* fname, Lex::List** out ) {
     Input input;
     RETURN_IF_FAILED(sm.load(fname, &input), "Failed to open '{}'", fname);
     List* l = new List( input.location( input.tell(), input.tellEnd() ) );
-    while( Atom* a = parse_string( input ) ) {
-        l->append( a );
+    while(1) {
+        Atom* a;
+        RETURN_IF_FAILED(parse_input(input, &a));
+        if (a) {
+            l->append( a );
+        }
+        else {
+            break;
+        }
     }
     *out = l;
     return Result::OK;

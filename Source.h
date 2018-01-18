@@ -43,15 +43,16 @@ namespace Lex {
                 ++cur;
             }
         }
+        bool available() const {
+            return cur!=end;
+        }
         int peek() const {
+            assert(cur < end);
             return *cur;
         }
         int next() {
             if( cur == end ) return -1;
             return *cur++;
-        }
-        const char* peekbuf() const {
-            return cur;
         }
         long tell() const {
             return safe_cast(cur - start);
