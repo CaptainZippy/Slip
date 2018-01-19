@@ -48,7 +48,6 @@ namespace Parse {
             if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
                 return sym;
             }
-            assert(0);
             return nullptr;
         }
 
@@ -92,7 +91,11 @@ namespace Parse {
 
         typedef std::pair<Parser*, Ast::Named*> Pair;
         Ast::Reference* reference(Ast::Named* n) {
-            return new Ast::Reference(n);
+            auto r = new Ast::Reference(n);
+            if (auto t = n->m_type) {
+                r->m_type = t;
+            }
+            return r;
         }
 
         Result lookup(string_view sym, const Pair** out) const {
@@ -152,6 +155,22 @@ namespace Parse {
     struct Begin;
 }
 
+#define WITH(...) [&](auto&_){ __VA_ARGS__; }
+
+static Result matchLex(Parse::Args& args) {
+    RETURN_RES_IF(Result::ERR, !args.used());
+    return Result::OK;
+}
+
+template<typename HEAD, typename...REST>
+static Result matchLex(Parse::Args& args, HEAD** head, REST**...rest) {
+    auto h = dynamic_cast<HEAD*>(args.cur());
+    RETURN_RES_IF(Result::ERR, !h);
+    args.advance();
+    *head = h;
+    return matchLex(args, rest...);
+}
+
 Result Parse::State::evaluate(Ast::Node* node, Ast::Node** out) {
     *out = nullptr;
     RETURN_IF_FAILED(static_cast<Evaluator*>(this)->dispatch(node, out) );
@@ -160,6 +179,7 @@ Result Parse::State::evaluate(Ast::Node* node, Ast::Node** out) {
 
 
 Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
+    *out = nullptr;
     if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
         const Pair* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
@@ -192,18 +212,14 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
         Ast::Type* t;
         RETURN_IF_FAILED(this->_parseType(num->m_decltype, &t));
-        auto r = new Ast::Number(num->text());
-        r->m_loc = num->m_loc;
-        r->m_type = t;
+        auto r = new Ast::Number(num->text(), WITH(_.m_loc=num->m_loc, _.m_type = t));
         *out = r;
         return Result::OK;
     }
     else if (auto str = dynamic_cast<Lex::String*>(atom)) {
         Ast::Type* t;
         RETURN_IF_FAILED(this->_parseType(str->m_decltype, &t));
-        auto r = new Ast::String(str->text());
-        r->m_loc = str->m_loc;
-        r->m_type = t;
+        auto r = new Ast::String(str->text(), WITH(_.m_loc = str->m_loc, _.m_type = t));
         *out = r;
         return Result::OK;
     }
@@ -212,57 +228,53 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
 
 struct Parse::Define : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
-        auto sym = state->symbol(args.cur());
-        args.advance();
-        Ast::Node* val;
-        RETURN_IF_FAILED(state->parse(args.cur(), &val));
-        args.advance();
-        RETURN_RES_IF(Result::ERR, args.used() == false);
-        auto ret = new Ast::Definition(sym->text(), val);
-        ret->m_loc = sym->m_loc;
-        state->addSym(sym->text(), ret);
+        Lex::Symbol* lname;
+        Lex::Atom* lval;
+        RETURN_IF_FAILED(matchLex(args, &lname, &lval));
+        Ast::Node* nval;
+        RETURN_IF_FAILED(state->parse(lval, &nval));
+        
+        auto ret = new Ast::Definition(lname->text(), nval, WITH(_.m_loc = lname->m_loc));
+        state->addSym(lname->text(), ret);
+
         *out = ret;
         return Result::OK;
     }
 };
 
+
+
+
+
 struct Parse::Func : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
-        auto sym = state->symbol(args.cur());
-        auto func = new Ast::FunctionDecl(sym->text());
-        func->m_loc = sym->m_loc;
-        args.advance();
+        *out = nullptr;
+        Lex::Symbol* lname;
+        Lex::List* largs;
+        Lex::Atom* lbody;
+        RETURN_IF_FAILED( matchLex(args, &lname, &largs, &lbody) );
+        auto func = new Ast::FunctionDecl(lname->text(), WITH(_.m_loc = lname->m_loc));
         state->addSym(func->m_name, func);
         state->enterScope();
-        auto argsList = dynamic_cast<Lex::List*>(args.cur());
-        if (auto a = argsList->m_decltype) {
+        if (auto a = largs->m_decltype) {
             Ast::Type* t;
             RETURN_IF_FAILED(state->_parseType(a, &t));
-            auto r = new Ast::Node;
-            r->m_type = t;
+            auto r = new Ast::Node(WITH(_.m_type = t));
             func->m_returnType = r;
         }
-        for (auto item : argsList->items()) {
+        for (auto item : largs->items()) {
             auto sym = state->symbol(item);
             RETURN_RES_IF(Result::ERR, sym == nullptr);
-            auto arg = new Ast::Argument(sym->text());
-            arg->m_loc = sym->m_loc;
             Ast::Type* t;
             RETURN_IF_FAILED(state->_parseType(item->m_decltype, &t));
-            arg->m_type = t;
+            auto arg = new Ast::Argument(sym->text(), WITH( _.m_loc = sym->m_loc, _.m_type = t ));
             func->m_args.push_back(arg);
         }
-        args.advance();
-
-        Lex::Atom* rhs = args.cur();
-        args.advance();
-        RETURN_RES_IF(Result::ERR, args.used() == false);
-
         for (auto a : func->m_args) {
             state->addSym(a->m_name, a);
         }
         Ast::Node* body;
-        RETURN_IF_FAILED(state->parse(rhs, &body));
+        RETURN_IF_FAILED(state->parse(lbody, &body));
         state->leaveScope();
         func->m_body = body;
         *out = func;
@@ -307,20 +319,19 @@ struct Parse::Let : Parse::Parser {
 
 struct Parse::If : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
-        RETURN_RES_IF(Result::ERR, args.size() != 3);
-        Ast::Node* cond;
-        RETURN_IF_FAILED(state->parse(args.cur(), &cond));
-        args.advance();
+        Lex::Atom* lcond;
+        Lex::Atom* ltrue;
+        Lex::Atom* lfalse;
+        RETURN_IF_FAILED(matchLex(args, &lcond, &ltrue, &lfalse));
 
-        Ast::Node* iftrue;
-        RETURN_IF_FAILED(state->parse(args.cur(), &iftrue));
-        args.advance();
+        Ast::Node* ncond;
+        Ast::Node* ntrue;
+        Ast::Node* nfalse;
+        RETURN_IF_FAILED(state->parse(lcond, &ncond));
+        RETURN_IF_FAILED(state->parse(ltrue, &ntrue));
+        RETURN_IF_FAILED(state->parse(lfalse, &nfalse));
 
-        Ast::Node* iffalse;
-        RETURN_IF_FAILED(state->parse(args.cur(), &iffalse));
-        args.advance();
-
-        *out = new Ast::If(cond, iftrue, iffalse);
+        *out = new Ast::If(ncond, ntrue, nfalse);
         return Result::OK;
     }
 };

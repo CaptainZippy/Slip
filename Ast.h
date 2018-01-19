@@ -27,6 +27,12 @@ namespace Ast {
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
         virtual int tag() const;
+        Node() {
+        }
+        template<typename With>
+        Node(With&& w) {
+            w(*this);
+        }
 
         Type* m_type{ nullptr };
         Sema::TypeInfo* m_data{ nullptr };
@@ -81,7 +87,12 @@ namespace Ast {
 
     struct Number : Node {
         AST_DECL();
-        Number( string_view n) : m_num(n) {}
+        Number( string_view n) : m_num(n) {
+        }
+        template<typename With>
+        Number(string_view n, With&& with) : m_num(n) {
+            with(*this);
+        }
         std::string m_num;
 
         static std::string toString(const void* p) {
@@ -92,7 +103,13 @@ namespace Ast {
     
     struct String : Node {
         AST_DECL();
-        String(string_view n) : m_str(n) {}
+        String(string_view n) : m_str(n) {
+        }
+        template<typename With>
+        String(string_view n, With&& with)
+            : m_str(n) {
+            with(*this);
+        }
         std::string m_str;
 
         static std::string toString(const void* p) {
@@ -122,6 +139,10 @@ namespace Ast {
         Argument(string_view s, Type* t=nullptr) : Named(s) {
             m_type = t;
         }
+        template<typename With>
+        Argument(string_view s, With&& with) : Named(s) {
+            with(*this);
+        }
     };
 
     struct FunctionDecl : Named {
@@ -133,9 +154,14 @@ namespace Ast {
         Node* m_body{ nullptr };
         Intrinsic m_intrinsic{ nullptr };
 
-
         FunctionDecl(string_view name)
             : Named(name) {
+        }
+
+        template<typename With>
+        FunctionDecl(string_view name, With&& with)
+            : Named(name) {
+            with(*this);
         }
 
         Result invoke(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out) {
@@ -200,7 +226,13 @@ namespace Ast {
 
         Node* m_value = nullptr;
 
-        Definition(string_view sym, Node* value ) : Named( sym ), m_value( value ) {}
+        Definition(string_view sym, Node* value) : Named(sym), m_value(value) {}
+        template<typename With>
+        Definition(string_view sym, Node* value, With&& with )
+            : Named( sym )
+            , m_value( value ) {
+            with(*this);
+        }
     };
 
     void print(Node* node);
