@@ -10,10 +10,10 @@ namespace Lex {
     struct Symbol;
 
         /// Load a file and parse it
-    Result parse_file( SourceManager& sm, const char* fname, List** out );
+    List* parse_file( SourceManager& sm, const char* fname );
         /// Parse the given input
-    Result parse_input( Input& in, Atom** out );
-    Result parse_one( Input& in, Atom** out );
+    Atom* parse_input( Input& in );
+    Atom* parse_one( Input& in );
 
 
     struct Atom : public Reflect::AbstractReflected {

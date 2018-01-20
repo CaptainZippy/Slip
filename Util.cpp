@@ -16,14 +16,19 @@ void Result::failed(const char* what, const char* file, int line, const char* fm
 
 
 std::string string_format(const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    std::string str = string_formatv(fmt, ap);
+    va_end(ap);
+    return str;
+}
+
+std::string string_formatv(const char* fmt, va_list ap) {
     std::string str;
     str.resize(str.capacity());
-    va_list ap;
 
     while (1) {
-        va_start(ap, fmt);
         int n = vsnprintf(&str[0], str.size(), fmt, ap) + 1; // incl nul
-        va_end(ap);
 
         if (n < 0) {
             str.resize(str.size() * 2);
@@ -32,7 +37,7 @@ std::string string_format(const char* fmt, ...) {
             str.resize(n);
         }
         else {
-            str.resize(n-1);
+            str.resize(n - 1);
             return str;
         }
     }

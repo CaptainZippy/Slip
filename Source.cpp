@@ -18,13 +18,12 @@ int Lex::SourceLocation::col() const {
     return 0;
 }
 
-Result Lex::SourceManager::load( const char* fname, Lex::Input* out ) {
+Lex::Input Lex::SourceManager::load( const char* fname) {
     while( 1 ) {
         auto it = m_files.find( fname );
         if( it != m_files.end() ) {
             auto& txt = it->second->m_contents;
-            *out = Input( &txt[0], &txt[0] + txt.size(), it->second );
-            return Result::OK;
+            return Input( &txt[0], &txt[0] + txt.size(), it->second );
         }
         else if( FILE* fin = fopen( fname, "r" ) ) {
             std::string txt;
@@ -37,7 +36,7 @@ Result Lex::SourceManager::load( const char* fname, Lex::Input* out ) {
             m_files[fname] = new SourceNameAndContents{ fname, txt };
         }
         else {
-            return Result::ERR;
+            THROW(string_format("Unable to open %s", fname));
         }
     }
 }

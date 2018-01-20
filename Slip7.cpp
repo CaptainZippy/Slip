@@ -15,8 +15,8 @@
 
 Result compile(const char* fname) {
     Lex::SourceManager smanager;
-    Lex::List* lex;
-    RETURN_IF_FAILED(Lex::parse_file(smanager, fname, &lex));
+    Lex::List* lex = Lex::parse_file(smanager, fname);
+    
     Ast::Module* ast;
     RETURN_IF_FAILED(Parse::module(lex, &ast));
     Ast::print(ast);
@@ -31,5 +31,15 @@ int main( int argc, const char* argv[] ) {
         Error.fmt( "Need a script to run" );
         return 1;
     }
-    return compile(argv[1]).isOk() ? 0 : 1;
+    try {
+        compile(argv[1]);
+        return 0;
+    }
+    catch (const Slip::Exception& se) {
+        printf("%s\n", se.what());
+        return 1;
+    }
+    catch (const std::exception& ) {
+        return 2;
+    }
 }

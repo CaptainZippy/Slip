@@ -38,6 +38,15 @@ namespace Slip {
             }
         };
     }
+    class Exception
+    {
+    public:
+        Exception() {}
+        Exception(std::string w) : m_what(std::move(w)) {}
+        virtual ~Exception() {}
+        const char* what() const { return m_what.c_str(); }
+        std::string m_what;
+    };
 }
 
 inline void error(const char* msg) {
@@ -75,6 +84,8 @@ struct Result {
 #define RETURN_RES_IF_REACHED(RES, ...) do { \
     Result::failed("Failed", __FILE__, __LINE__, "" __VA_ARGS__); \
     return RES; } while(0)
+
+#define THROW(__VA_ARGS__) throw Slip::Exception(__VA_ARGS__)
 
 template<typename T>
 struct view_ptr {
@@ -226,6 +237,7 @@ struct Iter {
 };
 
 std::string string_format(const char* fmt, ...);
+std::string string_formatv(const char* fmt, va_list va);
 
 namespace Detail {
     template <typename T>

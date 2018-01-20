@@ -63,8 +63,8 @@ namespace Lex {
         SourceLocation location() const {
             return SourceLocation( info, tell() );
         }
-        SourceLocation location(long s, long e) const {
-            return SourceLocation( info, s, e );
+        SourceLocation location(long s, long e=-1) const {
+            return SourceLocation( info, s, e>=0?e:s+1 );
         }
         const char* cur{nullptr};
         const char* start{nullptr};
@@ -75,6 +75,6 @@ namespace Lex {
     struct SourceManager {
         std::map< std::string, SourceNameAndContents* > m_files;
 
-        Result load(const char* fname, Input* out);
+        Input load(const char* fname);
     };
 }

@@ -14,6 +14,15 @@ namespace Lex {
     REFLECT_END()
 }
 
+    std::string lex_error(Lex::SourceLocation& loc, const char* fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        auto l = string_format("%s:%i:%i:", loc.filename(), loc.line(), loc.col());
+        auto m = string_formatv(fmt, ap);
+        va_end(ap);
+        return string_concat(l, m);
+    }
+
 const char* Lex::Atom::indent( int n ) {
     static char buf[128];
     for( int i = 0; i < n; ++i )
@@ -23,12 +32,11 @@ const char* Lex::Atom::indent( int n ) {
 }
 
 
-Result Lex::parse_one( Input& in, Lex::Atom** out) {
-    *out = nullptr;
+Lex::Atom* Lex::parse_one( Input& in ) {
     while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
-                RETURN_RES_IF_REACHED(Result::ERR, "null in input");
+                THROW( lex_error(in.location(), "null in input") );
             case ' ':
             case '\r':
             case '\n':
@@ -45,8 +53,7 @@ Result Lex::parse_one( Input& in, Lex::Atom** out) {
                 auto start = in.tell();
                 in.next();
                 while( 1 ) {
-                    Atom* a;
-                    RETURN_IF_FAILED(parse_input(in, &a));
+                    Atom* a = parse_input(in);
                     if (a) {
                         c.push_back(a);
                     }
@@ -54,16 +61,16 @@ Result Lex::parse_one( Input& in, Lex::Atom** out) {
                         break;
                     }
                 }
-                RETURN_RES_IF(Result::ERR, in.next() != ')', "Missing ')' for list begun here");
-                //Error.at( in.location( start, in.tell() ) ).fmt(  );
+                if(in.next() != ')') {
+                    THROW( lex_error(in.location(start), "Missing ')' for list begun here") );
+                }
 
                 auto l = new List( in.location( start, in.tell() ) );
                 l->m_items.swap( c );
-                *out = l;
-                return Result::OK;
+                return l;
             }
             case ')':
-                return Result::OK;
+                return nullptr;
             case '0': case '1': case '2': case '3': case '4':
             case '5': case '6': case '7': case '8': case '9': { // number
                 auto start = in.tell();
@@ -81,20 +88,18 @@ Result Lex::parse_one( Input& in, Lex::Atom** out) {
                     }
                     else break;
                 }
-                *out = new Number( in.location( start, in.tell() ) );
-                return Result::OK;
+                return new Number( in.location( start, in.tell() ) );
             }
             case '"': { // string
-                in.next();
                 auto start = in.tell();
+                in.next();
                 while( 1 ) {
                     switch(in.next()) {
-                        case -1: RETURN_RES_IF_REACHED(Result::ERR, "EOF in string");
-                        case 0: RETURN_RES_IF_REACHED(Result::ERR, "Null in input");
+                        case -1: THROW( lex_error(in.location(start), "End of file reached while parsing string") );
+                        case 0: THROW( lex_error(in.location(start), "Null in string") );
                         case '"':
                         {
-                            *out = new String( in.location( start, in.tell() - 1 ) );
-                            return Result::OK;
+                            return new String( in.location( start + 1, in.tell() - 1 ) );
                         }
                         default:
                             break;
@@ -115,37 +120,32 @@ Result Lex::parse_one( Input& in, Lex::Atom** out) {
                             break;
                         }
                     }
-                    *out = new Symbol( in.location( start, in.tell() ) );
-                    return Result::OK;
+                    return new Symbol( in.location( start, in.tell() ) );
                 }
-                RETURN_RES_IF_REACHED(Result::ERR, "unexpected");
+                THROW( lex_error(in.location(), "unexpected character '%c'", in.peek()) );
             }
         }
     }
-    return Result::OK;
+    return nullptr;
 }
 
-Result Lex::parse_input( Input& in, Lex::Atom** out) {
-    Atom* a;
-    RETURN_IF_FAILED(parse_one(in, &a));
+Lex::Atom* Lex::parse_input( Input& in ) {
+    Atom* a = parse_one(in);
     if( a ) {
         in.eatwhite();
         if( in.available() && in.peek() == ':' ) {
             in.next();
-            RETURN_IF_FAILED(parse_one(in, &a->m_decltype));
+            a->m_decltype = parse_one(in);
         }
     }
-    *out = a;
-    return Result::OK;
+    return a;
 }
 
-Result Lex::parse_file( SourceManager& sm, const char* fname, Lex::List** out ) {
-    Input input;
-    RETURN_IF_FAILED(sm.load(fname, &input), "Failed to open '{}'", fname);
+Lex::List* Lex::parse_file( SourceManager& sm, const char* fname ) {
+    Input input = sm.load(fname);
     List* l = new List( input.location( input.tell(), input.tellEnd() ) );
     while(1) {
-        Atom* a;
-        RETURN_IF_FAILED(parse_input(input, &a));
+        Atom* a = parse_input(input);
         if (a) {
             l->append( a );
         }
@@ -153,6 +153,5 @@ Result Lex::parse_file( SourceManager& sm, const char* fname, Lex::List** out ) 
             break;
         }
     }
-    *out = l;
-    return Result::OK;
+    return l;
 }
