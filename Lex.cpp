@@ -14,7 +14,7 @@ namespace Lex {
     REFLECT_END()
 }
 
-    std::string lex_error(Lex::SourceLocation& loc, const char* fmt, ...) {
+    std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ...) {
         va_list ap;
         va_start(ap, fmt);
         auto l = string_format("%s:%i:%i:", loc.filename(), loc.line(), loc.col());

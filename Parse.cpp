@@ -233,7 +233,7 @@ struct Parse::Define : Parse::Parser {
         RETURN_IF_FAILED(matchLex(args, &lname, &lval));
         Ast::Node* nval;
         RETURN_IF_FAILED(state->parse(lval, &nval));
-        
+
         auto ret = new Ast::Definition(lname->text(), nval, WITH(_.m_loc = lname->m_loc));
         state->addSym(lname->text(), ret);
 
@@ -296,7 +296,8 @@ struct Parse::Let : Parse::Parser {
             RETURN_RES_IF(Result::ERR, !lpair);
             Lex::Symbol* lsym;
             Lex::Atom* lval;
-            RETURN_IF_FAILED(matchLex(Args(lpair->items()), &lsym, &lval));
+            Args tmpargs{lpair->items()};
+            RETURN_IF_FAILED(matchLex(tmpargs, &lsym, &lval));
             Ast::Node* aval;
             RETURN_IF_FAILED(state->parse(lval, &aval));
             Ast::Type* t;

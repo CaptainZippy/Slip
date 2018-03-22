@@ -82,6 +82,7 @@ namespace {
                 out.begin("else {\n");
             }
             for (auto c : n->m_cases) {
+                (void)c;
                 out.end("}");
             }
             out.end("\n}\n");
