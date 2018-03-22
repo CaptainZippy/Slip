@@ -16,5 +16,5 @@
       (list (vec_idx y 0) (vec_idx y (sub_i n 1)))
     ))))
 
-(define main (lambda (args)
+(func main (args:(array string)):int 
     (let ((n 100)) (print (ary n)))))

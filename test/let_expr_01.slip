@@ -1,0 +1,9 @@
+
+(func next (n:int):int
+    (add_i n 1))
+
+(func main ():int (begin
+    ;(let ((x 4))  (puti (next x)))
+    (define x 4)
+    (puti (next x))
+    0:int))

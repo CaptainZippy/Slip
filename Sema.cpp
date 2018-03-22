@@ -59,6 +59,21 @@ namespace Sema {
                 }
             }
         }
+
+        void print(Io::TextOutput& out) {
+            out.begin(string_format("TypeNode %p\n", this));
+            out.begin(string_format("node %p %s\n", node, node->dynamicType()->name));
+            out.begin(string_format("isa %u\n", unsigned(isa.size())));
+            for (auto i : isa) {
+                out.write(string_format("isa %p\n", i) );
+            }
+            out.end("\n");
+            out.end("\n");
+        }
+        void print() {
+            Io::TextOutput out;
+            print(out);
+        }
     };
 
     struct FuncDeclSynth : TypeDep {
@@ -140,7 +155,7 @@ namespace Sema {
 
         void operator()(Ast::Sequence* n) {
             if (n->m_items.size()) {
-                isa(n->m_items.back(), n);
+                isa(n, n->m_items.back());
                 for (auto i : n->m_items) {
                     dispatch(i);
                 }
@@ -188,7 +203,13 @@ namespace Sema {
         }
 
         void operator()(Ast::Definition* n) {
-            isa(n->m_value, n);
+            //isa(n, &Ast::s_typeVoid); //fixme
+            if (n->m_type) {
+                isa(n->m_value, n);
+            }
+            else {
+                isa(n, n->m_value);
+            }
             dispatch(n->m_value);
         }
 
@@ -215,6 +236,13 @@ namespace Sema {
         std::vector<Ast::Node*> m_visited;
         std::vector<TypeInfo*> m_targets;
         std::vector<TypeDep*> m_typeDeps;
+        Ast::Node* m_topNode{ nullptr };
+
+        Result build(Ast::Node* top) {
+            m_topNode = top;
+            return dispatch(top);
+        }
+
 
         Result dispatch(Ast::Node* top) {
             if (top->m_data == nullptr || top->m_data->dispatched ==false) {
@@ -332,9 +360,14 @@ namespace Sema {
                             again.push_back(target);
                         }
                     }
-                    
                 }
-                RETURN_RES_IF( Result::ERR, again.size()==todo.size(), "Failed to resolve");
+                if (again.size() == todo.size()) {
+                    Ast::print(builder.m_topNode);
+                    for (auto a : again) {
+                        a->print();
+                    }
+                    RETURN_RES_IF_REACHED(Result::ERR, "Failed to resolve");
+                }
                 again.swap(todo);
             } while (todo.size());
             print(builder);
@@ -400,7 +433,7 @@ namespace Sema {
 Result Sema::type_check(Ast::Node* top_node) {
 
     ConstraintBuilder builder;
-    RETURN_IF_FAILED( builder.dispatch(top_node) );
+    RETURN_IF_FAILED( builder.build(top_node) );
 
     ConstraintSolver solver;
     RETURN_IF_FAILED(solver.dispatch(builder));

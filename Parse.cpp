@@ -285,31 +285,30 @@ struct Parse::Func : Parse::Parser {
 
 struct Parse::Let : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
-        auto lets = dynamic_cast<Lex::List*>(args.cur());
-        RETURN_RES_IF(Result::ERR, !lets);
-        args.advance();
-        auto body = args.cur();
-        args.advance();
-        RETURN_RES_IF(Result::ERR, args.used() == false);
+        Lex::List* llets;
+        Lex::Atom* lbody;
+        RETURN_IF_FAILED(matchLex(args, &llets, &lbody));
 
         state->enterScope();
         auto seq = new Ast::Sequence();
-        for (auto pair : lets->items()) {
-            auto cur = dynamic_cast<Lex::List*>(pair);
-            RETURN_RES_IF(Result::ERR, !cur);
-            RETURN_RES_IF(Result::ERR, cur->size() != 2);
-            auto sym = dynamic_cast<Lex::Symbol*>(cur->at(0));
-            RETURN_RES_IF(Result::ERR, !sym);
-            Ast::Node* val;
-            RETURN_IF_FAILED(state->parse(cur->at(1), &val));
-            auto def = new Ast::Definition(sym->text(), val);
-            def->m_loc = sym->m_loc;
-            state->addSym(sym->text(), def);
+        for (auto litem : llets->items()) {
+            Lex::List* lpair = dynamic_cast<Lex::List*>(litem);
+            RETURN_RES_IF(Result::ERR, !lpair);
+            Lex::Symbol* lsym;
+            Lex::Atom* lval;
+            RETURN_IF_FAILED(matchLex(Args(lpair->items()), &lsym, &lval));
+            Ast::Node* aval;
+            RETURN_IF_FAILED(state->parse(lval, &aval));
+            Ast::Type* t;
+            RETURN_IF_FAILED(state->_parseType(lsym->m_decltype, &t));
+
+            auto def = new Ast::Definition(lsym->text(), aval, WITH( _.m_loc = lsym->m_loc, _.m_type = t));
+            state->addSym(lsym->text(), def);
             seq->m_items.push_back(def);
         }
-        Ast::Node* b;
-        RETURN_IF_FAILED(state->parse(body, &b));
-        seq->m_items.push_back(b);
+        Ast::Node* abody;
+        RETURN_IF_FAILED(state->parse(lbody, &abody));
+        seq->m_items.push_back(abody);
         state->leaveScope();
 
         *out = seq;
