@@ -1,18 +1,16 @@
 #pragma once
-#include "Source.h"
 #include "Reflect.h"
+#include "Io.h"
 
 namespace Slip::Lex {
-        /// Load a file and parse it
-    unique_ptr<List> parse_input( Input& input );
-
+    using namespace Io;
 
     struct Atom : public Reflect::AbstractReflected {
     public:
         REFLECT_DECL();
-        Atom( const SourceLocation& loc ) : m_loc( loc ) {}
+        Atom( const Io::SourceLocation& loc ) : m_loc( loc ) {}
 
-        SourceLocation m_loc{};
+        Io::SourceLocation m_loc{};
         Atom* m_decltype = nullptr;
         vector<Atom*> m_attrs;
 

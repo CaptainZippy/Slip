@@ -5,25 +5,19 @@
 // 4. Lex 
 
 #include "pch/Pch.h"
-#include "Source.h"
-#include "Lex.h"
-#include "Reflect.h"
-#include "Ast.h"
-#include "Parse.h"
-#include "Sema.h"
-#include "Backend.h"
+#include "Slip.h"
 
 static void compile(const char* fname) {
     using namespace Slip;
 
-    auto smanager = Lex::SourceManager::make();
-    auto lex = Lex::parse_input( smanager->load(fname) );
+    auto smanager = Io::makeSourceManager();
+    auto lex = Lex::parse_file(*smanager, fname );
     
     auto ast = Parse::module(*lex);
     //Ast::print(ast.get());
-    Sema::type_check(ast.get());
+    Sema::type_check(*ast);
     //Ast::print(ast.get());
-    Backend::generate(ast.get());
+    Backend::generate(*ast);
 }
 
 int main( int argc, const char* argv[] ) {

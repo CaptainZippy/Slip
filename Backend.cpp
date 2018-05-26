@@ -1,6 +1,7 @@
 #include "pch/Pch.h"
 #include "Backend.h"
 #include "Ast.h"
+#include "Io.h"
 
 namespace {
     using namespace std;
@@ -136,7 +137,7 @@ namespace {
     };
 }
 
-void Backend::generate(Ast::Module* module) {
+void Backend::generate(Ast::Module& module) {
     Generator g;
-    Ast::dispatch(module, g);
+    Ast::dispatch(&module, g);
 }

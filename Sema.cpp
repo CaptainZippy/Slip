@@ -1,6 +1,7 @@
 #include "pch/Pch.h"
 #include "Ast.h"
 #include "Sema.h"
+#include "Io.h"
 
 namespace Slip::Sema {
     typedef function< void() > Callback;
@@ -430,11 +431,11 @@ namespace Slip::Sema {
     };
 }
 
-void Slip::Sema::type_check(Slip::Ast::Node* top_node) {
+void Slip::Sema::type_check(Slip::Ast::Module& mod) {
 
     ConstraintBuilder builder;
     //RETURN_IF_FAILED(
-    builder.build(top_node);
+    builder.build(&mod);
 
     ConstraintSolver solver;
     //RETURN_IF_FAILED

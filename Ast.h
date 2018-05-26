@@ -1,7 +1,7 @@
 #pragma once
 #include "Slip.h"
+#include "Io.h"
 #include "Reflect.h"
-#include "Source.h"
 
 namespace Slip::Ast {
     using namespace std;
@@ -32,7 +32,7 @@ namespace Slip::Ast {
 
         Type* m_type{ nullptr };
         Sema::TypeInfo* m_data{ nullptr };
-        Lex::SourceLocation m_loc;
+        Io::SourceLocation m_loc;
     };
 
     struct Named : Node {

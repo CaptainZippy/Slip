@@ -95,16 +95,6 @@ struct Result {
 #define THROW(__VA_ARGS__) throw Slip::Exception(__VA_ARGS__)
 
 template<typename T>
-struct view_ptr {
-    view_ptr() : m_ptr(nullptr) {}
-    view_ptr(T* p) : m_ptr(p) {}
-    operator T*() const { return m_ptr; }
-    void operator=(T* t) { m_ptr = t; }
-    T* operator->() const { return m_ptr; }
-    T* m_ptr;
-};
-
-template<typename T>
 struct array_view {
     typedef T* iterator;
     array_view() : m_begin(nullptr), m_end(nullptr) {}
@@ -323,6 +313,10 @@ std::string string_concat(const ARGS&...args) {
     return string_concat( array_view_t::make(strs) );
 }
 
+    template<class _Ty, class... _Types, enable_if_t<!is_array_v<_Ty>, int> = 0>
+    inline unique_ptr_del<_Ty> make_unique_del(_Types&&... _Args) {
+        return unique_ptr_del<_Ty>(new _Ty(_STD forward<_Types>(_Args)...), [](_Ty* t) {delete t; });
+    }
 
 }
 
@@ -340,59 +334,3 @@ namespace std {
 }
 
 
-namespace Slip::Io {
-    struct TextOutput {
-        FILE* m_file{ nullptr };
-        bool m_close{ false };
-        std::string m_indent;
-        enum class State {
-            Normal,
-            Start,
-            Mid,
-        };
-        State m_state{ State::Normal };
-
-        TextOutput()
-            : m_file(stdout)
-            , m_close(false) {
-        }
-        TextOutput(const char* fname)
-            : m_file(fopen(fname, "w"))
-            , m_close(true) {
-        }
-        ~TextOutput() {
-            if (m_close) {
-                fclose(m_file);
-            }
-        }
-        void begin(string_view s) {
-            write(s);
-            m_indent.push_back(' ');
-            //m_sep = false;
-        }
-
-            /// Write, indenting on newlines
-        void write(string_view s);
-            /// Raw Write
-        void _write(string_view s);
-
-        //void write(const void* s) {
-        //    fprintf(m_file, "%p", s);
-        //    m_sep = true;
-        //}
-        void sep() {
-            //if (m_sep) {
-            //    fprintf(m_file, " ");
-            //    m_sep = false;
-            //}
-        }
-        void end(string_view s = {}) {
-            m_indent.erase(m_indent.size() - 1);
-            write(s);
-        }
-        void nl() {
-            fprintf(m_file, "\n");
-            m_state = State::Start;
-        }
-    };
-}

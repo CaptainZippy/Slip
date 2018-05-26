@@ -86,34 +86,6 @@ istring istring::make(string_view s) {
     return istring(item->data);
 }
 
-void Io::TextOutput::_write(string_view s) {
-    switch (m_state) {
-        case State::Start:
-            fwrite(m_indent.c_str(), 1, m_indent.size(), m_file);
-            break;
-        default:
-            break;
-    }
-    fwrite(s.data(), 1, s.size(), m_file);
-    m_state = State::Normal;
-}
-
-
-void Io::TextOutput::write(string_view s) {
-    size_t off = 0;
-    do {
-        auto nl = s.find('\n', off);
-        if (nl == string_view::npos) {
-            _write(s.substr(off));
-            //auto c = s.end()[-1];
-            //m_sep = isalnum(c);
-            break;
-        }
-        _write(s.substr(off, nl+1));
-        m_state = State::Start;
-        off = nl + 1;
-    } while (1);
-}
 }
 
 namespace {

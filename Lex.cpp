@@ -39,7 +39,7 @@ const char* Lex::Atom::indent( int n ) {
 }
 
 
-Lex::Atom* Lex::parse_term( Input& in ) {
+Lex::Atom* Lex::parse_term( Io::Input& in ) {
     while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
@@ -136,7 +136,7 @@ Lex::Atom* Lex::parse_term( Input& in ) {
     return nullptr;
 }
 
-Lex::Atom* Lex::parse_atom( Input& in ) {
+Lex::Atom* Lex::parse_atom(Io::Input& in ) {
     Atom* a = parse_term(in);
     if( a ) {
         in.eatwhite();
@@ -148,8 +148,8 @@ Lex::Atom* Lex::parse_atom( Input& in ) {
     return a;
 }
 
-std::unique_ptr<Lex::List> Lex::parse_input( Lex::Input& input ) {
-    auto l = make_unique<List>( input.location( input.tell(), input.tellEnd() ) );
+Slip::unique_ptr_del<Lex::List> Lex::parse_input( Lex::Input& input ) {
+    auto l = make_unique_del<List>( input.location( input.tell(), input.tellEnd() ) );
     while(1) {
         Atom* a = parse_atom(input);
         if (a) {
@@ -162,3 +162,6 @@ std::unique_ptr<Lex::List> Lex::parse_input( Lex::Input& input ) {
     return l;
 }
 
+Slip::unique_ptr_del<Lex::List> Slip::Lex::parse_file(Slip::Io::SourceManager& sm, const char* fname) {
+    return parse_input(sm.load(fname));
+}

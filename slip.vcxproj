@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClCompile Include="Ast.cpp" />
     <ClCompile Include="Backend.cpp" />
+    <ClCompile Include="Io.cpp" />
     <ClCompile Include="Parse.cpp" />
     <ClCompile Include="pch/Pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -161,18 +162,17 @@
     <ClCompile Include="Sema.cpp" />
     <ClCompile Include="Slip7.cpp" />
     <ClCompile Include="Lex.cpp" />
-    <ClCompile Include="Source.cpp" />
     <ClCompile Include="Util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
     <ClInclude Include="Backend.h" />
+    <ClInclude Include="Io.h" />
     <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h" />
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="Sema.h" />
     <ClInclude Include="Slip.h" />
-    <ClInclude Include="Source.h" />
     <ClInclude Include="Lex.h" />
     <ClInclude Include="Util.h" />
   </ItemGroup>
