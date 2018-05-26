@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 #include "Lex.h"
 
-namespace Lex {
+namespace Slip::Lex {
     REFLECT_BEGIN(Lex::Value)
         REFLECT_PARENT(Atom)
         //REFLECT_FIELD(m_text)
@@ -12,9 +12,16 @@ namespace Lex {
     REFLECT_BEGIN(Lex::Atom)
         REFLECT_FIELD(m_attrs)
     REFLECT_END()
+
+        /// Parse one atom including an optional type
+    Atom* parse_atom(Input& in);
+        /// Parse one atom, no
+    Atom* parse_term(Input& in);
 }
 
-std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ...) {
+using namespace Slip;
+
+static std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     auto l = string_format("%s:%i:%i:", loc.filename(), loc.line(), loc.col());
@@ -32,7 +39,7 @@ const char* Lex::Atom::indent( int n ) {
 }
 
 
-Lex::Atom* Lex::parse_one( Input& in ) {
+Lex::Atom* Lex::parse_term( Input& in ) {
     while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
@@ -53,7 +60,7 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                 auto start = in.tell();
                 in.next();
                 while( 1 ) {
-                    Atom* a = parse_input(in);
+                    Atom* a = parse_atom(in);
                     if (a) {
                         c.push_back(a);
                     }
@@ -129,23 +136,22 @@ Lex::Atom* Lex::parse_one( Input& in ) {
     return nullptr;
 }
 
-Lex::Atom* Lex::parse_input( Input& in ) {
-    Atom* a = parse_one(in);
+Lex::Atom* Lex::parse_atom( Input& in ) {
+    Atom* a = parse_term(in);
     if( a ) {
         in.eatwhite();
         if( in.available() && in.peek() == ':' ) {
             in.next();
-            a->m_decltype = parse_one(in);
+            a->m_decltype = parse_term(in);
         }
     }
     return a;
 }
 
-std::unique_ptr<Lex::List> Lex::parse_file( SourceManager& sm, const char* fname ) {
-    Input input = sm.load(fname);
+std::unique_ptr<Lex::List> Lex::parse_input( Lex::Input& input ) {
     auto l = make_unique<List>( input.location( input.tell(), input.tellEnd() ) );
     while(1) {
-        Atom* a = parse_input(input);
+        Atom* a = parse_atom(input);
         if (a) {
             l->append( a );
         }
@@ -155,3 +161,4 @@ std::unique_ptr<Lex::List> Lex::parse_file( SourceManager& sm, const char* fname
     }
     return l;
 }
+

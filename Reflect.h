@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Reflect {
+namespace Slip::Reflect {
     using namespace std;
     struct Type;
     struct Var;

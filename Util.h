@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Slip.h"
+
 #define Error Slip::Detail::_Error{__FILE__, __LINE__}
 typedef unsigned long long uptr;
 
@@ -41,13 +43,12 @@ namespace Slip {
     class Exception
     {
     public:
-        Exception() {}
+        Exception() = default;
         Exception(std::string w) : m_what(std::move(w)) {}
-        virtual ~Exception() {}
+        virtual ~Exception();
         const char* what() const { return m_what.c_str(); }
         std::string m_what;
     };
-}
 
 inline void error(const char* msg) {
     __debugbreak();
@@ -277,17 +278,17 @@ auto erase_if(Cont& c, Lambda&& lambda) {
     return c.erase(std::remove_if(c.begin(), c.end(), lambda), c.end());
 }
 
-
-
-struct string_view;
-
 // Interned string
 struct istring {
     static istring make(const char* s);
-    static istring make(string_view s);
+    static istring make(std::string_view s);
+
 
     inline istring() : m_str(&s_empty[sizeof(size_t)]) {}
 
+    inline operator std::string_view() const {
+        return { m_str, size() };
+    }
     inline operator const char*() const {
         return m_str;
     }
@@ -297,6 +298,7 @@ struct istring {
     inline std::string std_str() const {
         return m_str;
     }
+
     inline size_t size() const {
         return reinterpret_cast<const size_t*>(m_str)[-1];
     }
@@ -308,80 +310,12 @@ private:
 };
 
 
-// Readonly view of a possibly unterminated string
-struct string_view {
-    string_view()
-        : m_begin(nullptr), m_end(nullptr) {
-    }
-    template<int N>
-    string_view(const char (&c)[N])
-        : m_begin(c), m_end(c+N) {
-    }
-    string_view(nullptr_t s)
-        : m_begin(s), m_end(s) {
-    }
-    string_view(const char* s)
-        : m_begin(s), m_end(s+std::strlen(s)) {
-    }
-    string_view(const char* s, size_t len)
-        : m_begin(s), m_end(s+len) {
-    }
-    string_view(const char* s, const char* e)
-        : m_begin(s), m_end(e) {
-    }
-    string_view(const std::string& s)
-        : m_begin(s.c_str()), m_end(s.c_str()+s.size()) {
-    }
-    string_view(istring s)
-        : m_begin(s.c_str()), m_end(s.c_str() + s.size()) {
-    }
-    size_t size() const {
-        return m_end - m_begin;
-    }
-    const char* begin() const {
-        return m_begin;
-    }
-    const char* end() const {
-        return m_end;
-    }
-    explicit operator bool() const {
-        return m_begin != m_end;
-    }
-    const char* strchr(char c) const {
-        return static_cast<const char*>(memchr(m_begin, c, size()));
-    }
-    explicit operator std::string() const {
-        return { m_begin, m_end };
-    }
-private:
-    const char* m_begin;
-    const char* m_end;
-};
-
-
-namespace std {
-    template<> struct hash<string_view> {
-        typedef string_view argument_type;
-        typedef std::size_t result_type;
-        std::size_t operator()(string_view const& s) const;
-    };
-    template<> struct hash<istring> {
-        typedef istring argument_type;
-        typedef std::size_t result_type;
-        std::size_t operator()(istring const& s) const { return reinterpret_cast<size_t>(s.c_str()); }
-    };
-}
-
-inline bool operator==(string_view a, string_view b) {
-    if( a.size() != b.size() ) return false;
-    return memcmp(a.begin(), b.begin(), a.size())==0;
-}
 
 inline bool operator==(istring a, istring b) {
     return (const char*)a == (const char*)b;
 }
 
-std::string string_concat(array_view<string_view> strs);
+std::string string_concat(array_view<std::string_view> strs);
 
 template<typename...ARGS>
 std::string string_concat(const ARGS&...args) {
@@ -390,8 +324,23 @@ std::string string_concat(const ARGS&...args) {
 }
 
 
+}
 
-namespace Io {
+namespace std {
+    template<> struct hash<string_view> {
+        typedef string_view argument_type;
+        typedef std::size_t result_type;
+        std::size_t operator()(string_view const& s) const;
+    };
+    template<> struct hash<Slip::istring> {
+        typedef Slip::istring argument_type;
+        typedef std::size_t result_type;
+        std::size_t operator()(Slip::istring const& s) const { return reinterpret_cast<size_t>(s.c_str()); }
+    };
+}
+
+
+namespace Slip::Io {
     struct TextOutput {
         FILE* m_file{ nullptr };
         bool m_close{ false };
@@ -422,7 +371,9 @@ namespace Io {
             //m_sep = false;
         }
 
+            /// Write, indenting on newlines
         void write(string_view s);
+            /// Raw Write
         void _write(string_view s);
 
         //void write(const void* s) {

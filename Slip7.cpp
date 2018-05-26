@@ -13,16 +13,17 @@
 #include "Sema.h"
 #include "Backend.h"
 
-static Result compile(const char* fname) {
+static void compile(const char* fname) {
+    using namespace Slip;
+
     auto smanager = Lex::SourceManager::make();
-    auto lex = Lex::parse_file(*smanager, fname);
+    auto lex = Lex::parse_input( smanager->load(fname) );
     
     auto ast = Parse::module(*lex);
     //Ast::print(ast.get());
-    RETURN_IF_FAILED(Sema::type_check(ast.get()));
+    Sema::type_check(ast.get());
     //Ast::print(ast.get());
-    RETURN_IF_FAILED(Backend::generate(ast.get()));
-    return Result::OK;
+    Backend::generate(ast.get());
 }
 
 int main( int argc, const char* argv[] ) {

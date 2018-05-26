@@ -1,5 +1,9 @@
 #include "pch/Pch.h"
 
+Slip::Exception::~Exception() = default;
+
+namespace Slip {
+
 void Result::failed(const char* what, const char* file, int line, const char* fmt, ...) {
     printf("%s:%i:", file, line);
     if (fmt && fmt[0]) {
@@ -48,31 +52,9 @@ std::string string_concat(array_view<string_view> strs) {
         return a + b.size(); });
     std::string ret; ret.reserve(size);
     for (auto s : strs) {
-        ret.append(s.begin(),s.size());
+        ret.append(s.begin(),s.end());
     }
     return ret;
-}
-
-namespace {
-    template<unsigned bytes> struct FnvParams;
-    template<> struct FnvParams<4> {
-        static constexpr auto offset_basis = 0x811c9dc5;
-        static constexpr auto prime = 0x1000193;
-    };
-    template<> struct FnvParams<8> {
-        static constexpr auto offset_basis = 0xcbf29ce484222325;
-        static constexpr auto prime = 0x100000001b3;
-    };
-}
-
-std::size_t std::hash<string_view>::operator()(string_view const& s) const {
-    typedef FnvParams<sizeof(size_t)> Fnv;
-    size_t hash = Fnv::offset_basis;
-    for(auto c : s) {
-        hash ^= static_cast<unsigned char>(c);
-        hash *= Fnv::prime;
-    }
-    return hash;
 }
 
 const char istring::s_empty[2 * sizeof(void*)] = {};
@@ -88,7 +70,7 @@ istring istring::make(string_view s) {
         static Item* make(string_view v) {
             auto i = (Item*)malloc(sizeof(Item) + v.size() + 1);
             i->size = v.size();
-            memcpy(i->data, v.begin(), v.size());
+            memcpy(i->data, v.data(), v.size());
             i->data[v.size()] = 0;
             return i;
         }
@@ -112,20 +94,46 @@ void Io::TextOutput::_write(string_view s) {
         default:
             break;
     }
-    fwrite(s.begin(), 1, s.size(), m_file);
+    fwrite(s.data(), 1, s.size(), m_file);
     m_state = State::Normal;
 }
 
 
 void Io::TextOutput::write(string_view s) {
-    while (const char* n = s.strchr('\n')) {
-        _write( string_view(s.begin(), n+1) );
+    size_t off = 0;
+    do {
+        auto nl = s.find('\n', off);
+        if (nl == string_view::npos) {
+            _write(s.substr(off));
+            //auto c = s.end()[-1];
+            //m_sep = isalnum(c);
+            break;
+        }
+        _write(s.substr(off, nl+1));
         m_state = State::Start;
-        s = string_view(n + 1, s.end());
+        off = nl + 1;
+    } while (1);
+}
+}
+
+namespace {
+    template<unsigned bytes> struct FnvParams;
+    template<> struct FnvParams<4> {
+        static constexpr auto offset_basis = 0x811c9dc5;
+        static constexpr auto prime = 0x1000193;
+    };
+    template<> struct FnvParams<8> {
+        static constexpr auto offset_basis = 0xcbf29ce484222325;
+        static constexpr auto prime = 0x100000001b3;
+    };
+}
+
+std::size_t std::hash<std::string_view>::operator()(std::string_view const& s) const {
+    typedef FnvParams<sizeof(size_t)> Fnv;
+    size_t hash = Fnv::offset_basis;
+    for (auto c : s) {
+        hash ^= static_cast<unsigned char>(c);
+        hash *= Fnv::prime;
     }
-    if (s.size()) {
-        _write(s);
-        //auto c = s.end()[-1];
-        //m_sep = isalnum(c);
-    }
+    return hash;
 }

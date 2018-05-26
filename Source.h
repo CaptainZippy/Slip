@@ -1,7 +1,7 @@
 #pragma once
 
-namespace Lex {
-    using namespace std;
+namespace Slip::Lex {
+
     struct SourceNameAndContents {
         string m_name;
         string m_contents;
@@ -10,8 +10,8 @@ namespace Lex {
     struct SourceLocation {
 
         view_ptr<const SourceNameAndContents> m_file;
-        ssize_t m_start;
-        ssize_t m_end;
+        size_t m_start;
+        size_t m_end;
 
         SourceLocation() : m_start( 0 ), m_end( 0 ) {
         }

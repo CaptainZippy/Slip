@@ -1,10 +1,10 @@
 #include "pch/Pch.h"
+#include "Slip.h"
 #include "Parse.h"
 #include "Lex.h"
 #include "Ast.h"
 
-namespace Parse {
-    using namespace std;
+namespace Slip::Parse {
     struct State;
     typedef Iter<Lex::Atom*> Args;
 
@@ -155,6 +155,8 @@ namespace Parse {
     struct Cond;
     struct Begin;
 }
+
+using namespace Slip;
 
 #define WITH(...) [&](auto&_){ __VA_ARGS__; }
 

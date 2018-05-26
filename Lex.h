@@ -2,46 +2,34 @@
 #include "Source.h"
 #include "Reflect.h"
 
-namespace Lex {
-    using namespace std;
-    struct Atom;
-    struct List;
-    struct Number;
-    struct String;
-    struct Symbol;
-
+namespace Slip::Lex {
         /// Load a file and parse it
-    unique_ptr<List> parse_file( SourceManager& sm, const char* fname );
-        /// Parse the given input
-    Atom* parse_input( Input& in );
-    Atom* parse_one( Input& in );
+    unique_ptr<List> parse_input( Input& input );
 
 
     struct Atom : public Reflect::AbstractReflected {
     public:
         REFLECT_DECL();
         Atom( const SourceLocation& loc ) : m_loc( loc ) {}
-        virtual ~Atom() {}
 
         SourceLocation m_loc{};
         Atom* m_decltype = nullptr;
         vector<Atom*> m_attrs;
 
-        Atom() {}
+        Atom() = default;
     protected:
         static const char* indent( int i );
     };
 
     struct Value : Atom {
         REFLECT_DECL();
-        Value() {}
+        Value() = default;
         Value( const SourceLocation& loc ) : Atom( loc ) {}
         string_view text() const {
             auto s = m_loc.m_file->m_contents.c_str();
-            return { s + m_loc.m_start, s + m_loc.m_end };
+            return { s + m_loc.m_start, m_loc.m_end - m_loc.m_start };
         }
     };
-    
 
 
     struct String : Value {

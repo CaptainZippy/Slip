@@ -2,7 +2,7 @@
 #include "Ast.h"
 #include "Sema.h"
 
-namespace Sema {
+namespace Slip::Sema {
     typedef function< void() > Callback;
 
     struct TypeDep {
@@ -430,15 +430,15 @@ namespace Sema {
     };
 }
 
-Result Sema::type_check(Ast::Node* top_node) {
+void Slip::Sema::type_check(Slip::Ast::Node* top_node) {
 
     ConstraintBuilder builder;
-    RETURN_IF_FAILED( builder.build(top_node) );
+    //RETURN_IF_FAILED(
+    builder.build(top_node);
 
     ConstraintSolver solver;
-    RETURN_IF_FAILED(solver.dispatch(builder));
-
-    return Result::OK;
+    //RETURN_IF_FAILED
+    solver.dispatch(builder);
 }
 
 

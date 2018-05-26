@@ -1,7 +1,8 @@
 #include "pch/Pch.h"
+#include "Slip.h"
 #include "Reflect.h"
 
-namespace Reflect {
+namespace Slip::Reflect{
     namespace Detail {
         
         void printVar(Io::TextOutput& out, Var top) {
@@ -76,7 +77,7 @@ namespace Reflect {
     }
 }
 
-void Reflect::printVar(Var top) {
+void Slip::Reflect::printVar(Var top) {
     Io::TextOutput output;
     Detail::printVar(output, top);
     output.nl();

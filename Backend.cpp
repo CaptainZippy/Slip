@@ -4,6 +4,7 @@
 
 namespace {
     using namespace std;
+    using namespace Slip;
     struct Generator {
         string newVarId() {
             return string_format("_%i", m_counter++);
@@ -135,8 +136,7 @@ namespace {
     };
 }
 
-Result Backend::generate(Ast::Module* module) {
+void Backend::generate(Ast::Module* module) {
     Generator g;
     Ast::dispatch(module, g);
-    return Result::OK;
 }

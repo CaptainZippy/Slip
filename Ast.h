@@ -1,16 +1,9 @@
 #pragma once
+#include "Slip.h"
 #include "Reflect.h"
 #include "Source.h"
 
-namespace Parse {
-    struct Evaluator;
-}
-
-namespace Sema {
-    struct TypeInfo;
-}
-
-namespace Ast {
+namespace Slip::Ast {
     using namespace std;
     #define AST_NODE(X) struct X;
     #include "Ast.inc"
@@ -27,9 +20,11 @@ namespace Ast {
 
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
+
         virtual int tag() const;
-        Node() {
-        }
+
+        Node() = default;
+
         template<typename With>
         Node(With&& w) {
             w(*this);
@@ -44,6 +39,7 @@ namespace Ast {
         AST_DECL();
         istring m_name{};
 
+        Named(istring s) : m_name(move(s)) {}
         Named(string_view sym) : m_name(istring::make(sym)) {}
     };
 
@@ -79,7 +75,6 @@ namespace Ast {
         vector<Ast::Type*> m_args; //TODO func arg types
     };
 
-    
 
     struct Decl : Node {
         AST_DECL();
@@ -174,9 +169,10 @@ namespace Ast {
             return Result::ERR;
         }
 
-
+            /// Create a named function of two arguments.
         static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret);
 
+            /// Create a named intrinsic function.
         static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, initializer_list<Argument*> args);
     };
 

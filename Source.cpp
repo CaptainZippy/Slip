@@ -1,13 +1,14 @@
 #include "pch/Pch.h"
 #include "Source.h"
 
-namespace Lex {
+namespace Slip::Lex {
     struct SourceManagerImpl : SourceManager {
         map< string, SourceNameAndContents* > m_files;
 
         Input load(const char* fname) override;
     };
 }
+using namespace Slip;
 
 std::unique_ptr<Lex::SourceManager> Lex::SourceManager::make() {
     return make_unique<SourceManagerImpl>();

@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 #include "Ast.h"
 
-namespace Ast {
+namespace Slip::Ast {
     #define AST_NODE(X) int X::tag() const { return Detail::TagOf<X>::Tag; }
     #include "Ast.inc"
     #undef AST_NODE
@@ -88,6 +88,8 @@ namespace Ast {
     REFLECT_FIELD2(m_value, Flags::Child)
     REFLECT_END()
 }
+
+using namespace Slip;
 
 Ast::Type Ast::s_typeType("Type");
 Ast::Type Ast::s_typeInt("int");
