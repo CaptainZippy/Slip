@@ -1,6 +1,18 @@
 #include "pch/Pch.h"
 #include "Source.h"
 
+namespace Lex {
+    struct SourceManagerImpl : SourceManager {
+        std::map< std::string, SourceNameAndContents* > m_files;
+
+        Input load(const char* fname) override;
+    };
+}
+
+std::unique_ptr<Lex::SourceManager> Lex::SourceManager::make() {
+    return std::make_unique<SourceManagerImpl>();
+}
+
 int Lex::SourceLocation::line() const {
     if (m_file) {
         auto& txt = m_file->m_contents;
@@ -18,7 +30,7 @@ int Lex::SourceLocation::col() const {
     return 0;
 }
 
-Lex::Input Lex::SourceManager::load( const char* fname) {
+Lex::Input Lex::SourceManagerImpl::load( const char* fname) {
     while( 1 ) {
         auto it = m_files.find( fname );
         if( it != m_files.end() ) {
@@ -40,3 +52,4 @@ Lex::Input Lex::SourceManager::load( const char* fname) {
         }
     }
 }
+

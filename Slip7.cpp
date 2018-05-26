@@ -14,8 +14,8 @@
 #include "Backend.h"
 
 Result compile(const char* fname) {
-    Lex::SourceManager smanager;
-    Lex::List* lex = Lex::parse_file(smanager, fname);
+    auto smanager = Lex::SourceManager::make();
+    Lex::List* lex = Lex::parse_file(*smanager, fname);
     
     Ast::Module* ast;
     RETURN_IF_FAILED(Parse::module(lex, &ast));

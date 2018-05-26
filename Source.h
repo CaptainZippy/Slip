@@ -73,8 +73,8 @@ namespace Lex {
     };
 
     struct SourceManager {
-        std::map< std::string, SourceNameAndContents* > m_files;
+        virtual Input load(const char* fname) = 0;
 
-        Input load(const char* fname);
+        static std::unique_ptr<SourceManager> make();
     };
 }
