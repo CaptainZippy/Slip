@@ -13,14 +13,14 @@
 #include "Sema.h"
 #include "Backend.h"
 
-Result compile(const char* fname) {
+static Result compile(const char* fname) {
     auto smanager = Lex::SourceManager::make();
     auto lex = Lex::parse_file(*smanager, fname);
     
     auto ast = Parse::module(*lex);
-    Ast::print(ast.get());
+    //Ast::print(ast.get());
     RETURN_IF_FAILED(Sema::type_check(ast.get()));
-    Ast::print(ast.get());
+    //Ast::print(ast.get());
     RETURN_IF_FAILED(Backend::generate(ast.get()));
     return Result::OK;
 }
