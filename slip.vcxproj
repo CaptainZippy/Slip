@@ -160,7 +160,7 @@
     </ClCompile>
     <ClCompile Include="Reflect.cpp" />
     <ClCompile Include="Sema.cpp" />
-    <ClCompile Include="Slip7.cpp" />
+    <ClCompile Include="Slip.cpp" />
     <ClCompile Include="Lex.cpp" />
     <ClCompile Include="Util.cpp" />
   </ItemGroup>
