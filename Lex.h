@@ -3,6 +3,7 @@
 #include "Reflect.h"
 
 namespace Lex {
+    using namespace std;
     struct Atom;
     struct List;
     struct Number;
@@ -10,7 +11,7 @@ namespace Lex {
     struct Symbol;
 
         /// Load a file and parse it
-    List* parse_file( SourceManager& sm, const char* fname );
+    unique_ptr<List> parse_file( SourceManager& sm, const char* fname );
         /// Parse the given input
     Atom* parse_input( Input& in );
     Atom* parse_one( Input& in );

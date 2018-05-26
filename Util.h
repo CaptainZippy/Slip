@@ -76,6 +76,12 @@ struct Result {
         Result::failed(#COND, __FILE__, __LINE__, "" __VA_ARGS__); \
         return res; } } while(0)
 
+#define THROW_IF_FAILED(COND, ...) do { \
+    Result res = (COND); \
+    if(!res.isOk()) { \
+        throw Slip::Exception{"" __VA_ARGS__}; \
+        } } while(0)
+
 #define RETURN_RES_IF(RES, COND, ...) do { \
     if((COND)) { \
         Result::failed(#COND, __FILE__, __LINE__, "" __VA_ARGS__); \

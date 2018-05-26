@@ -7,5 +7,6 @@ namespace Ast {
 }
 
 namespace Parse {
-    Result module(Lex::List* Lex, Ast::Module** out);
+    using namespace std;
+    unique_ptr<Ast::Module> module(Lex::List& Lex);
 }

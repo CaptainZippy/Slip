@@ -141,9 +141,9 @@ Lex::Atom* Lex::parse_input( Input& in ) {
     return a;
 }
 
-Lex::List* Lex::parse_file( SourceManager& sm, const char* fname ) {
+std::unique_ptr<Lex::List> Lex::parse_file( SourceManager& sm, const char* fname ) {
     Input input = sm.load(fname);
-    List* l = new List( input.location( input.tell(), input.tellEnd() ) );
+    auto l = make_unique<List>( input.location( input.tell(), input.tellEnd() ) );
     while(1) {
         Atom* a = parse_input(input);
         if (a) {

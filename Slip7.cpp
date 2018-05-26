@@ -15,14 +15,13 @@
 
 Result compile(const char* fname) {
     auto smanager = Lex::SourceManager::make();
-    Lex::List* lex = Lex::parse_file(*smanager, fname);
+    auto lex = Lex::parse_file(*smanager, fname);
     
-    Ast::Module* ast;
-    RETURN_IF_FAILED(Parse::module(lex, &ast));
-    Ast::print(ast);
-    RETURN_IF_FAILED(Sema::type_check(ast));
-    Ast::print(ast);
-    RETURN_IF_FAILED(Backend::generate(ast));
+    auto ast = Parse::module(*lex);
+    Ast::print(ast.get());
+    RETURN_IF_FAILED(Sema::type_check(ast.get()));
+    Ast::print(ast.get());
+    RETURN_IF_FAILED(Backend::generate(ast.get()));
     return Result::OK;
 }
 

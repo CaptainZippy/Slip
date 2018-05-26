@@ -396,7 +396,7 @@ static Result array_at_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> arg
 
 
 
-Result Parse::module(Lex::List* lex, Ast::Module** out) {
+std::unique_ptr<Ast::Module> Parse::module(Lex::List& lex) {
     State state;
     state.addParser("define", new Define());
     state.addParser("func", new Func());
@@ -426,14 +426,13 @@ Result Parse::module(Lex::List* lex, Ast::Module** out) {
     state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
     state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
 
-    auto module = new Ast::Module();
-    for (auto c : lex->items()) {
+    auto module = make_unique<Ast::Module>();
+    for (auto c : lex.items()) {
         Ast::Node* n;
-        RETURN_IF_FAILED(state.parse(c, &n));
+        THROW_IF_FAILED(state.parse(c, &n));
         module->m_items.push_back(n);
     }
-    *out = module;
-    return Result::OK;
+    return module;
 }
 
 Result Parse::Parser::parse(State* state, Args& args, Ast::Node** out) const {
