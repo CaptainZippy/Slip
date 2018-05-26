@@ -174,27 +174,9 @@ namespace Ast {
         }
 
 
-        static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret) {
-            auto f = new FunctionDecl(name);
-            f->m_returnType = new Node();
-            f->m_returnType->m_type = ret;
-            f->m_body = new Node();
-            f->m_body->m_type = ret;
-            f->m_args.push_back(a);
-            f->m_args.push_back(b);
-            return f;
-        }
+        static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret);
 
-        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args) {
-            auto f = new FunctionDecl(name);
-            f->m_intrinsic = intrin;
-            f->m_returnType = new Node();
-            f->m_returnType->m_type = ret;
-            f->m_body = new Node();
-            f->m_body->m_type = ret;
-            f->m_args = args;
-            return f;
-        }
+        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args);
     };
 
     struct Sequence : Node {

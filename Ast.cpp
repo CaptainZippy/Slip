@@ -89,106 +89,124 @@ namespace Ast {
     REFLECT_END()
 }
 
+Ast::Type Ast::s_typeType("Type");
+Ast::Type Ast::s_typeInt("int");
+Ast::Type Ast::s_typeBool("bool");
+Ast::Type Ast::s_typeDouble("double");
+Ast::Type Ast::s_typeVoid("void");
+Ast::Type Ast::s_typeString("string");
 
-namespace Ast {
-
-    Ast::Type s_typeType("Type");
-    Ast::Type s_typeInt("int");
-    Ast::Type s_typeBool("bool");
-    Ast::Type s_typeDouble("double");
-    Ast::Type s_typeVoid("void");
-    Ast::Type s_typeString("string");
-
-    void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
-        if(auto f = top.type->toString ) {
-            string_view s = (*f)(top.addr);
-            out.write(s);
-            return;
+static void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
+    if(auto f = top.type->toString ) {
+        string_view s = (*f)(top.addr);
+        out.write(s);
+        return;
+    }
+    switch (top.type->kind) {
+        case Reflect::Kind::Array: {
+            auto et = top.type->sub;
+            char* s = ((char**)top.addr)[0];
+            char* e = ((char**)top.addr)[1];
+            unsigned count = unsigned((e - s) / et->size);
+            for (unsigned i = 0; i < count; ++i) {
+                Reflect::Var e{ s + i * et->size, et };
+                print(e, out, false);
+            }
+            break;
         }
-        switch (top.type->kind) {
-            case Reflect::Kind::Array: {
-                auto et = top.type->sub;
-                char* s = ((char**)top.addr)[0];
-                char* e = ((char**)top.addr)[1];
-                unsigned count = unsigned((e - s) / et->size);
-                for (unsigned i = 0; i < count; ++i) {
-                    Reflect::Var e{ s + i * et->size, et };
-                    print(e, out, false);
-                }
-                break;
+        case Reflect::Kind::Record: {
+            std::vector<const Reflect::Type*> chain;
+            for (auto c = top.type; c; c = c->parent) {
+                chain.push_back(c);
             }
-            case Reflect::Kind::Record: {
-                std::vector<const Reflect::Type*> chain;
-                for (auto c = top.type; c; c = c->parent) {
-                    chain.push_back(c);
-                }
-                if (abbrev) {
-                    for (auto c : reversed(chain)) {
-                        for (auto f : c->fields) {
-                            if ((f.flags & (Flags::Abbrev|Flags::Child)) == Flags::Abbrev) {
-                                out.sep();
-                                print(top[f], out, true);
-                            }
+            if (abbrev) {
+                for (auto c : reversed(chain)) {
+                    for (auto f : c->fields) {
+                        if ((f.flags & (Ast::Flags::Abbrev| Ast::Flags::Child)) == Ast::Flags::Abbrev) {
+                            out.sep();
+                            print(top[f], out, true);
                         }
                     }
                 }
-                else {
-                    out.write(string_format("\n%s "/*0x%p*/, top.type->name, top.addr));
-                    for (auto c : reversed(chain)) {
-                        for (auto f : c->fields) {
-                            if ((f.flags & Flags::Child) == 0) {
-                                out.write(string_concat(" ", f.name, "={"));
-                                print(top[f], out, true);
-                                out.write("}");
-                            }
+            }
+            else {
+                out.write(string_format("\n%s "/*0x%p*/, top.type->name, top.addr));
+                for (auto c : reversed(chain)) {
+                    for (auto f : c->fields) {
+                        if ((f.flags & Ast::Flags::Child) == 0) {
+                            out.write(string_concat(" ", f.name, "={"));
+                            print(top[f], out, true);
+                            out.write("}");
                         }
                     }
+                }
 
-                    out.begin(nullptr);
-                    for (auto c : reversed(chain)) {
-                        for (auto f : c->fields) {
-                            if (f.flags & Flags::Child) {
-                                print(top[f], out, false);
-                            }
+                out.begin(nullptr);
+                for (auto c : reversed(chain)) {
+                    for (auto f : c->fields) {
+                        if (f.flags & Ast::Flags::Child) {
+                            print(top[f], out, false);
                         }
                     }
-                    out.end();
                 }
-                break;
+                out.end();
             }
-            case Reflect::Kind::Pointer: {
-                if (void* obj = *(void**)top.addr) {
-                    auto sub = top.type->sub;
-                    Reflect::Var e{ obj, sub->dynamicType(obj) };
-                    print(e, out, abbrev);
-                }
-                else {
-                    out.write("null");
-                }
-                break;
+            break;
+        }
+        case Reflect::Kind::Pointer: {
+            if (void* obj = *(void**)top.addr) {
+                auto sub = top.type->sub;
+                Reflect::Var e{ obj, sub->dynamicType(obj) };
+                print(e, out, abbrev);
             }
-            case Reflect::Kind::String: {
-                string_view s = top.type->toString(top.addr);
-                out.write(string_concat("\"", s, "\""));
-                break;
+            else {
+                out.write("null");
             }
-            default: {
-                assert(false);
-            }
+            break;
+        }
+        case Reflect::Kind::String: {
+            string_view s = top.type->toString(top.addr);
+            out.write(string_concat("\"", s, "\""));
+            break;
+        }
+        default: {
+            assert(false);
         }
     }
+}
 
-    void print(Node* node) {
-        Io::TextOutput out;
-        Reflect::Var top{ node };
-        print(top, out, false);
-        out.nl();
-    }
+void Ast::print(Node* node) {
+    Io::TextOutput out;
+    Reflect::Var top{ node };
+    ::print(top, out, false);
+    out.nl();
+}
 
-    void print(Node* node, Io::TextOutput& out) {
-        if (!node) return;
-        Reflect::Var top{ node };
-        print(top, out, true);
-        out.nl();
-    }
+void Ast::print(Node* node, Io::TextOutput& out) {
+    if (!node) return;
+    Reflect::Var top{ node };
+    ::print(top, out, true);
+    out.nl();
+}
+
+Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret) {
+    auto f = new FunctionDecl(name);
+    f->m_returnType = new Node();
+    f->m_returnType->m_type = ret;
+    f->m_body = new Node();
+    f->m_body->m_type = ret;
+    f->m_args.push_back(a);
+    f->m_args.push_back(b);
+    return f;
+}
+
+Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args) {
+    auto f = new FunctionDecl(name);
+    f->m_intrinsic = intrin;
+    f->m_returnType = new Node();
+    f->m_returnType->m_type = ret;
+    f->m_body = new Node();
+    f->m_body->m_type = ret;
+    f->m_args = args;
+    return f;
 }
