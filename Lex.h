@@ -25,7 +25,7 @@ namespace Lex {
 
         SourceLocation m_loc{};
         Atom* m_decltype = nullptr;
-        std::vector<Atom*> m_attrs;
+        vector<Atom*> m_attrs;
 
         Atom() {}
     protected:
@@ -72,6 +72,6 @@ namespace Lex {
         array_view< Atom* > items() {
             return m_items;
         }
-        std::vector< Atom* > m_items;
+        vector< Atom* > m_items;
     };
 }

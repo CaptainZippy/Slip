@@ -4,6 +4,7 @@
 #include "Ast.h"
 
 namespace Parse {
+    using namespace std;
     struct State;
     typedef Iter<Lex::Atom*> Args;
 
@@ -89,7 +90,7 @@ namespace Parse {
 
         //protected:
 
-        typedef std::pair<Parser*, Ast::Named*> Pair;
+        typedef pair<Parser*, Ast::Named*> Pair;
         Ast::Reference* reference(Ast::Named* n) {
             auto r = new Ast::Reference(n);
             if (auto t = n->m_type) {
@@ -109,8 +110,8 @@ namespace Parse {
             }
             RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", s.c_str());
         }
-        std::list< std::map<istring, Pair> > syms;
-        std::map< Ast::Type*, Ast::Type* > m_arrays;
+        list< map<istring, Pair> > syms;
+        map< Ast::Type*, Ast::Type* > m_arrays;
     };
 
     struct Evaluator : public State {
@@ -134,7 +135,7 @@ namespace Parse {
             auto func = dynamic_cast<Ast::FunctionDecl*>(funcnode);
             RETURN_RES_IF(Result::ERR, !func);
             Ast::Node* ret;
-            std::vector<Ast::Node*> args;
+            vector<Ast::Node*> args;
             for (auto a : node->m_args) { // todo defer arg evaluation to caller
                 Ast::Node* e;
                 RETURN_IF_FAILED(dispatch(a, &e));
@@ -199,13 +200,13 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
             return p->first->parse(this, args, out);
         }
         else {
-            std::vector<Ast::Node*> fa;
+            vector<Ast::Node*> fa;
             for (auto a : args) {
                 Ast::Node* n;
                 RETURN_IF_FAILED(parse(a, &n));
                 fa.push_back(n);
             }
-            *out = new Ast::FunctionCall(reference(p->second), std::move(fa));
+            *out = new Ast::FunctionCall(reference(p->second), move(fa));
             return Result::OK;
         }
     }
@@ -340,7 +341,7 @@ struct Parse::Cond : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
         *out = nullptr;
         RETURN_RES_IF(Result::ERR, args.size() < 1);
-        std::vector< std::pair<Ast::Node*, Ast::Node*> > cases;
+        vector< pair<Ast::Node*, Ast::Node*> > cases;
         for (auto arg : args) {
             auto pair = dynamic_cast<Lex::List*>(arg);
             RETURN_RES_IF(Result::ERR, pair == nullptr);

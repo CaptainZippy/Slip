@@ -1,10 +1,10 @@
 #pragma once
 
 namespace Lex {
-
+    using namespace std;
     struct SourceNameAndContents {
-        std::string m_name;
-        std::string m_contents;
+        string m_name;
+        string m_contents;
     };
 
     struct SourceLocation {
@@ -75,6 +75,6 @@ namespace Lex {
     struct SourceManager {
         virtual Input load(const char* fname) = 0;
 
-        static std::unique_ptr<SourceManager> make();
+        static unique_ptr<SourceManager> make();
     };
 }

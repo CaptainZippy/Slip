@@ -3,38 +3,39 @@
 #include "Ast.h"
 
 namespace {
+    using namespace std;
     struct Generator {
-        std::string newVarId() {
+        string newVarId() {
             return string_format("_%i", m_counter++);
         }
 
         Io::TextOutput out;
-        inline std::string dispatch(Ast::Node* n) {
+        inline string dispatch(Ast::Node* n) {
             return Ast::dispatch(n, *this);
         }
 
-        std::string operator()(Ast::Node* n) {
+        string operator()(Ast::Node* n) {
             assert(0);
             return "";
         }
-        std::string operator()(Ast::Reference* n) {
+        string operator()(Ast::Reference* n) {
             return n->m_target->m_name.std_str();
         }
-        std::string operator()(Ast::Argument* n) {
+        string operator()(Ast::Argument* n) {
             return n->m_name.std_str();
         }
-        std::string operator()(Ast::Number* n) {
+        string operator()(Ast::Number* n) {
             return n->m_num;
         }
-        std::string operator()(Ast::String* n) {
+        string operator()(Ast::String* n) {
             return string_concat("\"", n->m_str, "\"_str");
         }
-        std::string operator()(Ast::Definition* n) {
+        string operator()(Ast::Definition* n) {
             auto val = dispatch(n->m_value);
             out.write(string_format("%s %s = %s", n->m_type->m_name.c_str(), n->m_name, val.c_str()));
             return n->m_name.std_str();
         }
-        std::string operator()(Ast::Sequence* n) {
+        string operator()(Ast::Sequence* n) {
             for (auto a : n->items().rtrim(1)) {
                 dispatch(a);
                 out.nl();
@@ -42,7 +43,7 @@ namespace {
             return dispatch(n->m_items.back());
         }
 #if 0
-        std::string operator()(Ast::Scope* n) {
+        string operator()(Ast::Scope* n) {
             auto id = newVarId();
             out.write(string_format("%s %s", n->m_type->m_name.c_str(), n->m_name));
             out.begin(" {\n");
@@ -52,31 +53,31 @@ namespace {
             return id;
         }
 #endif
-        std::string operator()(Ast::If* n) {
+        string operator()(Ast::If* n) {
             auto ret = newVarId();
             out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
             out.begin(" {\n");
             auto cond = dispatch(n->m_cond);
             out.begin(string_format("if(%s) {\n", cond.c_str()));
-            std::string t = dispatch(n->m_true);
+            string t = dispatch(n->m_true);
             out.write(string_concat(ret, " = ", t, ";\n"));
             out.end("}\n");
             out.begin("else {\n");
-            std::string f = dispatch(n->m_false);
+            string f = dispatch(n->m_false);
             out.write(string_concat(ret, " = ", f, ";\n"));
             out.end("}");
             out.end("}\n");
             return ret;
         }
 
-        std::string operator()(Ast::Cond* n) {
+        string operator()(Ast::Cond* n) {
             auto ret = newVarId();
             out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
             out.begin(" {\n");
             for (auto c : n->m_cases) {
                 auto cond = dispatch(c.first);
                 out.begin(string_format("if(%s) {\n", cond.c_str()));
-                std::string t = dispatch(c.second);
+                string t = dispatch(c.second);
                 out.write(string_concat(ret, " = ", t, ";\n"));
                 out.end("}\n");
                 out.begin("else {\n");
@@ -89,7 +90,7 @@ namespace {
             return ret;
         }
 
-        std::string operator()(Ast::FunctionDecl* n) {
+        string operator()(Ast::FunctionDecl* n) {
             out.begin(string_concat("\n", n->m_body->m_type->m_name, " ", n->m_name, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
@@ -99,15 +100,15 @@ namespace {
                 sep = ", ";
             }
             out.write(") {\n");
-            std::string ret = dispatch(n->m_body);
+            string ret = dispatch(n->m_body);
             out.write(string_concat("return ", ret, ";\n"));
             out.end("}\n");
             return n->m_name.std_str();
         }
 
-        std::string operator()(Ast::FunctionCall* n) {
+        string operator()(Ast::FunctionCall* n) {
             auto func = dispatch(n->m_func);
-            std::vector<std::string> args;
+            vector<string> args;
             for (auto a : n->m_args) {
                 args.push_back(dispatch(a));
             }
@@ -122,7 +123,7 @@ namespace {
             return retId;
         }
 
-        std::string operator()(Ast::Module* n) {
+        string operator()(Ast::Module* n) {
             out.begin("namespace XX {");
             for (auto n : n->m_items) {
                 dispatch(n);

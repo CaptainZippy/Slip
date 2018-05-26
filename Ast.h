@@ -11,6 +11,7 @@ namespace Sema {
 }
 
 namespace Ast {
+    using namespace std;
     #define AST_NODE(X) struct X;
     #include "Ast.inc"
     #undef AST_NODE
@@ -57,7 +58,7 @@ namespace Ast {
 
     struct Cond : Node {
         AST_DECL();
-        std::vector< std::pair<Node*, Node*> > m_cases;
+        vector< pair<Node*, Node*> > m_cases;
     };
 
     extern Ast::Type s_typeType;
@@ -75,7 +76,7 @@ namespace Ast {
         }
         Ast::Type* m_elemType{ nullptr }; //TODO ptr/array type
         Ast::Type* m_extra{ nullptr }; //TODO func return type
-        std::vector<Ast::Type*> m_args; //TODO func arg types
+        vector<Ast::Type*> m_args; //TODO func arg types
     };
 
     
@@ -93,9 +94,9 @@ namespace Ast {
         Number(string_view n, With&& with) : m_num(n) {
             with(*this);
         }
-        std::string m_num;
+        string m_num;
 
-        static std::string toString(const void* p) {
+        static string toString(const void* p) {
             auto n = static_cast<const Number*>(p);
             return n->m_num;
         }
@@ -110,9 +111,9 @@ namespace Ast {
             : m_str(n) {
             with(*this);
         }
-        std::string m_str;
+        string m_str;
 
-        static std::string toString(const void* p) {
+        static string toString(const void* p) {
             auto n = static_cast<const String*>(p);
             return n->m_str;
         }
@@ -121,15 +122,15 @@ namespace Ast {
     struct Module : Node {
         AST_DECL();
 
-        std::vector<Node*> m_items;
+        vector<Node*> m_items;
     };
 
 
     struct FunctionCall : Node {
         AST_DECL();
         Node* m_func{ nullptr };
-        std::vector< Node* > m_args;
-        FunctionCall( Node* func, std::vector< Node* >&& args )
+        vector< Node* > m_args;
+        FunctionCall( Node* func, vector< Node* >&& args )
             : m_func(func), m_args(args) {
         }
     };
@@ -149,7 +150,7 @@ namespace Ast {
         AST_DECL();
         typedef Result (*Intrinsic)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
 
-        std::vector< Argument* > m_args;
+        vector< Argument* > m_args;
         Ast::Node* m_returnType{ nullptr };
         Node* m_body{ nullptr };
         Intrinsic m_intrinsic{ nullptr };
@@ -176,7 +177,7 @@ namespace Ast {
 
         static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret);
 
-        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args);
+        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, initializer_list<Argument*> args);
     };
 
     struct Sequence : Node {
@@ -184,7 +185,7 @@ namespace Ast {
         array_view<Node*> items() {
             return m_items;
         }
-        std::vector<Node*> m_items;
+        vector<Node*> m_items;
     };
 
 

@@ -1,6 +1,7 @@
 #pragma once
 
 namespace Reflect {
+    using namespace std;
     struct Type;
     struct Var;
     struct Field;
@@ -21,7 +22,7 @@ namespace Reflect {
     };
 
     struct Field {
-        std::string name;
+        string name;
         const Type* type;
         int offset;
         unsigned flags;
@@ -57,7 +58,7 @@ namespace Reflect {
         MakeFunc make;//{ nullptr };
         DynamicTypeFunc dynamicType;//{ nullptr };
         ToStringFunc toString;//{ nullptr };
-        std::vector<Field> fields;
+        vector<Field> fields;
 
         template<typename BASE>
         bool extends() const {
@@ -91,16 +92,16 @@ namespace Reflect {
         }
     };
     template<typename T>
-    struct TypeOf< std::vector<T> > {
+    struct TypeOf< vector<T> > {
         static inline const Type* value() {
-            static const Type t{ Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof(std::vector<T>), nullptr,{}, };
+            static const Type t{ Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof(vector<T>), nullptr,{}, };
             return &t;
         }
     };
     template<typename T, typename U>
-    struct TypeOf< std::pair<T,U> > {
+    struct TypeOf< pair<T,U> > {
         static inline const Type* value() {
-            typedef std::pair<T, U> pair;
+            typedef pair<T, U> pair;
             static const Field f[2] = {
                 {"first", TypeOf<T>::value(), offsetof(pair, first), 1 },
                 {"second", TypeOf<U>::value(), offsetof(pair,second), 1 } };
@@ -109,10 +110,10 @@ namespace Reflect {
         }
     };
     template<>
-    struct TypeOf< std::string > {
+    struct TypeOf< string > {
         static inline const Type* value() {
             static const Type t{ Kind::String, nullptr, nullptr, "char[]",
-                sizeof(std::string), nullptr, nullptr, [](const void* addr) { return string_view{ *(std::string*)addr }; } };
+                sizeof(string), nullptr, nullptr, [](const void* addr) { return string_view{ *(string*)addr }; } };
             return &t;
         }
     };

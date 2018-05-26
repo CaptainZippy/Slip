@@ -3,7 +3,7 @@
 #include "Sema.h"
 
 namespace Sema {
-    typedef std::function< void() > Callback;
+    typedef function< void() > Callback;
 
     struct TypeDep {
         unsigned num_deps{ 0 };
@@ -12,7 +12,7 @@ namespace Sema {
     };
 
     Ast::Type* _create_function_type(Ast::Type* ret, array_view<Ast::Type*> sig) {
-        std::string name; //TODO: intern these types
+        string name; //TODO: intern these types
         name.append("(");
         const char* sep = "";
         for (auto a : sig) {
@@ -29,7 +29,7 @@ namespace Sema {
 
     struct FuncInfo {
         TypeInfo* ret{ nullptr };
-        std::vector<TypeInfo*> args;
+        vector<TypeInfo*> args;
     };
 
 
@@ -38,8 +38,8 @@ namespace Sema {
         Ast::Node* node{ nullptr };
         Ast::Type* type{ nullptr };
         FuncInfo* func{ nullptr };
-        std::vector<TypeInfo*> isa;
-        std::vector<TypeDep*> deps;
+        vector<TypeInfo*> isa;
+        vector<TypeDep*> deps;
 
         void add_dep(TypeDep* dep) {
             assert(dep);
@@ -79,7 +79,7 @@ namespace Sema {
     struct FuncDeclSynth : TypeDep {
         TypeInfo* target{ nullptr }; // will assign to target->type
         TypeInfo* ret{ nullptr }; // func ret
-        std::vector<TypeInfo*> args; // func args
+        vector<TypeInfo*> args; // func args
 
         virtual void trigger() {
             assert(target);
@@ -88,7 +88,7 @@ namespace Sema {
             assert(ret->type);
             auto rtype = dynamic_cast<Ast::Type*>(ret->type);
             assert(rtype);
-            std::vector<Ast::Type*> at;
+            vector<Ast::Type*> at;
             for (auto a : args) {
                 assert(a->type);
                 at.push_back(a->type);
@@ -100,7 +100,7 @@ namespace Sema {
     struct FuncApplCheck : TypeDep {
         TypeInfo* target{ nullptr }; // will check this target
         TypeInfo* func{ nullptr };
-        std::vector<TypeInfo*> args;
+        vector<TypeInfo*> args;
 
         virtual void trigger() {
             FuncInfo* fi = func->func;
@@ -233,9 +233,9 @@ namespace Sema {
 
     public:
 
-        std::vector<Ast::Node*> m_visited;
-        std::vector<TypeInfo*> m_targets;
-        std::vector<TypeDep*> m_typeDeps;
+        vector<Ast::Node*> m_visited;
+        vector<TypeInfo*> m_targets;
+        vector<TypeDep*> m_typeDeps;
         Ast::Node* m_topNode{ nullptr };
 
         Result build(Ast::Node* top) {
@@ -330,9 +330,9 @@ namespace Sema {
             }
 
             // 
-            std::vector<TypeInfo*> todo = builder.m_targets;
+            vector<TypeInfo*> todo = builder.m_targets;
             do {
-                std::vector<TypeInfo*> again;
+                vector<TypeInfo*> again;
                 for (auto target : todo) {
                     //HACK: if we didn't resolve and there is exactly one type constraint
                     // then lets take the constraint as the type.
@@ -345,8 +345,8 @@ namespace Sema {
                             }
                         }
                         else { //TODO: multiple intersecting constraints
-                            std::set<Ast::Type*> types;
-                            std::for_each(target->isa.begin(), target->isa.end(),
+                            set<Ast::Type*> types;
+                            for_each(target->isa.begin(), target->isa.end(),
                                 [&types](const TypeInfo* t) { types.insert(t->type); });
                             if (types.size() == 1) {
                                 if (auto t = *types.begin()) {

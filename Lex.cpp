@@ -14,14 +14,14 @@ namespace Lex {
     REFLECT_END()
 }
 
-    std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ...) {
-        va_list ap;
-        va_start(ap, fmt);
-        auto l = string_format("%s:%i:%i:", loc.filename(), loc.line(), loc.col());
-        auto m = string_formatv(fmt, ap);
-        va_end(ap);
-        return string_concat(l, m);
-    }
+std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    auto l = string_format("%s:%i:%i:", loc.filename(), loc.line(), loc.col());
+    auto m = string_formatv(fmt, ap);
+    va_end(ap);
+    return string_concat(l, m);
+}
 
 const char* Lex::Atom::indent( int n ) {
     static char buf[128];
@@ -49,7 +49,7 @@ Lex::Atom* Lex::parse_one( Input& in ) {
                 }
                 break;
             case '(': {
-                std::vector<Atom*> c;
+                vector<Atom*> c;
                 auto start = in.tell();
                 in.next();
                 while( 1 ) {

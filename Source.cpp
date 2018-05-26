@@ -3,20 +3,20 @@
 
 namespace Lex {
     struct SourceManagerImpl : SourceManager {
-        std::map< std::string, SourceNameAndContents* > m_files;
+        map< string, SourceNameAndContents* > m_files;
 
         Input load(const char* fname) override;
     };
 }
 
 std::unique_ptr<Lex::SourceManager> Lex::SourceManager::make() {
-    return std::make_unique<SourceManagerImpl>();
+    return make_unique<SourceManagerImpl>();
 }
 
 int Lex::SourceLocation::line() const {
     if (m_file) {
         auto& txt = m_file->m_contents;
-        return safe_cast(std::count(txt.begin(), txt.begin() + m_start, '\n') + 1);
+        return safe_cast(count(txt.begin(), txt.begin() + m_start, '\n') + 1);
     }
     return 0;
 }
@@ -25,7 +25,7 @@ int Lex::SourceLocation::col() const {
     if (m_file) {
         auto& txt = m_file->m_contents;
         auto nl = txt.rfind('\n', m_start);
-        return safe_cast(m_start - ((nl == std::string::npos) ? 0 : nl));
+        return safe_cast(m_start - ((nl == string::npos) ? 0 : nl));
     }
     return 0;
 }
@@ -38,7 +38,7 @@ Lex::Input Lex::SourceManagerImpl::load( const char* fname) {
             return Input( &txt[0], &txt[0] + txt.size(), it->second );
         }
         else if( FILE* fin = fopen( fname, "r" ) ) {
-            std::string txt;
+            string txt;
             while( 1 ) {
                 char buf[4096];
                 size_t n = fread( buf, 1, sizeof( buf ), fin );
