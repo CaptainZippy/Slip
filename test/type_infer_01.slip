@@ -1,6 +1,9 @@
+;
+; all types specified, only infer temps
+;
 
 (func harmonic (n : int):int
-    n)
+    n) 
 
 (func main ()
     (harmonic 4:int))

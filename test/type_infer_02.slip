@@ -3,4 +3,4 @@
     n)
 
 (func main ()
-    (harmonic 4))
+    (harmonic 4)) ; infer that 4 is an integer

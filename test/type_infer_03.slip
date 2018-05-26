@@ -1,6 +1,7 @@
+ ; fail without explicit conversion int->double
 
 (func harmonic (n : int):double
-    n)
+    n) ; <---- here
 
 (func main ()
     (print (harmonic 4)))
