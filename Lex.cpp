@@ -14,9 +14,9 @@ namespace Slip::Lex {
     REFLECT_END()
 
         /// Parse one atom including an optional type
-    Atom* parse_atom(Input& in);
+    Atom* parse_atom(TextInput& in);
         /// Parse one atom, no
-    Atom* parse_term(Input& in);
+    Atom* parse_term(TextInput& in);
 }
 
 using namespace Slip;
@@ -39,7 +39,7 @@ const char* Lex::Atom::indent( int n ) {
 }
 
 
-Lex::Atom* Lex::parse_term( Io::Input& in ) {
+Lex::Atom* Lex::parse_term( Io::TextInput& in ) {
     while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
@@ -136,7 +136,7 @@ Lex::Atom* Lex::parse_term( Io::Input& in ) {
     return nullptr;
 }
 
-Lex::Atom* Lex::parse_atom(Io::Input& in ) {
+Lex::Atom* Lex::parse_atom(Io::TextInput& in ) {
     Atom* a = parse_term(in);
     if( a ) {
         in.eatwhite();
@@ -148,7 +148,7 @@ Lex::Atom* Lex::parse_atom(Io::Input& in ) {
     return a;
 }
 
-Slip::unique_ptr_del<Lex::List> Lex::parse_input( Lex::Input& input ) {
+Slip::unique_ptr_del<Lex::List> Lex::parse_input( Lex::TextInput& input ) {
     auto l = make_unique_del<List>( input.location( input.tell(), input.tellEnd() ) );
     while(1) {
         Atom* a = parse_atom(input);

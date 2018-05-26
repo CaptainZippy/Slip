@@ -1,18 +1,19 @@
 #include "pch/Pch.h"
 #include "Io.h"
+#include "Util.h"
 
 namespace Slip::Io {
     struct SourceManagerImpl : SourceManager {
         map< string, SourceNameAndContents* > m_files;
 
-        Input load(const char* fname) override;
+        TextInput load(const char* fname) override;
     };
 }
 
 using namespace Slip;
 
-std::unique_ptr<Slip::Io::SourceManager> Slip::Io::makeSourceManager() {
-    return make_unique<SourceManagerImpl>();
+Slip::unique_ptr_del<Slip::Io::SourceManager> Slip::Io::makeSourceManager() {
+    return { new SourceManagerImpl, [](SourceManager*s) {delete s;} };
 }
 
 int Io::SourceLocation::line() const {
@@ -32,12 +33,12 @@ int Io::SourceLocation::col() const {
     return 0;
 }
 
-Io::Input Io::SourceManagerImpl::load(const char* fname) {
+Io::TextInput Io::SourceManagerImpl::load(const char* fname) {
     while (1) {
         auto it = m_files.find(fname);
         if (it != m_files.end()) {
             auto& txt = it->second->m_contents;
-            return Input(&txt[0], &txt[0] + txt.size(), it->second);
+            return TextInput(&txt[0], &txt[0] + txt.size(), it->second);
         }
         else if (FILE* fin = fopen(fname, "r")) {
             string txt;

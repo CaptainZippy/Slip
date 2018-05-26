@@ -57,6 +57,10 @@ namespace Slip::Io {
         }
     };
 
+    struct SourceManager {
+        virtual TextInput load(const char* fname) = 0;
+    };
+
     struct SourceNameAndContents {
         string m_name;
         string m_contents;
@@ -85,9 +89,9 @@ namespace Slip::Io {
         int col() const;
     };
 
-    struct Input {
-        Input() = default;
-        Input(const char* s, const char* e, SourceNameAndContents* n)
+    struct TextInput {
+        TextInput() = default;
+        TextInput(const char* s, const char* e, SourceNameAndContents* n)
             : cur(s), start(s), end(e), info(n) {}
 
         explicit operator bool() const {

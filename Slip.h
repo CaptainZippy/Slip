@@ -8,13 +8,11 @@ namespace Slip {
 
     namespace Io {
         struct TextOutput;
-        struct Input;
+        struct TextInput;
         struct SourceLocation;
+        struct SourceManager;
 
-        struct SourceManager {
-            virtual Input load(const char* fname) = 0;
-        };
-        unique_ptr<SourceManager> makeSourceManager();
+        unique_ptr_del<SourceManager> makeSourceManager();
     }
 
     namespace Lex {
@@ -25,7 +23,7 @@ namespace Slip {
         struct Symbol;
 
         /// Lex an input
-        unique_ptr_del<List> parse_input(Io::Input& input);
+        unique_ptr_del<List> parse_input(Io::TextInput& input);
         unique_ptr_del<List> parse_file(Io::SourceManager& sm, const char* fname);
     }
 
