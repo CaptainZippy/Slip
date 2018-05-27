@@ -6,6 +6,58 @@
 
 namespace Slip::Parse {
     struct State;
+
+    template<typename T>
+    struct Iter {
+        Iter() = default;
+
+        Iter(std::vector<T>& v) {
+            T* t = v.size() ? &v[0] : nullptr;
+            m_begin = t;
+            m_end = t + v.size();
+        }
+
+        Iter(array_view<T> v) {
+            m_begin = v.begin();
+            m_end = v.end();
+        }
+
+        T cur() const {
+            assert(size());
+            return *m_begin;
+        }
+
+        bool advance() {
+            assert(m_begin < m_end);
+            m_begin += 1;
+            return m_begin < m_end;
+        }
+
+        bool used() const {
+            return m_begin == m_end;
+        }
+
+        size_t size() const {
+            return m_end - m_begin;
+        }
+
+        bool match() {
+            return used();
+        }
+        template<typename F, typename...R>
+        bool match(F f, R...r) {
+            f = cur();
+            if (advance()) {
+                return match(r...);
+            }
+            return false;
+        }
+        T* begin() { return m_begin; }
+        T* end() { return m_end; }
+
+        T* m_begin{ nullptr };
+        T* m_end{ nullptr };
+    };
     typedef Iter<Lex::Atom*> Args;
 
     struct Parser {
@@ -145,7 +197,6 @@ namespace Slip::Parse {
             *out = ret;
             return Result::OK;
         }
-
     };
 
     struct Define;

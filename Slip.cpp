@@ -22,7 +22,7 @@ static void compile(const char* fname) {
 
 int main( int argc, const char* argv[] ) {
     if( argc < 2 ) {
-        Error.fmt( "Need a script to run" );
+        fprintf(stderr, "Need a script to run\n");
         return 1;
     }
     try {
