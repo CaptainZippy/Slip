@@ -3,6 +3,9 @@
 #include "Io.h"
 #include "Reflect.h"
 
+namespace Slip::Sema { struct TypeInfo; }
+
+
 namespace Slip::Ast {
     using namespace std;
     #define AST_NODE(X) struct X;
@@ -18,6 +21,32 @@ namespace Slip::Ast {
         const unsigned Abbrev = 2; // Default is "ref"
     };
 
+    struct TypeRef {
+        REFLECT_DECL();
+        Type* m_type{ nullptr };
+        Sema::TypeInfo* m_data{ nullptr };
+        static string_view toString(const TypeRef*);
+
+        TypeRef() = default;
+
+        explicit TypeRef(Type* t) : m_type(t) {
+        }
+
+        string name() const {
+            assert(0);
+            return "";
+        }
+
+        explicit operator bool() const {
+            return m_type != nullptr;
+        }
+
+        void operator=(Type* t) {
+            assert(m_type == nullptr);
+            m_type = t;
+        }
+    };
+
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
 
@@ -30,8 +59,7 @@ namespace Slip::Ast {
             w(*this);
         }
 
-        Type* m_type{ nullptr };
-        Sema::TypeInfo* m_data{ nullptr };
+        TypeRef m_type;
         Io::SourceLocation m_loc;
     };
 
@@ -70,9 +98,9 @@ namespace Slip::Ast {
             : Named(istring::make(sym)) {
             m_type = &s_typeType;
         }
-        Ast::Type* m_elemType{ nullptr }; //TODO ptr/array type
-        Ast::Type* m_extra{ nullptr }; //TODO func return type
-        vector<Ast::Type*> m_args; //TODO func arg types
+        TypeRef m_elemType; //TODO ptr/array type
+        TypeRef m_extra; //TODO func return type
+        vector<TypeRef> m_args; //TODO func arg types
     };
 
 

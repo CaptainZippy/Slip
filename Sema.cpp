@@ -24,7 +24,9 @@ namespace Slip::Sema {
         name.append(ret->m_name);
         auto r = new Ast::Type(name);
         r->m_extra = ret;
-        r->m_args = sig.std_vec();
+        for (auto s : sig) {
+            r->m_args.emplace_back(s);
+        }
         return r;
     }
 
@@ -188,7 +190,7 @@ namespace Slip::Sema {
         void operator()(Ast::Reference* n) {
             isa(n, n->m_target);
             dispatch(n->m_target);
-            if (auto f = n->m_target->m_data->func) {
+            if (auto f = n->m_target->m_type.m_data->func) {
                 info(n)->func = f;
             }
         }
@@ -246,7 +248,7 @@ namespace Slip::Sema {
 
 
         Result dispatch(Ast::Node* top) {
-            if (top->m_data == nullptr || top->m_data->dispatched ==false) {
+            if (top->m_type.m_data == nullptr || top->m_type.m_data->dispatched ==false) {
                 info(top)->dispatched = true;
                 Ast::dispatch(top, *this);
             }
@@ -262,13 +264,13 @@ namespace Slip::Sema {
     protected:
 
         TypeInfo* info(Ast::Node* node) {
-            if (!node->m_data) {
+            if (!node->m_type.m_data) {
                 auto inf = new TypeInfo{};
                 inf->node = node;
                 m_targets.push_back(inf);
-                node->m_data = inf;
+                node->m_type.m_data = inf;
             }
-            return node->m_data;
+            return node->m_type.m_data;
         }
 
         void applicable(Ast::Node* tgt, Ast::Node* func, array_view<Ast::Node*> args) {
@@ -325,7 +327,7 @@ namespace Slip::Sema {
                 assert(target->type == nullptr);
                 assert(target->node);
                 if (auto t = target->node->m_type) {
-                    target->resolve(t);
+                    target->resolve(t.m_type);
                 }
                 target = nullptr;
             }
@@ -441,5 +443,4 @@ void Slip::Sema::type_check(Slip::Ast::Module& mod) {
     //RETURN_IF_FAILED
     solver.dispatch(builder);
 }
-
 

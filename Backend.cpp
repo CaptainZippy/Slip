@@ -34,7 +34,7 @@ namespace {
         }
         string operator()(Ast::Definition* n) {
             auto val = dispatch(n->m_value);
-            out.write(string_format("%s %s = %s", n->m_type->m_name.c_str(), n->m_name, val.c_str()));
+            out.write(string_format("%s %s = %s", n->m_type.name().c_str(), n->m_name, val.c_str()));
             return n->m_name.std_str();
         }
         string operator()(Ast::Sequence* n) {
@@ -57,7 +57,7 @@ namespace {
 #endif
         string operator()(Ast::If* n) {
             auto ret = newVarId();
-            out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
+            out.write(string_format("%s %s;", n->m_type.name().c_str(), ret.c_str()));
             out.begin(" {\n");
             auto cond = dispatch(n->m_cond);
             out.begin(string_format("if(%s) {\n", cond.c_str()));
@@ -74,7 +74,7 @@ namespace {
 
         string operator()(Ast::Cond* n) {
             auto ret = newVarId();
-            out.write(string_format("%s %s;", n->m_type->m_name.std_str(), ret.c_str()));
+            out.write(string_format("%s %s;", n->m_type.name().c_str(), ret.c_str()));
             out.begin(" {\n");
             for (auto c : n->m_cases) {
                 auto cond = dispatch(c.first);
@@ -93,12 +93,12 @@ namespace {
         }
 
         string operator()(Ast::FunctionDecl* n) {
-            out.begin(string_concat("\n", n->m_body->m_type->m_name, " ", n->m_name, "("));
+            out.begin(string_concat("\n", n->m_body->m_type.name(), " ", n->m_name, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_concat(sep, a->m_type->m_name, " ", a->m_name));
+                out.write(string_concat(sep, a->m_type.name(), " ", a->m_name));
                 sep = ", ";
             }
             out.write(") {\n");

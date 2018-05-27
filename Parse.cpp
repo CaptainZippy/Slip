@@ -127,11 +127,9 @@ namespace Slip::Parse {
 
         Result evaluate(Ast::Node* node, Ast::Node** out);
 
-        Result getOrCreateArrayType(Ast::Type* elemType, Ast::Type** out)
-        {
+        Result getOrCreateArrayType(Ast::Type* elemType, Ast::Type** out) {
             auto it = m_arrays.find(elemType);
-            if (it == m_arrays.end())
-            {
+            if (it == m_arrays.end()) {
                 auto t = new Ast::Type(string_concat("array_", elemType->m_name));
                 t->m_elemType = t;
                 it = m_arrays.emplace(elemType, t).first;

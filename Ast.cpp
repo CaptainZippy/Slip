@@ -7,12 +7,17 @@ namespace Slip::Ast {
     #include "Ast.inc"
     #undef AST_NODE
 
+    REFLECT_BEGIN(TypeRef)
+        REFLECT_TO_STRING((Reflect::Type::ToStringFunc)TypeRef::toString);
+    REFLECT_END()
+
+
     REFLECT_BEGIN(Node)
     REFLECT_FIELD2(m_type, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
-    REFLECT_FIELD(m_type)
+    //REFLECT_FIELD(m_type)
     REFLECT_FIELD2(m_name, Flags::Abbrev)
     REFLECT_END()
 
@@ -91,6 +96,11 @@ namespace Slip::Ast {
 }
 
 using namespace Slip;
+
+string_view Ast::TypeRef::toString(const Ast::TypeRef* self) {
+    return self->m_type ? self->m_type->m_name : "null"sv;
+}
+
 
 Ast::Type Ast::s_typeType("Type");
 Ast::Type Ast::s_typeInt("int");
