@@ -29,5 +29,12 @@
 #include <algorithm>
 #include <functional>
 
+#if defined(_MSC_VER)
+    #pragma warning(suppress: 4455)
+    constexpr std::string_view operator "" sv(const char* str, size_t len) noexcept {
+        return std::string_view(str, len);
+    }
+#endif
+
 // Local utilities
 #include "Util.h"

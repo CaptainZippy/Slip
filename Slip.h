@@ -43,7 +43,6 @@ namespace Slip {
     }
 
     namespace Sema {
-        struct TypeInfo;
         void type_check(Ast::Module& mod);
     }
 
