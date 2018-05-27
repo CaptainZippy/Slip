@@ -144,7 +144,7 @@ static void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
                     }
                 }
 
-                out.begin(nullptr);
+                out.begin({});
                 for (auto c : reversed(chain)) {
                     for (auto f : c->fields) {
                         if (f.flags & Ast::Flags::Child) {
@@ -183,6 +183,10 @@ void Ast::print(Node* node) {
     Reflect::Var top{ node };
     ::print(top, out, false);
     out.nl();
+}
+
+void Ast::print(Module* node) {
+    print(static_cast<Node*>(node));
 }
 
 void Ast::print(Node* node, Io::TextOutput& out) {

@@ -31,6 +31,8 @@ namespace Slip {
         #define AST_NODE(X) struct X;
         #include "Ast.inc"
         #undef AST_NODE
+        void print(Node* node);
+        void print(Module* node);
     }
 
     namespace Parse {

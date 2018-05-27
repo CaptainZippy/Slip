@@ -65,6 +65,7 @@ namespace Slip {
         }
 
         size_t size() const { return m_end - m_begin; }
+        bool empty() const { return m_end == m_begin; }
         T& operator[](unsigned i) const { assert(i < size()); return m_begin[i]; }
         T* begin() const { return m_begin; }
         T* end() const { return m_end; }
@@ -83,7 +84,9 @@ namespace Slip {
     template<typename T, int N>
     array_view<T> make_array_view(T(&t)[N]) { return array_view<T>(t, t + N); }
     template<typename T>
-    array_view<T> make_array_view(const std::vector<T>& a) { return array_view<T>(a.data(), a.size()); }
+    array_view<const T> make_array_view(const std::vector<T>& a) { return array_view<const T>(a.data(), a.size()); }
+    template<typename T>
+    array_view<T> make_array_view(T* t, size_t n) { return array_view<T>(t,n); }
 
     template<typename S>
     struct safe_cast_t {
