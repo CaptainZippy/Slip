@@ -13,6 +13,7 @@
     #define __debugbreak() asm("int $3")
 #endif
 #include <vector>
+#include <deque>
 #include <cctype>
 #include <string>
 #include <cstring>

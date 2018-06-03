@@ -3,9 +3,6 @@
 #include "Io.h"
 #include "Reflect.h"
 
-namespace Slip::Sema { struct TypeInfo; }
-
-
 namespace Slip::Ast {
     using namespace std;
     #define AST_NODE(X) struct X;
@@ -23,15 +20,19 @@ namespace Slip::Ast {
 
     struct TypeRef {
         REFLECT_DECL();
+    private:
         Type* m_type{ nullptr };
-        Sema::TypeInfo* m_data{ nullptr };
+    public:
+        size_t m_data{ 0 };
         static string_view toString(const TypeRef*);
 
         TypeRef() = default;
 
         explicit TypeRef(Type* t) : m_type(t) {
         }
-
+        Type* get() const {
+            return m_type;
+        }
         istring name() const;
 
         explicit operator bool() const {

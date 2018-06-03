@@ -1,9 +1,9 @@
 ;
-; only infer return type of main
+; all types specified
 ;
 
 (func harmonic (n : int):int
     n) 
 
-(func main ()
+(func main ():int
     (harmonic 4:int))

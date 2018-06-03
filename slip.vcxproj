@@ -192,6 +192,7 @@
     </None>
     <None Include="test.py" />
     <None Include="test\let_expr_01.slip" />
+    <None Include="test\type_infer_00.slip" />
     <None Include="test\type_infer_01.slip" />
     <None Include="test\type_infer_02.slip" />
     <None Include="test\type_infer_03.slip" />

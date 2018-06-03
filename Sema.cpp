@@ -6,6 +6,7 @@
 namespace Slip::Sema {
     typedef function< void() > Callback;
 
+        /// Type dependency. Trigger when num_deps reaches 0. 
     struct TypeDep {
         unsigned num_deps{ 0 };
         virtual ~TypeDep() {}
@@ -29,6 +30,8 @@ namespace Slip::Sema {
         }
         return r;
     }
+
+    struct TypeInfo;
 
     struct FuncInfo {
         TypeInfo* ret{ nullptr };
@@ -190,9 +193,9 @@ namespace Slip::Sema {
         void operator()(Ast::Reference* n) {
             isa(n, n->m_target);
             dispatch(n->m_target);
-            if (auto f = n->m_target->m_type.m_data->func) {
-                info(n)->func = f;
-            }
+            /* if (auto f = n->m_target->m_type.m_data->func) {
+                 info(n)->func = f;
+             }*/
         }
 
         void operator()(Ast::Scope* n) {
@@ -239,6 +242,7 @@ namespace Slip::Sema {
         vector<Ast::Node*> m_visited;
         vector<TypeInfo*> m_targets;
         vector<TypeDep*> m_typeDeps;
+        deque<TypeInfo> m_typeInfos;
         Ast::Node* m_topNode{ nullptr };
 
         Result build(Ast::Node* top) {
@@ -248,29 +252,31 @@ namespace Slip::Sema {
 
 
         Result dispatch(Ast::Node* top) {
-            if (top->m_type.m_data == nullptr || top->m_type.m_data->dispatched ==false) {
+            if (top->m_type.m_data == 0) {
                 info(top)->dispatched = true;
                 Ast::dispatch(top, *this);
             }
             return Result::OK;
         }
 
+        ConstraintBuilder() {
+            m_typeInfos.emplace_back();
+        }
+
+
         ~ConstraintBuilder() {
-            for (auto tgt : m_targets) {
-                delete tgt;
-            }
         }
 
     protected:
 
         TypeInfo* info(Ast::Node* node) {
-            if (!node->m_type.m_data) {
-                auto inf = new TypeInfo{};
-                inf->node = node;
-                m_targets.push_back(inf);
-                node->m_type.m_data = inf;
+            if (node->m_type.m_data == 0) {
+                node->m_type.m_data = m_typeInfos.size();
+                auto& inf = m_typeInfos.emplace_back();
+                inf.node = node;
+                m_targets.push_back(&inf);
             }
-            return node->m_type.m_data;
+            return &m_typeInfos[node->m_type.m_data];
         }
 
         void applicable(Ast::Node* tgt, Ast::Node* func, array_view<Ast::Node*> args) {
@@ -327,7 +333,7 @@ namespace Slip::Sema {
                 assert(target->type == nullptr);
                 assert(target->node);
                 if (auto t = target->node->m_type) {
-                    target->resolve(t.m_type);
+                    target->resolve(t.get());
                 }
                 target = nullptr;
             }
@@ -384,7 +390,9 @@ namespace Slip::Sema {
 
             // Write results back to the ast
             for (auto target : builder.m_targets) {
-                target->node->m_type = target->type;
+                if (target->node->m_type.get() != target->type) {
+                    target->node->m_type = target->type;
+                }
             }
 
             return Result::OK;
@@ -440,7 +448,7 @@ void Slip::Sema::type_check(Slip::Ast::Module& mod) {
     builder.build(&mod);
 
     ConstraintSolver solver;
-    //RETURN_IF_FAILED
+    ////RETURN_IF_FAILED
     solver.dispatch(builder);
 }
 
