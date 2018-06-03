@@ -102,12 +102,27 @@ string_view Ast::TypeRef::toString(const Ast::TypeRef* self) {
 }
 
 
-Ast::Type Ast::s_typeType("Type");
-Ast::Type Ast::s_typeInt("int");
-Ast::Type Ast::s_typeBool("bool");
-Ast::Type Ast::s_typeDouble("double");
-Ast::Type Ast::s_typeVoid("void");
-Ast::Type Ast::s_typeString("string");
+Ast::Type Ast::s_typeType("Type"sv);
+Ast::Type Ast::s_typeInt("int"sv);
+Ast::Type Ast::s_typeBool("bool"sv);
+Ast::Type Ast::s_typeDouble("double"sv);
+Ast::Type Ast::s_typeVoid("void"sv);
+Ast::Type Ast::s_typeString("string"sv);
+
+Ast::Type::Type(string_view sym)
+    : Named(istring::make(sym)) {
+    m_type = &s_typeType;
+}
+
+Ast::Type::Type(istring sym)
+    : Named(sym) {
+    m_type = &s_typeType;
+}
+
+istring Ast::TypeRef::name() const {
+    assert(m_type);
+    return m_type->m_name;
+}
 
 static void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
     if(auto f = top.type->toString ) {

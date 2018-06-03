@@ -32,10 +32,7 @@ namespace Slip::Ast {
         explicit TypeRef(Type* t) : m_type(t) {
         }
 
-        string name() const {
-            assert(0);
-            return "";
-        }
+        istring name() const;
 
         explicit operator bool() const {
             return m_type != nullptr;
@@ -94,10 +91,8 @@ namespace Slip::Ast {
 
     struct Type : Named {
         AST_DECL();
-        Type(string_view sym)
-            : Named(istring::make(sym)) {
-            m_type = &s_typeType;
-        }
+        Type(string_view sym);
+        Type(istring sym);
         TypeRef m_elemType; //TODO ptr/array type
         TypeRef m_extra; //TODO func return type
         vector<TypeRef> m_args; //TODO func arg types

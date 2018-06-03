@@ -81,7 +81,8 @@ istring istring::make(string_view s) {
         return istring(it->second->data);
     }
     auto item = Item::make(s);
-    s_items.emplace(s, item);
+    string_view key{ item->data, s.size() };
+    s_items.emplace(key, item);
 
     return istring(item->data);
 }
