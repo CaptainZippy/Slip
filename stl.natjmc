@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<NonUserCode xmlns="http://schemas.microsoft.com/vstudio/debugger/jmc/2015">
+
+    <!-- Modules 
+    <Module Name="ModuleSpec" />
+    <Module Name="ModuleSpec" Company="CompanyName" />
+    -->
+    <!-- Files -->
+    <File Name="c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.14.26428\include\memory"/>
+    <!-- Functions 
+    <Function Name="FunctionSpec" />
+    <Function Name="FunctionSpec" Module ="ModuleSpec" />
+    <Function Name="FunctionSpec" Module ="ModuleSpec" ExceptionImplementation="true" />
+-->
+</NonUserCode>
