@@ -257,7 +257,7 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
                 RETURN_IF_FAILED(parse(a, &n));
                 fa.push_back(n);
             }
-            *out = new Ast::FunctionCall(reference(p->second), move(fa));
+            *out = new Ast::FunctionCall(reference(p->second), move(fa), WITH( _.m_loc = list->m_loc) );
             return Result::OK;
         }
     }

@@ -149,8 +149,10 @@ namespace Slip::Ast {
         AST_DECL();
         Node* m_func{ nullptr };
         vector< Node* > m_args;
-        FunctionCall( Node* func, vector< Node* >&& args )
+        template<typename With>
+        FunctionCall( Node* func, vector< Node* >&& args, With&& with )
             : m_func(func), m_args(args) {
+            with( *this );
         }
     };
 
