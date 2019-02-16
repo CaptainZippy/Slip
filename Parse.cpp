@@ -91,7 +91,7 @@ namespace Slip::Parse {
             assert(p.second);
         }
 
-        void addSym(string_view sym, Ast::Named* node) {
+        void addSym(string_view sym, Ast::Node* node) {
             auto s = istring::make(sym);
             auto p = syms.back().insert_or_assign(s, Pair{ nullptr, node });
             assert(p.second);
@@ -104,50 +104,11 @@ namespace Slip::Parse {
             return nullptr;
         }
 
-        Result _parseType(Lex::Atom* atom, Ast::Type** out) {
-            if (atom == nullptr) {
-                *out = nullptr;
-                return Result::OK;
-            }
-            else {
-                Ast::Node* pt;
-                RETURN_IF_FAILED(parse(atom, &pt));
-                Ast::Node* et;
-                RETURN_IF_FAILED(evaluate(pt, &et));
-                auto t = dynamic_cast<Ast::Type*>(et);
-                RETURN_RES_IF(Result::ERR, !t);
-                *out = t;
-                return Result::OK;
-            }
-            return Result::ERR;
-        }
-
-
         Result parse(Lex::Atom* atom, Ast::Node** out);
-
-        Result evaluate(Ast::Node* node, Ast::Node** out);
-
-        Result getOrCreateArrayType(Ast::Type* elemType, Ast::Type** out) {
-            auto it = m_arrays.find(elemType);
-            if (it == m_arrays.end()) {
-                auto t = new Ast::Type(string_concat("array_", elemType->m_name));
-                t->m_elemType = t;
-                it = m_arrays.emplace(elemType, t).first;
-            }
-            *out = it->second;
-            return Result::OK;
-        }
 
         //protected:
 
-        typedef pair<Parser*, Ast::Named*> Pair;
-        Ast::Reference* reference(Ast::Named* n) {
-            auto r = new Ast::Reference(n);
-            if (auto t = n->m_type) {
-                r->m_type = t;
-            }
-            return r;
-        }
+        typedef pair<Parser*, Ast::Node*> Pair;
 
         Result lookup(string_view sym, const Pair** out) const {
             auto s = istring::make(sym);
@@ -162,40 +123,9 @@ namespace Slip::Parse {
         }
         list< map<istring, Pair> > syms;
         map< Ast::Type*, Ast::Type* > m_arrays;
+        std::vector<Ast::Module*> m_modules;
     };
 
-    struct Evaluator : public State {
-
-        Result dispatch(Ast::Node* node, Ast::Node** out) {
-            return Ast::dispatch(node, *this, out);
-        }
-
-        Result operator()(Ast::Node* node, Ast::Node** out) {
-            return Result::ERR;
-        }
-
-        Result operator()(Ast::Reference* node, Ast::Node** out) {
-            *out = node->m_target;
-            return Result::OK;
-        }
-
-        Result operator()(Ast::FunctionCall* node, Ast::Node** out) {
-            Ast::Node* funcnode;
-            RETURN_IF_FAILED( dispatch(node->m_func, &funcnode) );
-            auto func = dynamic_cast<Ast::FunctionDecl*>(funcnode);
-            RETURN_RES_IF(Result::ERR, !func);
-            Ast::Node* ret;
-            vector<Ast::Node*> args;
-            for (auto a : node->m_args) { // todo defer arg evaluation to caller
-                Ast::Node* e;
-                RETURN_IF_FAILED(dispatch(a, &e));
-                args.push_back(e);
-            }
-            RETURN_IF_FAILED(func->invoke(this, args, &ret));
-            *out = ret;
-            return Result::OK;
-        }
-    };
 
     struct Define;
     struct Func;
@@ -223,20 +153,17 @@ static Result matchLex(Parse::Args& args, HEAD** head, REST**...rest) {
     return matchLex(args, rest...);
 }
 
-Result Parse::State::evaluate(Ast::Node* node, Ast::Node** out) {
-    *out = nullptr;
-    RETURN_IF_FAILED(static_cast<Evaluator*>(this)->dispatch(node, out) );
-    return Result::OK;
-}
-
 
 Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     *out = nullptr;
-    if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
+    if( atom == nullptr ) {
+        return Result::OK;
+    }
+    else if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
         const Pair* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
         RETURN_RES_IF(Result::ERR, p->first != nullptr);
-        *out = reference(p->second);
+        *out = new Ast::Reference(p->second);
         return Result::OK;
     }
     else if (auto list = dynamic_cast<Lex::List*>(atom)) {
@@ -244,6 +171,7 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         RETURN_RES_IF(Result::ERR, list->size() == 0);
         auto items = list->items();
         auto sym = symbol(items[0]);
+        RETURN_RES_IF(Result::ERR, !sym);
         Args args{ items }; args.advance();
         const Pair* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
@@ -257,21 +185,21 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
                 RETURN_IF_FAILED(parse(a, &n));
                 fa.push_back(n);
             }
-            *out = new Ast::FunctionCall(reference(p->second), move(fa), WITH( _.m_loc = list->m_loc) );
+            *out = new Ast::FunctionCall(new Ast::Reference(p->second), move(fa), WITH( _.m_loc = list->m_loc) );
             return Result::OK;
         }
     }
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
-        Ast::Type* t;
-        RETURN_IF_FAILED(this->_parseType(num->m_decltype, &t));
-        auto r = new Ast::Number(num->text(), WITH(_.m_loc=num->m_loc, _.m_type = t));
+        Ast::Node* te;
+        RETURN_IF_FAILED(this->parse(num->m_decltype, &te));
+        auto r = new Ast::Number(num->text(), WITH(_.m_loc=num->m_loc, _.m_declTypeExpr = te));
         *out = r;
         return Result::OK;
     }
     else if (auto str = dynamic_cast<Lex::String*>(atom)) {
-        Ast::Type* t;
-        RETURN_IF_FAILED(this->_parseType(str->m_decltype, &t));
-        auto r = new Ast::String(str->text(), WITH(_.m_loc = str->m_loc, _.m_type = t));
+        Ast::Node* te;
+        RETURN_IF_FAILED(this->parse(str->m_decltype, &te));
+        auto r = new Ast::String(str->text(), WITH(_.m_loc = str->m_loc, _.m_declTypeExpr = te));
         *out = r;
         return Result::OK;
     }
@@ -295,9 +223,6 @@ struct Parse::Define : Parse::Parser {
 };
 
 
-
-
-
 struct Parse::Func : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
         *out = nullptr;
@@ -309,17 +234,16 @@ struct Parse::Func : Parse::Parser {
         state->addSym(func->m_name, func);
         state->enterScope();
         if (auto a = largs->m_decltype) {
-            Ast::Type* t;
-            RETURN_IF_FAILED(state->_parseType(a, &t));
-            auto r = new Ast::Node(WITH(_.m_type = t));
-            func->m_returnType = r;
+	        Ast::Node* te;
+	        RETURN_IF_FAILED(state->parse(a, &te));
+            func->m_declReturnTypeExpr = te;
         }
         for (auto item : largs->items()) {
             auto sym = state->symbol(item);
             RETURN_RES_IF(Result::ERR, sym == nullptr);
-            Ast::Type* t;
-            RETURN_IF_FAILED(state->_parseType(item->m_decltype, &t));
-            auto arg = new Ast::Argument(sym->text(), WITH( _.m_loc = sym->m_loc, _.m_type = t ));
+			Ast::Node* te;
+	        RETURN_IF_FAILED(state->parse(item->m_decltype, &te));
+            auto arg = new Ast::Argument(sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ));
             func->m_args.push_back(arg);
         }
         for (auto a : func->m_args) {
@@ -352,10 +276,10 @@ struct Parse::Let : Parse::Parser {
             RETURN_IF_FAILED(matchLex(tmpargs, &lsym, &lval));
             Ast::Node* aval;
             RETURN_IF_FAILED(state->parse(lval, &aval));
-            Ast::Type* t;
-            RETURN_IF_FAILED(state->_parseType(lsym->m_decltype, &t));
+            Ast::Node* te;
+            RETURN_IF_FAILED(state->parse(lsym->m_decltype, &te));
 
-            auto def = new Ast::Definition(lsym->text(), aval, WITH( _.m_loc = lsym->m_loc, _.m_type = t));
+            auto def = new Ast::Definition(lsym->text(), aval, WITH( _.m_loc = lsym->m_loc, _.m_declTypeExpr = te));
             state->addSym(lsym->text(), def);
             seq->m_items.push_back(def);
         }
@@ -425,28 +349,6 @@ struct Parse::Begin : Parse::Parser {
     }
 };
 
-static Result array_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
-    RETURN_RES_IF(Result::ERR, args.size() != 1);
-    Ast::Type* et = dynamic_cast<Ast::Type*>(args[0]);
-    Ast::Type* at;
-    RETURN_IF_FAILED(eval->getOrCreateArrayType(et, &at));
-    *out = at;
-    return Result::OK;
-}
-
-static Result array_size_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
-    *out = nullptr;
-    RETURN_RES_IF(Result::ERR, args.size() != 1);
-    return Result::ERR;
-}
-
-static Result array_at_intrin(Parse::Evaluator* eval, array_view<Ast::Node*> args, Ast::Node** out) {
-    *out = nullptr;
-    RETURN_RES_IF(Result::ERR, args.size() != 2);
-    return Result::ERR;
-}
-
-
 
 Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     State state;
@@ -460,25 +362,13 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);
     state.addSym("string", &Ast::s_typeString);
-    state.addSym("eq_i?", Ast::FunctionDecl::makeBinaryOp("eq", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
-    state.addSym("lt_i?", Ast::FunctionDecl::makeBinaryOp("lt", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeBool));
-    state.addSym("add_i", Ast::FunctionDecl::makeBinaryOp("add", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("sub_i", Ast::FunctionDecl::makeBinaryOp("sub", new Ast::Argument("a", &Ast::s_typeInt), new Ast::Argument("b", &Ast::s_typeInt), &Ast::s_typeInt));
-    state.addSym("puts", Ast::FunctionDecl::makeIntrinsic("prns", nullptr, &Ast::s_typeInt, { new Ast::Argument("s", &Ast::s_typeString) } ));
-    state.addSym("puti", Ast::FunctionDecl::makeIntrinsic("prni", nullptr, &Ast::s_typeInt, { new Ast::Argument("s", &Ast::s_typeInt) }));
-    state.addSym("array", Ast::FunctionDecl::makeIntrinsic("array", array_intrin, &Ast::s_typeType, { new Ast::Argument("s", &Ast::s_typeType) }));
-    {
-        Ast::Type* at;
-        state.getOrCreateArrayType(&Ast::s_typeString, &at);
-        state.addSym("size", Ast::FunctionDecl::makeIntrinsic("array_size", array_size_intrin, &Ast::s_typeInt, { new Ast::Argument("a", at) }));
-        state.addSym("at", Ast::FunctionDecl::makeIntrinsic("array_at", array_at_intrin, &Ast::s_typeString,
-            { new Ast::Argument("a", at), new Ast::Argument("i", &Ast::s_typeInt) }));
-    }
+    state.addSym("bool", &Ast::s_typeBool);
 
-    state.addSym("true", new Ast::Argument("true", &Ast::s_typeBool));
-    state.addSym("false", new Ast::Argument("false", &Ast::s_typeBool));
+    state.addSym("true", new Ast::Reference(&Ast::s_typeBool));
+    state.addSym("false", new Ast::Reference(&Ast::s_typeBool));
 
     auto module = make_unique_del<Ast::Module>();
+    state.m_modules.emplace_back(module.get());
     for (auto c : lex.items()) {
         Ast::Node* n;
         THROW_IF_FAILED(state.parse(c, &n));
@@ -488,5 +378,5 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
 }
 
 Result Parse::Parser::parse(State* state, Args& args, Ast::Node** out) const {
-    return  _parse(state, args, out);
+    return _parse(state, args, out);
 }

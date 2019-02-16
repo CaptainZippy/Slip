@@ -7,13 +7,8 @@ namespace Slip::Ast {
     #include "Ast.inc"
     #undef AST_NODE
 
-    REFLECT_BEGIN(TypeRef)
-        REFLECT_TO_STRING((Reflect::Type::ToStringFunc)TypeRef::toString);
-    REFLECT_END()
-
-
     REFLECT_BEGIN(Node)
-    REFLECT_FIELD2(m_type, Flags::Abbrev)
+    REFLECT_FIELD2(m_declTypeExpr, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
@@ -66,7 +61,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)
-    REFLECT_FIELD2(m_returnType, Flags::Child)
+    REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
@@ -97,10 +92,6 @@ namespace Slip::Ast {
 
 using namespace Slip;
 
-string_view Ast::TypeRef::toString(const Ast::TypeRef* self) {
-    return self->m_type ? self->m_type->m_name : "null"sv;
-}
-
 
 Ast::Type Ast::s_typeType("Type"sv);
 Ast::Type Ast::s_typeInt("int"sv);
@@ -111,17 +102,10 @@ Ast::Type Ast::s_typeString("string"sv);
 
 Ast::Type::Type(string_view sym)
     : Named(istring::make(sym)) {
-    m_type = &s_typeType;
 }
 
 Ast::Type::Type(istring sym)
     : Named(sym) {
-    m_type = &s_typeType;
-}
-
-istring Ast::TypeRef::name() const {
-    assert(m_type);
-    return m_type->m_name;
 }
 
 static void print(Reflect::Var top, Io::TextOutput& out, bool abbrev) {
@@ -221,24 +205,22 @@ void Ast::print(Node* node, Io::TextOutput& out) {
     out.nl();
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret) {
+Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp(string_view name, Argument* a, Argument* b, Node* ret) {
     auto f = new FunctionDecl(name);
-    f->m_returnType = new Node();
-    f->m_returnType->m_type = ret;
+    f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
-    f->m_body->m_type = ret;
+    f->m_body->m_declTypeExpr = ret;
     f->m_args.push_back(a);
     f->m_args.push_back(b);
     return f;
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, std::initializer_list<Argument*> args) {
+Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic(string_view name, Intrinsic intrin, Node* ret, std::initializer_list<Argument*> args) {
     auto f = new FunctionDecl(name);
     f->m_intrinsic = intrin;
-    f->m_returnType = new Node();
-    f->m_returnType->m_type = ret;
+    f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
-    f->m_body->m_type = ret;
+    f->m_body->m_declTypeExpr = ret;
     f->m_args = args;
     return f;
 }

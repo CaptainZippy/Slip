@@ -18,33 +18,6 @@ namespace Slip::Ast {
         const unsigned Abbrev = 2; // Default is "ref"
     };
 
-    struct TypeRef {
-        REFLECT_DECL();
-    private:
-        Type* m_type{ nullptr };
-    public:
-        size_t m_data{ 0 };
-        static string_view toString(const TypeRef*);
-
-        TypeRef() = default;
-
-        explicit TypeRef(Type* t) : m_type(t) {
-        }
-        Type* get() const {
-            return m_type;
-        }
-        istring name() const;
-
-        explicit operator bool() const {
-            return m_type != nullptr;
-        }
-
-        void operator=(Type* t) {
-            assert(m_type == nullptr);
-            m_type = t;
-        }
-    };
-
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
 
@@ -57,7 +30,7 @@ namespace Slip::Ast {
             w(*this);
         }
 
-        TypeRef m_type;
+        Ast::Node* m_declTypeExpr{nullptr};
         Io::SourceLocation m_loc;
     };
 
@@ -94,9 +67,9 @@ namespace Slip::Ast {
         AST_DECL();
         Type(string_view sym);
         Type(istring sym);
-        TypeRef m_elemType; //TODO ptr/array type
-        TypeRef m_extra; //TODO func return type
-        vector<TypeRef> m_args; //TODO func arg types
+        //TypeRef m_elemType; //TODO ptr/array type
+        //TypeRef m_extra; //TODO func return type
+        //vector<TypeRef> m_args; //TODO func arg types
     };
 
 
@@ -158,9 +131,6 @@ namespace Slip::Ast {
 
     struct Argument : Named {
         AST_DECL();
-        Argument(string_view s, Type* t=nullptr) : Named(s) {
-            m_type = t;
-        }
         template<typename With>
         Argument(string_view s, With&& with) : Named(s) {
             with(*this);
@@ -172,7 +142,7 @@ namespace Slip::Ast {
         typedef Result (*Intrinsic)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
 
         vector< Argument* > m_args;
-        Ast::Node* m_returnType{ nullptr };
+        Ast::Node* m_declReturnTypeExpr{ nullptr };
         Node* m_body{ nullptr };
         Intrinsic m_intrinsic{ nullptr };
 
@@ -196,10 +166,10 @@ namespace Slip::Ast {
         }
 
             /// Create a named function of two arguments.
-        static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Type* ret);
+        static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Node* ret);
 
             /// Create a named intrinsic function.
-        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Type* ret, initializer_list<Argument*> args);
+        static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args);
     };
 
     struct Sequence : Node {
@@ -213,9 +183,9 @@ namespace Slip::Ast {
 
     struct Reference : public Node {
         AST_DECL();
-        Reference(Named* s) : m_target(s) {
+        Reference(Node* s) : m_target(s) {
         }
-        Named* m_target;
+        Node* m_target;
     };
 
 

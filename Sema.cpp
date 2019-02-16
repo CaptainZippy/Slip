@@ -4,6 +4,7 @@
 #include "Io.h"
 
 namespace Slip::Sema {
+    #if 0
     typedef function< void() > Callback;
 
         /// Type dependency. Trigger when num_deps reaches 0. 
@@ -439,10 +440,11 @@ namespace Slip::Sema {
             io.end("</DirectedGraph>\n");
         }
     };
+    #endif
 }
 
 void Slip::Sema::type_check(Slip::Ast::Module& mod) {
-
+    #if 0
     ConstraintBuilder builder;
     //RETURN_IF_FAILED(
     builder.build(&mod);
@@ -450,5 +452,6 @@ void Slip::Sema::type_check(Slip::Ast::Module& mod) {
     ConstraintSolver solver;
     ////RETURN_IF_FAILED
     solver.dispatch(builder);
+    #endif
 }
 

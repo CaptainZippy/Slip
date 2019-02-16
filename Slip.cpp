@@ -70,9 +70,11 @@ static void compile(const char* fname) {
     auto smanager = Io::makeSourceManager();
     auto lex = Lex::parse_file(*smanager, fname );
     auto ast = Parse::module(*lex);
-    if( Args::dumpParse ) Ast::print(ast.get());
+    if( Args::dumpParse )
+        Ast::print(ast.get());
     Sema::type_check(*ast);
-    if (Args::dumpInfer) Ast::print(ast.get());
+    if (Args::dumpInfer)
+        Ast::print(ast.get());
     Backend::generate(*ast);
 }
 

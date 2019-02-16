@@ -3,6 +3,7 @@
 #include "Ast.h"
 #include "Io.h"
 
+#if 0
 namespace {
     using namespace std;
     using namespace Slip;
@@ -136,8 +137,12 @@ namespace {
         int m_counter = 1;
     };
 }
+#endif
 
-void Backend::generate(Ast::Module& module) {
+void Slip::Backend::generate(Ast::Module& module) {
+    #if 0
     Generator g;
     Ast::dispatch(&module, g);
+    #endif
 }
+
