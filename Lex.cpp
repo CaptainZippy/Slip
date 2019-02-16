@@ -30,15 +30,6 @@ static std::string lex_error(const Lex::SourceLocation& loc, const char* fmt, ..
     return string_concat(l, m);
 }
 
-const char* Lex::Atom::indent( int n ) {
-    static char buf[128];
-    for( int i = 0; i < n; ++i )
-        buf[i] = ' ';
-    buf[n] = 0;
-    return buf;
-}
-
-
 Lex::Atom* Lex::parse_term( Io::TextInput& in ) {
     while( in.available() ) {
         switch( in.peek() ) {

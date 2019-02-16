@@ -15,8 +15,6 @@ namespace Slip::Lex {
         vector<Atom*> m_attrs;
 
         Atom() = default;
-    protected:
-        static const char* indent( int i );
     };
 
     struct Value : Atom {
