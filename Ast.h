@@ -139,7 +139,7 @@ namespace Slip::Ast {
 
     struct FunctionDecl : Named {
         AST_DECL();
-        typedef Result (*Intrinsic)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
+        using Intrinsic = Result (*)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
 
         vector< Argument* > m_args;
         Ast::Node* m_declReturnTypeExpr{ nullptr };

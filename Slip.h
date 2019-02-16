@@ -43,10 +43,12 @@ namespace Slip {
     }
 
     namespace Sema {
+        /// Check types
         void type_check(Ast::Module& mod);
     }
 
     namespace Backend {
+        /// Generate output
         void generate(Ast::Module& mod);
     }
 }

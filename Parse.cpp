@@ -62,7 +62,7 @@ namespace Slip::Parse {
 
     struct Parser {
         virtual ~Parser() {}
-        virtual Result parse(State* state, Args& args, Ast::Node** out) const final;
+        Result parse(State* state, Args& args, Ast::Node** out) const;
     protected:
         virtual Result _parse(State* state, Args& args, Ast::Node** out) const = 0;
     };
@@ -122,8 +122,6 @@ namespace Slip::Parse {
             RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", s.c_str());
         }
         list< map<istring, Pair> > syms;
-        map< Ast::Type*, Ast::Type* > m_arrays;
-        std::vector<Ast::Module*> m_modules;
     };
 
 
@@ -368,10 +366,9 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addSym("false", new Ast::Reference(&Ast::s_typeBool));
 
     auto module = make_unique_del<Ast::Module>();
-    state.m_modules.emplace_back(module.get());
     for (auto c : lex.items()) {
         Ast::Node* n;
-        THROW_IF_FAILED(state.parse(c, &n));
+        THROW_IF_FAILED(state.parse(c, &n), "Failed to parse");
         module->m_items.push_back(n);
     }
     return module;

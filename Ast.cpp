@@ -8,7 +8,7 @@ namespace Slip::Ast {
     #undef AST_NODE
 
     REFLECT_BEGIN(Node)
-    REFLECT_FIELD2(m_declTypeExpr, Flags::Abbrev)
+    //REFLECT_FIELD2(m_declTypeExpr, Flags::Abbrev)
     REFLECT_END()
 
     REFLECT_BEGIN(Type)
@@ -61,7 +61,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN(FunctionDecl)
     REFLECT_PARENT(Named)
     REFLECT_FIELD2(m_args, Flags::Child)
-    REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
+    //REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
