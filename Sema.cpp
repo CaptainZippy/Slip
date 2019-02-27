@@ -4,333 +4,322 @@
 #include "Io.h"
 
 namespace Slip::Sema {
-    #if 0
-    typedef function< void() > Callback;
-
-        /// Type dependency. Trigger when num_deps reaches 0. 
-    struct TypeDep {
-        unsigned num_deps{ 0 };
-        virtual ~TypeDep() {}
-        virtual void trigger() = 0;
-    };
-
-    Ast::Type* _create_function_type(Ast::Type* ret, array_view<Ast::Type*> sig) {
-        string name; //TODO: intern these types
-        name.append("(");
-        const char* sep = "";
-        for (auto a : sig) {
-            name.append(sep); sep = ", ";
-            name.append(a->m_name);
-        }
-        name.append(") -> ");
-        name.append(ret->m_name);
-        auto r = new Ast::Type(name);
-        r->m_extra = ret;
-        for (auto s : sig) {
-            r->m_args.emplace_back(s);
-        }
-        return r;
-    }
 
     struct TypeInfo;
+    struct FuncInfo;
+    struct ConstraintBuilder;
 
     struct FuncInfo {
         TypeInfo* ret{ nullptr };
         vector<TypeInfo*> args;
     };
 
-
     struct TypeInfo {
-        bool dispatched{ false };
-        Ast::Node* node{ nullptr };
+    private:
+        friend struct ConstraintBuilder;
         Ast::Type* type{ nullptr };
-        FuncInfo* func{ nullptr };
-        vector<TypeInfo*> isa;
-        vector<TypeDep*> deps;
-
-        void add_dep(TypeDep* dep) {
-            assert(dep);
-            dep->num_deps += 1;
-            deps.push_back(dep);
+        FuncInfo* func{ nullptr };//TODO: Union?
+        int triggerCount{ 0 };
+        std::vector<TypeInfo*> triggerNotify;
+        std::function<void( TypeInfo* )> triggerAction;
+    public:
+        auto get_type() const {
+            assert( type );
+            return type;
         }
-
-        void resolve(Ast::Type* t) {
-            assert(t);
-            assert(type == nullptr || type == t);
-            type = t;
-            for (auto dep : deps) {
-                assert(dep->num_deps > 0);
-                dep->num_deps -= 1;
-                if (dep->num_deps == 0) {
-                    dep->trigger();
-                }
-            }
-        }
-
-        void print(Io::TextOutput& out) {
-            out.begin(string_format("TypeNode %p\n", this));
-            out.begin(string_format("node %p %s\n", node, node->dynamicType()->name));
-            out.begin(string_format("isa %u\n", unsigned(isa.size())));
-            for (auto i : isa) {
-                out.write(string_format("isa %p\n", i) );
-            }
-            out.end("\n");
-            out.end("\n");
-        }
-        void print() {
-            Io::TextOutput out;
-            print(out);
+        auto get_func() const {
+            assert( func );
+            return func;
         }
     };
 
-    struct FuncDeclSynth : TypeDep {
-        TypeInfo* target{ nullptr }; // will assign to target->type
-        TypeInfo* ret{ nullptr }; // func ret
-        vector<TypeInfo*> args; // func args
-
-        virtual void trigger() {
-            assert(target);
-            assert(target->type == nullptr);
-            assert(ret);
-            assert(ret->type);
-            auto rtype = dynamic_cast<Ast::Type*>(ret->type);
-            assert(rtype);
-            vector<Ast::Type*> at;
-            for (auto a : args) {
-                assert(a->type);
-                at.push_back(a->type);
-            }
-            target->resolve( _create_function_type(rtype, at) );
-        }
-    };
-
-    struct FuncApplCheck : TypeDep {
-        TypeInfo* target{ nullptr }; // will check this target
-        TypeInfo* func{ nullptr };
-        vector<TypeInfo*> args;
-
-        virtual void trigger() {
-            FuncInfo* fi = func->func;
-            assert(fi);
-            target->resolve(fi->ret->type);
-        }
-    };
-
-    struct ForwardSynth : TypeDep {
-        TypeInfo* target{ nullptr }; // will check this target
-        TypeInfo* source{ nullptr };
-
-        virtual void trigger() {
-            target->resolve(source->type);
-        }
+    struct VisitInfo {
+        VisitInfo() = default;
+        VisitInfo( Ast::Node* n, TypeInfo* t ) : node( n ), info( t ) {}
+        Ast::Node* node{ nullptr };
+        TypeInfo* info{ nullptr };
     };
 
 
     struct ConstraintBuilder {
 
-        void operator()(Ast::Node* n) {
-            assert(n->m_type);
+        void operator()(Ast::Node* n, VisitInfo& vi) {
+            assert(vi.info);
         }
 
-        void operator()(Ast::Module* n) {
-            n->m_type = &Ast::s_typeVoid;
+        void operator()(Ast::Module* n, VisitInfo& vi ) {
+            vi.info = _internKnownType(&Ast::s_typeVoid);//Todo: proper type
             for (auto i : n->m_items) {
                 dispatch(i);
             }
         }
 
-        void operator()(Ast::Number* n) {
-            //TODO
+        void operator()(Ast::Number* n, VisitInfo& vi) {
+            vi.info = _evalTypeExpr( n->m_declTypeExpr );
         }
 
-        void operator()(Ast::String* n) {
-            n->m_type = &Ast::s_typeString;
+        void operator()(Ast::String* n, VisitInfo& vi) {
+            vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            //n->m_type = &Ast::s_typeString;
             //isa(n, &Ast::s_typeString);
+            assert( false );
         }
 
-        void operator()(Ast::FunctionCall* n) {
-            dispatch(n->m_func);
-            for (auto a : n->m_args) {
-                dispatch(a);
+        void operator()(Ast::FunctionCall* n, VisitInfo& vi) {
+            auto fi = dispatch(n->m_func);
+            std::vector<TypeInfo*> ai;
+            for (auto&& a : n->m_args) {
+                ai.emplace_back( dispatch(a) );
             }
-            applicable(n, n->m_func, n->m_args);
+            _isApplicable(fi, ai);
+            vi.info = fi->get_func()->ret;
         }
 
-        void operator()(Ast::Argument* n) {
-            assert(n->m_type);
+        void operator()(Ast::Argument* n, VisitInfo& vi ) {
+            vi.info = _evalTypeExpr( n->m_declTypeExpr );
         }
 
-        void operator()(Ast::Sequence* n) {
-            if (n->m_items.size()) {
-                isa(n, n->m_items.back());
-                for (auto i : n->m_items) {
-                    dispatch(i);
+        void operator()(Ast::Sequence* n, VisitInfo& vi ) {
+            if( n->m_items.empty() ) {
+                vi.info = _internKnownType( &Ast::s_typeVoid );
+            }
+            else {
+                for( auto&& i : n->m_items ) {
+                    vi.info = dispatch( i );
                 }
             }
-            else {
-                n->m_type = &Ast::s_typeVoid;
-            }
         }
 
-        void operator()(Ast::FunctionDecl* n) {
-            auto in = info(n);
-            in->func = new FuncInfo;
-            if (n->m_returnType) {
-                synth(n, n->m_returnType, n->m_args);
-                isa(n->m_body, n->m_returnType);
-                in->func->ret = info(n->m_returnType);
+        void operator()(Ast::FunctionDecl* n, VisitInfo& vi) {
+            vi.info = new TypeInfo{};
+            auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
+            std::vector<TypeInfo*> args;
+            for (auto&& a : n->m_args) {
+                args.emplace_back( dispatch(a) );
             }
-            else {
-                synth(n, n->m_body, n->m_args);
-                in->func->ret = info(n->m_body);
-            }
-            for (auto a : n->m_args) {
-                dispatch(a);
-                in->func->args.push_back(info(a));
-            }
-            dispatch(n->m_body);
+            auto bt = dispatch(n->m_body);
+
+            _isConvertible( bt, ret );
+            _isFunction( vi.info, ret, std::move(args) );
         }
 
-        void operator()(Ast::Reference* n) {
-            isa(n, n->m_target);
-            dispatch(n->m_target);
-            /* if (auto f = n->m_target->m_type.m_data->func) {
-                 info(n)->func = f;
-             }*/
+        void operator()(Ast::Reference* n, VisitInfo& vi ) {
+            vi.info = dispatch(n->m_target);
         }
 
-        void operator()(Ast::Scope* n) {
-            if (n->m_child) {
-                isa(n->m_child, n);
-                dispatch(n->m_child);
-            }
-            else {
-                isa(n, &Ast::s_typeVoid);
-            }
+        void operator()(Ast::Scope* n, VisitInfo& vi ) {
+            assert( false );
+            //if (n->m_child) {
+            //    //isa(n->m_child, n);
+            //    dispatch(n->m_child);
+            //}
+            //else {
+            //    isa(n, &Ast::s_typeVoid);
+            //}
         }
 
-        void operator()(Ast::Definition* n) {
+        void operator()(Ast::Definition* n, VisitInfo& vi ) {
+            assert( false );
             //isa(n, &Ast::s_typeVoid); //fixme
-            if (n->m_type) {
-                isa(n->m_value, n);
-            }
-            else {
-                isa(n, n->m_value);
-            }
-            dispatch(n->m_value);
+//            if (n->m_type) {
+//                isa(n->m_value, n);
+//            }
+////            else {
+//                isa(n, n->m_value);
+//            }
+            //dispatch(n->m_value);
         }
 
-        void operator()(Ast::If* n) {
-            isa(n->m_true, n);
-            isa(n->m_false, n);
+        void operator()(Ast::If* n ) {
+            assert( false );
+            /*isa(n->m_true, n);
+            isa(n->m_false, n);*/
             dispatch(n->m_true);
             dispatch(n->m_false);
             //isa(n->m_cond, &Ast::s_typeBool);
             dispatch(n->m_cond);
         }
 
-        void operator()(Ast::Cond* n) {
-            for (auto c : n->m_cases) {
-                //isa(c.first, &Ast::s_typeBool);
-                dispatch(c.first);
-                dispatch(c.second);
-                isa(c.second, n);
-            }
+        void operator()(Ast::Cond* n ) {
+            assert( false );
+            //for (auto&& c : n->m_cases) {
+            //    //isa(c.first, &Ast::s_typeBool);
+            //    dispatch(c.first);
+            //    dispatch(c.second);
+            //    isa(c.second, n);
+            //}
         }
 
     public:
 
-        vector<Ast::Node*> m_visited;
-        vector<TypeInfo*> m_targets;
-        vector<TypeDep*> m_typeDeps;
-        deque<TypeInfo> m_typeInfos;
-        Ast::Node* m_topNode{ nullptr };
+        struct Convertible {
+            Convertible(TypeInfo* c, TypeInfo* a) : cat(c), animal(a) {}
+            TypeInfo* cat;
+            TypeInfo* animal;
+        };
+        deque<VisitInfo> m_visited;
+        unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
+        std::vector< std::vector<Ast::Type*> > m_functionTypes;
+        vector<Convertible> m_convertible;
+        Ast::Module* m_module{ nullptr };
 
-        Result build(Ast::Node* top) {
-            m_topNode = top;
-            return dispatch(top);
+        Result build(Ast::Module* mod) {
+            m_module = mod;
+            return dispatch(mod) ? Result::OK : Result::ERR;
         }
 
-
-        Result dispatch(Ast::Node* top) {
-            if (top->m_type.m_data == 0) {
-                info(top)->dispatched = true;
-                Ast::dispatch(top, *this);
+        Result solve() {
+            while( true ) {
+                bool more = false;
+                for( auto&& c : m_convertible ) {
+                    if( !c.animal->type && c.cat->type ) {
+                        more = true;
+                        _resolveType( c.animal, c.cat->type );
+                    }
+                }
+                if( !more ) {
+                    break;
+                }
+            }
+            for( auto&& v : m_visited ) {
+                assert( v.node );
+                assert( v.node->m_type == nullptr );
+                assert( v.info->type != nullptr );
+                v.node->m_type = v.info->type;
             }
             return Result::OK;
         }
 
-        ConstraintBuilder() {
-            m_typeInfos.emplace_back();
+
+        TypeInfo* dispatch(Ast::Node* top) {
+            auto& i = top->m_userData;
+            if( i >= m_visited.size() || m_visited[i].node != top ) {
+                top->m_userData = m_visited.size();
+                auto& vi = m_visited.emplace_back(top, (TypeInfo*)nullptr);
+                Ast::dispatch<void>( top, *this, vi );
+            }
+            return m_visited[i].info;
         }
 
+        ConstraintBuilder() {
+        }
 
         ~ConstraintBuilder() {
         }
 
     protected:
 
-        TypeInfo* info(Ast::Node* node) {
-            if (node->m_type.m_data == 0) {
-                node->m_type.m_data = m_typeInfos.size();
-                auto& inf = m_typeInfos.emplace_back();
-                inf.node = node;
-                m_targets.push_back(&inf);
-            }
-            return &m_typeInfos[node->m_type.m_data];
-        }
-
-        void applicable(Ast::Node* tgt, Ast::Node* func, array_view<Ast::Node*> args) {
-            auto tc = new FuncApplCheck();
-            tc->target = info(tgt);
-            tc->func = info(func);
-            FuncInfo* fi = tc->func->func;
-            assert(fi);
-            tc->func->add_dep(tc);
-            assert(fi->args.size() == args.size());
-            for (unsigned i = 0; i < args.size(); ++i) {
-                auto ai = info(args[i]);
-                ai->isa.push_back(fi->args[i]);
-                tc->args.push_back(ai);
-            }
-            tc->target->isa.push_back(fi->ret);
-            m_typeDeps.push_back(tc);
-        }
-
-        void isa(TypeInfo* tgt, TypeInfo* src) {
-            if (find(tgt->isa, src) == tgt->isa.end()) {
-                tgt->isa.push_back(src);
+        void _resolveType( TypeInfo* ti, Ast::Type* ty ) {
+            ti->type = ty;
+            for( auto&& a : ti->triggerNotify ) {
+                assert( a->triggerCount > 0 );
+                a->triggerCount -= 1;
+                if( a->triggerCount == 0 ) {
+                    (a->triggerAction)( a );
+                }
             }
         }
 
-        void isa(Ast::Node* tgt, Ast::Node* src) {
-            auto itgt = info(tgt);
-            auto isrc = info(src);
-            isa(itgt, isrc);
+        void _isConvertible( TypeInfo* cat, TypeInfo* animal ) {
+            m_convertible.emplace_back( cat, animal );
+        }
+
+        TypeInfo* _internKnownType( Ast::Type* t ) {
+            auto it = m_knownTypes.emplace( t, nullptr );
+            if( it.second ) {
+                auto ti = new TypeInfo;
+                _resolveType( ti, t );
+                it.first->second = ti;
+            }
+            return it.first->second;
+        }
+
+        TypeInfo* _evalTypeExpr( Ast::Node* te ) {
+            if( !te ) {
+                return new TypeInfo{};
+            }
+            if( auto r = dynamic_cast<Ast::Reference*>( te ) ) {
+                auto t = dynamic_cast<Ast::Type*>( r->m_target );
+                assert( t );
+                return _internKnownType( t );
+            }
+            assert( false );
+            return nullptr;
+        }
+
+        void _buildFunctionType( TypeInfo* ti ) {
+            assert( ti->type == nullptr );
+            std::vector<Ast::Type*> x;
+            x.emplace_back( nullptr );
+            FuncInfo* f = ti->func;
+            x.emplace_back( f->ret->get_type() );
+            for( auto&& a : f->args ) {
+                x.emplace_back( a->get_type() );
+            }
+            for( auto&& ft : m_functionTypes ) {
+                if( std::equal( ft.begin() + 1, ft.end() + 1, x.begin() + 1, x.end() ) ) {
+                    ti->type = ft.front();
+                    return;
+                }
+            }
+            // create new
+            string name;
+            name.append( "(" );
+            const char* sep = "";
+            for( auto a : f->args ) {
+                name.append( sep ); sep = ", ";
+                name.append( a->get_type()->m_name );
+            }
+            name.append( ") -> " );
+            name.append( f->ret->get_type()->m_name );
+            auto r = new Ast::Type( name );
+            //r->m_extra = ret;
+            //for( auto s : sig ) {
+                //            r->m_args.emplace_back(s);
+            //}
+            x[0] = r;
+            m_functionTypes.emplace_back( std::move( x ) );
+            _resolveType( ti, r );
+        }
+
+        void _addTriggerDep( TypeInfo* wall, TypeInfo* brick ) {
+            if( brick->type == nullptr ) {
+                wall->triggerCount += 1;
+                brick->triggerNotify.push_back( wall );
+            }
         }
 
 
-
-        void synth(Ast::Node* tgt, Ast::Node* ret, array_view<Ast::Argument*> args) {
-            auto ts = new FuncDeclSynth();
-            ts->target = info(tgt);
-            ts->ret = info(ret);
-            ts->ret->add_dep(ts);
-            for (auto a : args) {
-                auto ia = info(a);
-                ia->add_dep(ts);
-                ts->args.push_back(ia);
+        void _isFunction( TypeInfo* ti, TypeInfo* ret, vector<TypeInfo*>&& args ) {
+            ti->func = new FuncInfo{ ret, args };
+            _addTriggerDep( ti, ret );
+            for( auto&& a : args ) {
+                _addTriggerDep( ti, a );
             }
-            m_typeDeps.push_back(ts);
+            if( ti->triggerCount == 0 ) {
+                _buildFunctionType( ti );
+            }
+            else {
+                ti->triggerAction = [this] ( TypeInfo* ti ) { _buildFunctionType( ti ); };
+            }
+        }
+
+        void _isApplicable(TypeInfo* ti, array_view<TypeInfo*> args) {
+            auto f = ti->get_func();
+            assert( f );
+            assert( f->args.size() == args.size() );
+            for( unsigned i = 0; i < args.size(); ++i ) {
+                _isConvertible( args[i], f->args[i] );
+            }
         }
     };
 
-
+    #if 0
     struct ConstraintSolver {
         Result dispatch(ConstraintBuilder& builder) {
 
             // apply explicit declarations in source
-            for (auto target : builder.m_targets) {
+            for (auto&& target : builder.m_targets) {
                 assert(target->type == nullptr);
                 assert(target->node);
                 if (auto t = target->node->m_type) {
@@ -343,13 +332,13 @@ namespace Slip::Sema {
             vector<TypeInfo*> todo = builder.m_targets;
             do {
                 vector<TypeInfo*> again;
-                for (auto target : todo) {
+                for (auto&& target : todo) {
                     //HACK: if we didn't resolve and there is exactly one type constraint
                     // then lets take the constraint as the type.
                     bool resolved = false;
                     if (target->type == nullptr) {
                         if (target->isa.size()==1) {
-                            if (auto t = target->isa[0]->type) {
+                            if (auto&& t = target->isa[0]->type) {
                                 target->resolve( t );
                                 resolved = true;
                             }
@@ -373,7 +362,7 @@ namespace Slip::Sema {
                 }
                 if (again.size() == todo.size()) {
                     Ast::print(builder.m_topNode);
-                    for (auto a : again) {
+                    for (auto&& a : again) {
                         a->print();
                     }
                     RETURN_RES_IF_REACHED(Result::ERR, "Failed to resolve");
@@ -383,14 +372,14 @@ namespace Slip::Sema {
             print(builder);
 
             // type checks!
-            for (auto target : builder.m_targets) {
+            for (auto&& target : builder.m_targets) {
                 for (auto is : target->isa) {
                     assert(target->type == is->type);
                 }
             }
 
             // Write results back to the ast
-            for (auto target : builder.m_targets) {
+            for (auto&& target : builder.m_targets) {
                 if (target->node->m_type.get() != target->type) {
                     target->node->m_type = target->type;
                 }
@@ -405,7 +394,7 @@ namespace Slip::Sema {
             io.begin("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
             io.begin("<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\">\n");
             io.begin("<Nodes>\n");
-            for (auto src : builder.m_targets) {
+            for (auto&& src : builder.m_targets) {
                 io.write(string_format("<Node Id='0x%p' Category='Node' Label='", src));
                 io.write(src->node->dynamicType()->name);
                 Ast::print(src->type, io);
@@ -413,8 +402,8 @@ namespace Slip::Sema {
             }
             io.end("</Nodes>\n");
             io.begin("<Links>\n");
-            for (auto src : builder.m_targets) {
-                for (auto d : src->isa) {
+            for (auto&& src : builder.m_targets) {
+                for (auto&& d : src->isa) {
                     io.write(string_format("<Link Source='0x%p' Target='0x%p' Category='Compatible'/>\n", src, d));
                 }
             }
@@ -444,11 +433,12 @@ namespace Slip::Sema {
 }
 
 void Slip::Sema::type_check(Slip::Ast::Module& mod) {
-    #if 0
     ConstraintBuilder builder;
     //RETURN_IF_FAILED(
     builder.build(&mod);
 
+    builder.solve();
+    #if 0
     ConstraintSolver solver;
     ////RETURN_IF_FAILED
     solver.dispatch(builder);
