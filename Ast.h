@@ -30,6 +30,8 @@ namespace Slip::Ast {
             w(*this);
         }
 
+        size_t m_userData;
+        Ast::Type* m_type{ nullptr };
         Ast::Node* m_declTypeExpr{nullptr};
         Io::SourceLocation m_loc;
     };
@@ -220,10 +222,10 @@ namespace Slip::Ast {
         #undef AST_NODE
     }
 
-    template <typename Handler, typename...Args>
-    auto dispatch(Node* n, Handler&& handler, Args...args) {
+    template <typename RetType, typename Handler, typename...Args>
+    auto dispatch(Node* n, Handler&& handler, Args&&...args) -> RetType {
         switch (n->tag()) {
-            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n), args...);
+            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n), std::forward<Args...>(args...) );
             default:
             #include "Ast.inc"
             #undef AST_NODE
