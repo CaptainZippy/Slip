@@ -49,6 +49,6 @@ namespace Slip {
 
     namespace Backend {
         /// Generate output
-        void generate(Ast::Module& mod);
+        void generate(Ast::Module& mod, Io::TextOutput& out);
     }
 }

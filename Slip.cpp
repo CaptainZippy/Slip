@@ -6,6 +6,7 @@
 
 #include "pch/Pch.h"
 #include "Slip.h"
+#include "Io.h"
 
 namespace Slip::Args {
     bool dumpParse{ false };
@@ -75,7 +76,9 @@ static void compile(const char* fname) {
     Sema::type_check(*ast);
     if (Args::dumpInfer)
         Ast::print(ast.get());
-    Backend::generate(*ast);
+
+    Io::TextOutput out{ string_format("local/%s.gen.cpp", fname).c_str() };
+    Backend::generate(*ast, out);
 }
 
 int main( int argc, const char* argv[] ) {

@@ -11,7 +11,7 @@ namespace {
             return string_format("_%i", m_counter++);
         }
 
-        Io::TextOutput out;
+        Io::TextOutput& out;
         inline string dispatch(Ast::Node* n) {
             return Ast::dispatch<string>(n, *this);
         }
@@ -140,8 +140,8 @@ namespace {
     };
 }
 
-void Slip::Backend::generate(Ast::Module& module) {
-    Generator g;
+void Slip::Backend::generate(Ast::Module& module, Io::TextOutput& out) {
+    Generator g{ out };
     Ast::dispatch<string>(&module, g);
 }
 
