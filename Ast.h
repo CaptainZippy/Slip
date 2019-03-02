@@ -42,6 +42,8 @@ namespace Slip::Ast {
 
         Named(istring s) : m_name(move(s)) {}
         Named(string_view sym) : m_name(istring::make(sym)) {}
+
+        istring name() { return m_name; }
     };
 
     struct If : Node {
@@ -228,6 +230,16 @@ namespace Slip::Ast {
             default:
             #include "Ast.inc"
             #undef AST_NODE
+        }
+    }
+
+    template <typename RetType, typename Handler>
+    auto dispatch( Node* n, Handler&& handler ) -> RetType {
+        switch( n->tag() ) {
+            #define AST_NODE(X) case Detail::TagOf<X>::Tag: return handler(static_cast<X*>(n) );
+            default:
+                #include "Ast.inc"
+                #undef AST_NODE
         }
     }
 }

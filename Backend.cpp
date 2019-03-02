@@ -3,7 +3,6 @@
 #include "Ast.h"
 #include "Io.h"
 
-#if 0
 namespace {
     using namespace std;
     using namespace Slip;
@@ -14,7 +13,7 @@ namespace {
 
         Io::TextOutput out;
         inline string dispatch(Ast::Node* n) {
-            return Ast::dispatch(n, *this);
+            return Ast::dispatch<string>(n, *this);
         }
 
         string operator()(Ast::Node* n) {
@@ -22,7 +21,10 @@ namespace {
             return "";
         }
         string operator()(Ast::Reference* n) {
-            return n->m_target->m_name.std_str();
+            if( auto t = dynamic_cast<Ast::Named*>( n->m_target ) ) {
+                return t->name().std_str();
+            }
+            return "??";
         }
         string operator()(Ast::Argument* n) {
             return n->m_name.std_str();
@@ -35,7 +37,7 @@ namespace {
         }
         string operator()(Ast::Definition* n) {
             auto val = dispatch(n->m_value);
-            out.write(string_format("%s %s = %s", n->m_type.name().c_str(), n->m_name, val.c_str()));
+            out.write(string_format("%s %s = %s", n->m_type->name().c_str(), n->m_name, val.c_str()));
             return n->m_name.std_str();
         }
         string operator()(Ast::Sequence* n) {
@@ -58,7 +60,7 @@ namespace {
 #endif
         string operator()(Ast::If* n) {
             auto ret = newVarId();
-            out.write(string_format("%s %s;", n->m_type.name().c_str(), ret.c_str()));
+            out.write(string_format("%s %s;", n->m_type->name().c_str(), ret.c_str()));
             out.begin(" {\n");
             auto cond = dispatch(n->m_cond);
             out.begin(string_format("if(%s) {\n", cond.c_str()));
@@ -75,7 +77,7 @@ namespace {
 
         string operator()(Ast::Cond* n) {
             auto ret = newVarId();
-            out.write(string_format("%s %s;", n->m_type.name().c_str(), ret.c_str()));
+            out.write(string_format("%s %s;", n->m_type->name().c_str(), ret.c_str()));
             out.begin(" {\n");
             for (auto c : n->m_cases) {
                 auto cond = dispatch(c.first);
@@ -94,12 +96,12 @@ namespace {
         }
 
         string operator()(Ast::FunctionDecl* n) {
-            out.begin(string_concat("\n", n->m_body->m_type.name(), " ", n->m_name, "("));
+            out.begin(string_concat("\n", n->m_type->m_callable[0]->name(), " ", n->m_name, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
                 assert(a->m_name);
-                out.write(string_concat(sep, a->m_type.name(), " ", a->m_name));
+                out.write(string_concat(sep, a->m_type->name(), " ", a->m_name));
                 sep = ", ";
             }
             out.write(") {\n");
@@ -137,12 +139,9 @@ namespace {
         int m_counter = 1;
     };
 }
-#endif
 
 void Slip::Backend::generate(Ast::Module& module) {
-    #if 0
     Generator g;
-    Ast::dispatch(&module, g);
-    #endif
+    Ast::dispatch<string>(&module, g);
 }
 
