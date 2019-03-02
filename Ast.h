@@ -69,9 +69,8 @@ namespace Slip::Ast {
         AST_DECL();
         Type(string_view sym);
         Type(istring sym);
+        std::vector<Ast::Type*> m_callable; //[0]=return [1:]=args
         //TypeRef m_elemType; //TODO ptr/array type
-        //TypeRef m_extra; //TODO func return type
-        //vector<TypeRef> m_args; //TODO func arg types
     };
 
 

@@ -159,7 +159,7 @@ namespace Slip::Sema {
         };
         deque<VisitInfo> m_visited;
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
-        std::vector< std::vector<Ast::Type*> > m_functionTypes;
+        std::vector< Ast::Type* > m_functionTypes;
         vector<Convertible> m_convertible;
         Ast::Module* m_module{ nullptr };
 
@@ -258,16 +258,15 @@ namespace Slip::Sema {
 
         void _buildFunctionType( TypeInfo* ti ) {
             assert( ti->type == nullptr );
-            std::vector<Ast::Type*> x;
-            x.emplace_back( nullptr );
+            std::vector<Ast::Type*> args;
             FuncInfo* f = ti->func;
-            x.emplace_back( f->ret->get_type() );
+            args.emplace_back( f->ret->get_type() );
             for( auto&& a : f->args ) {
-                x.emplace_back( a->get_type() );
+                args.emplace_back( a->get_type() );
             }
             for( auto&& ft : m_functionTypes ) {
-                if( std::equal( ft.begin() + 1, ft.end() + 1, x.begin() + 1, x.end() ) ) {
-                    ti->type = ft.front();
+                if( std::equal( ft->m_callable.begin() + 1, ft->m_callable.end() + 1, args.begin(), args.end() ) ) {
+                    ti->type = ft;
                     return;
                 }
             }
@@ -282,12 +281,8 @@ namespace Slip::Sema {
             name.append( ") -> " );
             name.append( f->ret->get_type()->m_name );
             auto r = new Ast::Type( name );
-            //r->m_extra = ret;
-            //for( auto s : sig ) {
-                //            r->m_args.emplace_back(s);
-            //}
-            x[0] = r;
-            m_functionTypes.emplace_back( std::move( x ) );
+            r->m_callable = std::move( args );
+            m_functionTypes.emplace_back( r );
             _resolveType( ti, r );
         }
 

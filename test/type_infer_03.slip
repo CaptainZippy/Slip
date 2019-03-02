@@ -4,4 +4,4 @@
     n) ; <---- here
 
 (func main ()
-    (print (harmonic 4)))
+    (harmonic 4))
