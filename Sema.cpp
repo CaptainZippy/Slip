@@ -99,7 +99,7 @@ namespace Slip::Sema {
             }
             auto bt = dispatch(n->m_body);
 
-            _isConvertible( bt, ret );
+            _isConvertible( ret, bt );
             _isFunction( vi.info, ret, std::move(args) );
         }
 
@@ -153,9 +153,9 @@ namespace Slip::Sema {
     public:
 
         struct Convertible {
-            Convertible(TypeInfo* c, TypeInfo* a) : cat(c), animal(a) {}
-            TypeInfo* cat;
-            TypeInfo* animal;
+            Convertible(TypeInfo* b, TypeInfo* d) : base(b), derived(d) {}
+            TypeInfo* base;
+            TypeInfo* derived;
         };
         deque<VisitInfo> m_visited;
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
@@ -170,15 +170,24 @@ namespace Slip::Sema {
 
         Result solve() {
             while( true ) {
-                bool more = false;
+                bool more = false; // backwards
                 for( auto&& c : m_convertible ) {
-                    if( !c.animal->type && c.cat->type ) {
+                    if( !c.base->type && c.derived->type ) {
                         more = true;
-                        _resolveType( c.animal, c.cat->type );
+                        _resolveType( c.base, c.derived->type );
                     }
                 }
                 if( !more ) {
-                    break;
+                    more = false; // try forwards inference
+                    for( auto&& c : m_convertible ) {
+                        if( !c.derived->type && c.base->type ) {
+                            more = true;
+                            _resolveType( c.derived, c.base->type );
+                        }
+                    }
+                    if( !more ) {
+                        break;
+                    }
                 }
             }
             for( auto&& v : m_visited ) {
@@ -220,8 +229,8 @@ namespace Slip::Sema {
             }
         }
 
-        void _isConvertible( TypeInfo* cat, TypeInfo* animal ) {
-            m_convertible.emplace_back( cat, animal );
+        void _isConvertible( TypeInfo* base, TypeInfo* derived ) {
+            m_convertible.emplace_back( base, derived );
         }
 
         TypeInfo* _internKnownType( Ast::Type* t ) {
@@ -309,7 +318,7 @@ namespace Slip::Sema {
             assert( f );
             assert( f->args.size() == args.size() );
             for( unsigned i = 0; i < args.size(); ++i ) {
-                _isConvertible( args[i], f->args[i] );
+                _isConvertible( f->args[i], args[i] );
             }
         }
     };
