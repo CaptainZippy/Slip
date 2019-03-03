@@ -97,10 +97,10 @@ namespace Slip::Sema {
             for (auto&& a : n->m_args) {
                 args.emplace_back( dispatch(a) );
             }
-            auto bt = dispatch(n->m_body);
-
-            _isConvertible( ret, bt );
             _isFunction( vi.info, ret, std::move(args) );
+            if( auto bt = n->m_body ? dispatch( n->m_body ) : nullptr ) {
+                _isConvertible( ret, bt );
+            }
         }
 
         void operator()(Ast::Reference* n, VisitInfo& vi ) {
@@ -130,24 +130,29 @@ namespace Slip::Sema {
             //dispatch(n->m_value);
         }
 
-        void operator()(Ast::If* n ) {
-            assert( false );
-            /*isa(n->m_true, n);
-            isa(n->m_false, n);*/
-            dispatch(n->m_true);
-            dispatch(n->m_false);
-            //isa(n->m_cond, &Ast::s_typeBool);
-            dispatch(n->m_cond);
+        void operator()(Ast::If* n, VisitInfo& vi ) {
+            // condition is a boolean
+            auto ci = dispatch( n->m_cond );
+            _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
+            // two legs have a common type
+            auto ti = dispatch(n->m_true);
+            auto fi = dispatch(n->m_false);
+            vi.info = new TypeInfo{};
+            _isConvertible( vi.info, ti );
+            _isConvertible( vi.info, fi );
         }
 
-        void operator()(Ast::Cond* n ) {
-            assert( false );
-            //for (auto&& c : n->m_cases) {
-            //    //isa(c.first, &Ast::s_typeBool);
-            //    dispatch(c.first);
-            //    dispatch(c.second);
-            //    isa(c.second, n);
-            //}
+        void operator()(Ast::Cond* n, VisitInfo& vi) {
+            assert( !n->m_cases.empty() );
+            vi.info = new TypeInfo{};
+            for (auto&& c : n->m_cases) {
+                // conditions are all booleans
+                auto ft = dispatch(c.first);
+                _isConvertible(_internKnownType(&Ast::s_typeBool), ft);
+                // expressions convert to a common type
+                auto st = dispatch(c.second);
+                _isConvertible( vi.info, st );
+            }
         }
 
     public:
