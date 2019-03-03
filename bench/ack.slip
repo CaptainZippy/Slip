@@ -1,21 +1,13 @@
 
 (func ack (m:int n:int):int
     (cond
-        ((eq_i? m 0)
-            (add_i n 1))
-        ((eq_i? n 0)
-            (ack (sub_i m 1) 1))
+        ((eq? m 0)
+            (add n 1))
+        ((eq? n 0)
+            (ack (sub m 1) 1))
         (true
-            (ack (sub_i m 1) (ack m (sub_i n 1))))))
+            (ack (sub m 1) (ack m (sub n 1))))))
 
-;(func ack (m:int n:int):int
-;   cond
-;       m==0 $ n+1
-;       n==0 $ ack (m-1) 1
-;       else $ ack (m-1) $ ack m (n-1)
-
-;(define x (if (vec_size argv) (vec_idx argv 0) 6))
-;(print "Ack" 3 x "=" (ackermann 3:int x))
 
 (func main ():int (begin
     (puti (ack 3 6))
