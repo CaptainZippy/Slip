@@ -396,7 +396,8 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
     auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
     auto v_i = _makeFuncType( "(int)->void", &Ast::s_typeVoid, &Ast::s_typeInt );
-    state.addIntrinsic( "eq?", b_ii);
+    state.addIntrinsic( "eq?", b_ii );
+    state.addIntrinsic( "lt?", b_ii );
     state.addIntrinsic( "add", i_ii);
     state.addIntrinsic( "sub", i_ii );
     state.addIntrinsic( "puti", v_i );

@@ -147,6 +147,7 @@ namespace {
             out.begin( "#include<stdio.h>\n" );
             out.begin("namespace XX {");
             out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
+            out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
             out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
