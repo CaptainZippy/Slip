@@ -197,6 +197,7 @@
     <None Include="test\type_infer_01.slip" />
     <None Include="test\type_infer_02.slip" />
     <None Include="test\type_infer_03.slip" />
+    <None Include="test\var_expr_01.slip" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis" />

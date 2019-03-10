@@ -43,17 +43,6 @@ namespace Slip::Parse {
             return m_end - m_begin;
         }
 
-        bool match() {
-            return used();
-        }
-        template<typename F, typename...R>
-        bool match(F f, R...r) {
-            f = cur();
-            if (advance()) {
-                return match(r...);
-            }
-            return false;
-        }
         T* begin() { return m_begin; }
         T* end() { return m_end; }
 
@@ -146,24 +135,25 @@ namespace Slip::Parse {
     struct If;
     struct Cond;
     struct Begin;
+    struct Var;
 }
 
 using namespace Slip;
 
-static Result matchLex(Parse::Args& args) {
-    RETURN_RES_IF(Result::ERR, !args.used());
+static Result matchLex( Parse::Args& args ) {
+    RETURN_RES_IF( Result::ERR, !args.used() );
     return Result::OK;
 }
 
+/// Match and consume the entire argument list exactly
 template<typename HEAD, typename...REST>
 static Result matchLex(Parse::Args& args, HEAD** head, REST**...rest) {
     auto h = dynamic_cast<HEAD*>(args.cur());
     RETURN_RES_IF(Result::ERR, !h);
     args.advance();
     *head = h;
-    return matchLex(args, rest...);
+    return matchLex( args, rest... );
 }
-
 
 Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
     *out = nullptr;
@@ -337,7 +327,7 @@ struct Parse::Cond : Parse::Parser {
         *out = nullptr;
         RETURN_RES_IF(Result::ERR, args.size() < 1);
         vector< pair<Ast::Node*, Ast::Node*> > cases;
-        for (auto arg : args) {
+        for (auto&& arg : args) {
             auto pair = dynamic_cast<Lex::List*>(arg);
             RETURN_RES_IF(Result::ERR, pair == nullptr);
             RETURN_RES_IF(Result::ERR, pair->size() != 2);
@@ -369,6 +359,29 @@ struct Parse::Begin : Parse::Parser {
     }
 };
 
+struct Parse::Var : Parse::Parser {
+    Result _parse( State* state, Args& args, Ast::Node** out ) const override {
+        *out = nullptr;
+        RETURN_RES_IF( Result::ERR, args.size() < 1 );
+        RETURN_RES_IF( Result::ERR, args.size() > 2 );
+        Lex::Symbol* sym;
+        Ast::Node* expr{ nullptr };
+        if( args.size() == 1 ) {
+            RETURN_IF_FAILED( matchLex( args, &sym ) );
+        }
+        else {
+            Lex::Atom* init;
+            RETURN_IF_FAILED( matchLex( args, &sym, &init ) );
+            RETURN_IF_FAILED( state->parse( init, &expr ) );
+        }
+        auto ret = new Ast::VariableDecl( istring::make( sym->text() ) );
+        ret->m_initializer = expr;
+        state->addSym( sym->text(), ret );
+        *out = ret;
+        return Result::OK;
+    }
+};
+
 template<typename... Args>
 static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
     auto r = new Ast::Type( name );
@@ -384,6 +397,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addParser("cond", new Cond());
     state.addParser("let", new Let());
     state.addParser("begin", new Begin());
+    state.addParser("var", new Var());
     state.addSym("int", &Ast::s_typeInt);
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);

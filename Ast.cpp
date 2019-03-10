@@ -65,6 +65,11 @@ namespace Slip::Ast {
     REFLECT_FIELD2(m_body, Flags::Child)
     REFLECT_END()
 
+    REFLECT_BEGIN( VariableDecl )
+    REFLECT_PARENT( Named )
+    REFLECT_FIELD2( m_initializer, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN(Sequence)
     REFLECT_PARENT(Node)
     REFLECT_FIELD2(m_items, Flags::Child)

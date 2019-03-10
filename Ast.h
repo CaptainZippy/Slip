@@ -175,6 +175,12 @@ namespace Slip::Ast {
         static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args);
     };
 
+    struct VariableDecl : Named {
+        AST_DECL();
+        VariableDecl( istring s ) : Named( s ) {}
+        Node* m_initializer{ nullptr };
+    };
+
     struct Sequence : Node {
         AST_DECL();
         array_view<Node*> items() {

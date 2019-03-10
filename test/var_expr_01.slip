@@ -1,0 +1,6 @@
+
+
+(func main () (begin
+    (var x 10)
+    (var y 44)
+    (add x y)))

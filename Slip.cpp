@@ -86,6 +86,7 @@ int main( int argc, const char* argv[] ) {
     auto parser = Args::Parser();
     parser.add("--dump-parse", {}, [](string_view v) { Args::dumpParse = true; });
     parser.add("--dump-infer", {}, [](string_view v) { Args::dumpInfer = true; });
+    parser.add("--nop", {}, [](string_view v) { /*ignore arg*/ });
     parser.add("input", "Input file", [](string_view v) { Args::inputs.emplace_back(v); });
     try {
         parser.parse(make_array_view(argv + 1, argc - 1));

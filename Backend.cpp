@@ -126,6 +126,15 @@ namespace {
             return n->m_name.std_str();
         }
 
+        string operator()( Ast::VariableDecl* n ) {
+            out.begin( string_concat( n->m_type->name(), " "sv, n->m_name) );
+            if( n->m_initializer ) {
+                out.write( string_concat(" = "sv, dispatch( n->m_initializer )));
+            }
+            out.end( ";"sv );
+            return n->m_name.std_str();
+        }
+
         string operator()(Ast::FunctionCall* n) {
             auto func = dispatch(n->m_func);
             vector<string> args;

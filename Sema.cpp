@@ -108,6 +108,20 @@ namespace Slip::Sema {
             }
         }
 
+        void operator()( Ast::VariableDecl* n, VisitInfo& vi ) {
+            if( n->m_type ) { // known?
+                vi.info = _internKnownType( n->m_type );
+            }
+            else if( n->m_initializer ) {
+                auto ti = dispatch( n->m_initializer );
+                vi.info = ti;
+            }
+            else {
+                assert( false );
+                vi.info = new TypeInfo{};
+            }
+        }
+
         void operator()(Ast::Reference* n, VisitInfo& vi ) {
             vi.info = dispatch(n->m_target);
         }
