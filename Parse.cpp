@@ -99,6 +99,19 @@ namespace Slip::Parse {
             assert(p.second);
         }
 
+        void addIntrinsic( string_view sym, Ast::Type* type) {
+            auto s = istring::make( sym );
+            auto f = new Ast::FunctionDecl( sym, WITH(_.m_type=type) );
+            char name[2] = { 'a','0' };
+            for( auto&& at : array_view(type->m_callable).ltrim(1) ) {
+                auto a = new Ast::Argument( name, WITH(_.m_type = at) );
+                f->m_args.emplace_back( a );
+                name[0] += 1;
+            }
+            auto p = syms.back().insert_or_assign(s, Pair{ nullptr, f });
+            assert( p.second );
+        }
+
         Lex::Symbol* symbol(Lex::Atom* atom) {
             if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
                 return sym;
@@ -136,8 +149,6 @@ namespace Slip::Parse {
 }
 
 using namespace Slip;
-
-#define WITH(...) [&](auto&_){ __VA_ARGS__; }
 
 static Result matchLex(Parse::Args& args) {
     RETURN_RES_IF(Result::ERR, !args.used());
@@ -358,6 +369,12 @@ struct Parse::Begin : Parse::Parser {
     }
 };
 
+template<typename... Args>
+static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
+    auto r = new Ast::Type( name );
+    r->m_callable = { args... };
+    return r;
+}
 
 Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     State state;
@@ -375,6 +392,14 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
 
     state.addSym("true", new Ast::Number("true", WITH(_.m_type=&Ast::s_typeBool)));
     state.addSym("false", new Ast::Number("false", WITH(_.m_type=&Ast::s_typeBool)));
+
+    auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
+    auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
+    auto v_i = _makeFuncType( "(int)->void", &Ast::s_typeVoid, &Ast::s_typeInt );
+    state.addIntrinsic( "eq?", b_ii);
+    state.addIntrinsic( "add", i_ii);
+    state.addIntrinsic( "sub", i_ii );
+    state.addIntrinsic( "puti", v_i );
 
     auto module = make_unique_del<Ast::Module>();
     for (auto c : lex.items()) {

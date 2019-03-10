@@ -186,12 +186,12 @@
     <None Include="bench\moments.slip" />
     <None Include="bench\nestedloop.slip" />
     <None Include="bench\nsieve.slip" />
-    <None Include="deps.dgml" />
     <None Include="slip.natvis">
       <SubType>Designer</SubType>
     </None>
     <None Include="test.py" />
     <None Include="test\cond_expr_01.slip" />
+    <None Include="test\intrinsic_01.slip" />
     <None Include="test\let_expr_01.slip" />
     <None Include="test\type_infer_00.slip" />
     <None Include="test\type_infer_01.slip" />

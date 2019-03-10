@@ -22,7 +22,7 @@ namespace {
         }
         string operator()(Ast::Reference* n) {
             if( auto t = dynamic_cast<Ast::Named*>( n->m_target ) ) {
-                return t->name().std_str();
+                return sanitize(t->name());
             }
             return "??";
         }
@@ -95,6 +95,21 @@ namespace {
             return ret;
         }
 
+        static string sanitize( string_view inp ) {
+            string s;
+            size_t cur = 0;
+            while(true) {
+                auto p = inp.find_first_of( "?!"sv, cur );
+                if( p == string::npos ) {
+                    s.append( inp.begin() + cur, inp.end() );
+                    return s;
+                }
+                s.append( inp.begin() + cur, inp.begin() + cur + p );
+                s.append( "_"sv );
+                cur = p + 1;
+            }
+        }
+
         string operator()(Ast::FunctionDecl* n) {
             out.begin(string_concat("\n", n->m_type->m_callable[0]->name(), " ", n->m_name, "("));
             const char* sep = "";
@@ -129,7 +144,12 @@ namespace {
         }
 
         string operator()(Ast::Module* n) {
+            out.begin( "#include<stdio.h>\n" );
             out.begin("namespace XX {");
+            out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
+            out.write( "inline int add(int a, int b) { return a+b; }\n" );
+            out.write( "inline int sub(int a, int b) { return a-b; }\n" );
+            out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
             for (auto n : n->m_items) {
                 dispatch(n);
             }

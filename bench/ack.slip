@@ -10,6 +10,9 @@
 
 
 (func main ():int (begin
+    (puti (ack 3 3))
+    (puti (ack 3 4))
+    (puti (ack 3 5))
     (puti (ack 3 6))
     0))
 

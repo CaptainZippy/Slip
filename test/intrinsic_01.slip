@@ -1,0 +1,5 @@
+
+(func main():int
+    (cond
+        ((eq? 1 0) (sub 8 2))
+        ((add 1 0) (puti 11))))

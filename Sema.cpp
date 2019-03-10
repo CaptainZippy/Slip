@@ -91,15 +91,20 @@ namespace Slip::Sema {
         }
 
         void operator()(Ast::FunctionDecl* n, VisitInfo& vi) {
-            vi.info = new TypeInfo{};
-            auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
-            std::vector<TypeInfo*> args;
-            for (auto&& a : n->m_args) {
-                args.emplace_back( dispatch(a) );
+            if( n->m_type ) { // intrinsic?
+                vi.info = _internKnownType( n->m_type );
             }
-            _isFunction( vi.info, ret, std::move(args) );
-            if( auto bt = n->m_body ? dispatch( n->m_body ) : nullptr ) {
-                _isConvertible( ret, bt );
+            else {
+                vi.info = new TypeInfo{};
+                auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
+                std::vector<TypeInfo*> args;
+                for( auto&& a : n->m_args ) {
+                    args.emplace_back( dispatch( a ) );
+                }
+                _isFunction( vi.info, ret, std::move( args ) );
+                if( auto bt = n->m_body ? dispatch( n->m_body ) : nullptr ) {
+                    _isConvertible( ret, bt );
+                }
             }
         }
 
@@ -250,6 +255,15 @@ namespace Slip::Sema {
                 auto ti = new TypeInfo;
                 _resolveType( ti, t );
                 it.first->second = ti;
+                auto& call = t->m_callable;
+                if( !call.empty() ) { // function type?
+                    auto f = new FuncInfo;
+                    ti->func = f;
+                    f->ret = _internKnownType( call[0] );
+                    for( auto&& a : array_view( call ).ltrim( 1 ) ) {
+                        f->args.emplace_back( _internKnownType( a ) );
+                    }
+                }
             }
             return it.first->second;
         }
