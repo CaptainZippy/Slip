@@ -4,6 +4,8 @@
 #include "Lex.h"
 #include "Ast.h"
 
+#define WITH(...) [&](auto&_){ __VA_ARGS__; }
+
 namespace Slip::Parse {
     struct State;
 
@@ -161,7 +163,16 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         const Pair* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
         RETURN_RES_IF(Result::ERR, p->first != nullptr);
-        *out = new Ast::Reference(p->second);
+        //TODO: detect symbol is decl or const.
+        if( auto at = dynamic_cast<Ast::Type*>( p->second ) ) {
+            *out = p->second;
+        }
+        else if( auto nu = dynamic_cast<Ast::Number*>( p->second ) ) {
+            *out = p->second;
+        }
+        else {
+            *out = new Ast::Reference(p->second);
+        }
         return Result::OK;
     }
     else if (auto list = dynamic_cast<Lex::List*>(atom)) {
@@ -362,8 +373,8 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addSym("string", &Ast::s_typeString);
     state.addSym("bool", &Ast::s_typeBool);
 
-    state.addSym("true", new Ast::Reference(&Ast::s_typeBool));
-    state.addSym("false", new Ast::Reference(&Ast::s_typeBool));
+    state.addSym("true", new Ast::Number("true", WITH(_.m_type=&Ast::s_typeBool)));
+    state.addSym("false", new Ast::Number("false", WITH(_.m_type=&Ast::s_typeBool)));
 
     auto module = make_unique_del<Ast::Module>();
     for (auto c : lex.items()) {

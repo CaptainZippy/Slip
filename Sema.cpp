@@ -197,8 +197,14 @@ namespace Slip::Sema {
             }
             for( auto&& v : m_visited ) {
                 assert( v.node );
-                assert( v.node->m_type == nullptr );
                 assert( v.info->type != nullptr );
+                if( v.node->m_type ) {
+                    assert( v.node->m_type == v.info->type );
+                }
+                else {
+                    assert( v.node->m_type == nullptr );
+                }
+
                 v.node->m_type = v.info->type;
             }
             return Result::OK;
@@ -252,7 +258,10 @@ namespace Slip::Sema {
             if( !te ) {
                 return new TypeInfo{};
             }
-            if( auto r = dynamic_cast<Ast::Reference*>( te ) ) {
+            if( auto t = dynamic_cast<Ast::Type*>( te ) ) {
+                return _internKnownType( t );
+            }
+            else if( auto r = dynamic_cast<Ast::Reference*>( te ) ) {
                 auto t = dynamic_cast<Ast::Type*>( r->m_target );
                 assert( t );
                 return _internKnownType( t );
