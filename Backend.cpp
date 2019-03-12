@@ -75,6 +75,15 @@ namespace {
             return ret;
         }
 
+        string operator()( Ast::While* n ) {
+            out.begin( "while(true) {" );
+            auto cond = dispatch( n->m_cond );
+            out.write( string_concat("if(!", cond, ") { break; }\n") );
+            string b = dispatch( n->m_body );
+            out.end( "}\n" );
+            return "";
+        }
+
         string operator()(Ast::Cond* n) {
             auto ret = newVarId();
             out.write(string_format("%s %s;", n->m_type->name().c_str(), ret.c_str()));
@@ -135,6 +144,14 @@ namespace {
             return n->m_name.std_str();
         }
 
+        string operator()( Ast::Assignment* n ) {
+            out.write( "/*" );
+            auto lhs = dispatch( n->m_lhs );
+            out.write( "*/" );
+            out.write( string_concat( lhs, " = "sv, dispatch( n->m_rhs ), ";\n"sv ));
+            return lhs;
+        }
+
         string operator()(Ast::FunctionCall* n) {
             auto func = dispatch(n->m_func);
             vector<string> args;
@@ -159,7 +176,11 @@ namespace {
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
+            out.write( "inline double dfromi(int a) { return (double)a; }\n" );
+            out.write( "inline double divd(double a, double b) { return a/b; }\n" );
+            out.write( "inline double addd(double a, double b) { return a+b; }\n" );
             out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
+            out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
             for (auto n : n->m_items) {
                 dispatch(n);
             }

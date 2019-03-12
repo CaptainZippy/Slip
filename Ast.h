@@ -55,6 +55,14 @@ namespace Slip::Ast {
         If(Node* c, Node* t, Node* f) : m_cond(c), m_true(t), m_false(f) {}
     };
 
+    struct While : Node {
+        AST_DECL();
+        Node* m_cond;
+        Node* m_body;
+
+        While( Node* c, Node* b ) : m_cond( c ), m_body( b ) {}
+    };
+
     struct Cond : Node {
         AST_DECL();
         vector< pair<Node*, Node*> > m_cases;
@@ -179,6 +187,13 @@ namespace Slip::Ast {
         AST_DECL();
         VariableDecl( istring s ) : Named( s ) {}
         Node* m_initializer{ nullptr };
+    };
+
+    struct Assignment : Node {
+        AST_DECL();
+        Assignment( Node* lhs, Node* rhs ) : m_lhs(lhs), m_rhs(rhs) {}
+        Node* m_lhs{ nullptr };
+        Node* m_rhs{ nullptr };
     };
 
     struct Sequence : Node {

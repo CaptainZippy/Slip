@@ -53,6 +53,12 @@ namespace Slip::Ast {
     REFLECT_FIELD2(m_false, Flags::Child)
     REFLECT_END()
 
+    REFLECT_BEGIN( While )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_cond, Flags::Child )
+    REFLECT_FIELD2( m_body, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN(Cond)
     REFLECT_PARENT(Node)
     REFLECT_FIELD2(m_cases, Flags::Child)
@@ -68,6 +74,12 @@ namespace Slip::Ast {
     REFLECT_BEGIN( VariableDecl )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_initializer, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( Assignment )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_lhs, Flags::Child )
+    REFLECT_FIELD2( m_rhs, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN(Sequence)

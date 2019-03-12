@@ -122,6 +122,13 @@ namespace Slip::Sema {
             }
         }
 
+        void operator()( Ast::Assignment* n, VisitInfo& vi ) {
+            auto tr = dispatch( n->m_rhs );
+            auto tl = dispatch( n->m_lhs );
+            _isConvertible( tl, tr );
+            vi.info = tl;
+        }
+
         void operator()(Ast::Reference* n, VisitInfo& vi ) {
             vi.info = dispatch(n->m_target);
         }
@@ -159,6 +166,13 @@ namespace Slip::Sema {
             vi.info = new TypeInfo{};
             _isConvertible( vi.info, ti );
             _isConvertible( vi.info, fi );
+        }
+
+        void operator()( Ast::While* n, VisitInfo& vi ) {
+            // condition is a boolean
+            auto ci = dispatch( n->m_cond );
+            _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
+            vi.info = dispatch( n->m_body );
         }
 
         void operator()(Ast::Cond* n, VisitInfo& vi) {

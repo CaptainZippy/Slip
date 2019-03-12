@@ -133,9 +133,11 @@ namespace Slip::Parse {
     struct Func;
     struct Let;
     struct If;
+    struct While;
     struct Cond;
     struct Begin;
     struct Var;
+    struct Set;
 }
 
 using namespace Slip;
@@ -322,6 +324,23 @@ struct Parse::If : Parse::Parser {
     }
 };
 
+
+struct Parse::While : Parse::Parser {
+    Result _parse( State* state, Args& args, Ast::Node** out ) const override {
+        Lex::Atom* lcond;
+        Lex::Atom* lbody;
+        RETURN_IF_FAILED( matchLex( args, &lcond, &lbody ) );
+
+        Ast::Node* ncond;
+        Ast::Node* nbody;
+        RETURN_IF_FAILED( state->parse( lcond, &ncond ) );
+        RETURN_IF_FAILED( state->parse( lbody, &nbody ) );
+
+        *out = new Ast::While( ncond, nbody );
+        return Result::OK;
+    }
+};
+
 struct Parse::Cond : Parse::Parser {
     Result _parse(State* state, Args& args, Ast::Node** out) const override {
         *out = nullptr;
@@ -380,6 +399,24 @@ struct Parse::Var : Parse::Parser {
         *out = ret;
         return Result::OK;
     }
+    
+};
+
+struct Parse::Set : Parse::Parser {
+    Result _parse( State* state, Args& args, Ast::Node** out ) const override {
+        *out = nullptr;
+        Lex::Symbol* sym;
+        Lex::Atom* expr;
+        RETURN_IF_FAILED( matchLex( args, &sym, &expr ) );
+        State::Pair const* pair = nullptr;
+        RETURN_IF_FAILED( state->lookup( sym->text(), &pair ) );
+        RETURN_RES_IF( Result::ERR, pair->first != nullptr );
+        RETURN_RES_IF( Result::ERR, pair->second == nullptr );
+        Ast::Node* rhs;
+        RETURN_IF_FAILED( state->parse( expr, &rhs ) );
+        *out = new Ast::Assignment( pair->second, rhs );
+        return Result::OK;
+    }
 };
 
 template<typename... Args>
@@ -394,10 +431,12 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addParser("define", new Define());
     state.addParser("func", new Func());
     state.addParser("if", new If());
+    state.addParser("while", new While());
     state.addParser("cond", new Cond());
     state.addParser("let", new Let());
     state.addParser("begin", new Begin());
     state.addParser("var", new Var());
+    state.addParser("set!", new Set());
     state.addSym("int", &Ast::s_typeInt);
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);
@@ -410,11 +449,18 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
     auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
     auto v_i = _makeFuncType( "(int)->void", &Ast::s_typeVoid, &Ast::s_typeInt );
+    auto v_d = _makeFuncType( "(double)->void", &Ast::s_typeVoid, &Ast::s_typeDouble );
+    auto d_dd = _makeFuncType( "(double, double)->double", &Ast::s_typeDouble, &Ast::s_typeDouble, &Ast::s_typeDouble );
+    auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     state.addIntrinsic( "eq?", b_ii );
     state.addIntrinsic( "lt?", b_ii );
-    state.addIntrinsic( "add", i_ii);
+    state.addIntrinsic( "add", i_ii );
     state.addIntrinsic( "sub", i_ii );
     state.addIntrinsic( "puti", v_i );
+    state.addIntrinsic( "putd", v_d );
+    state.addIntrinsic( "addd", d_dd);
+    state.addIntrinsic( "divd", d_dd );
+    state.addIntrinsic( "dfromi", d_i );
 
     auto module = make_unique_del<Ast::Module>();
     for (auto c : lex.items()) {
