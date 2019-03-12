@@ -1,17 +1,15 @@
 
-(func harmonic (n : int) : double
-    (begin
-        (var i 0:int)
-        (var d 0:double)
-        (while (lt d n)
-            (set d (add (d (div 1.0 double))))
-    )
-    (let ((acc n)) acc))
-    
+(func harmonic (n : int) : double (begin
+    (var i 0:int)
+    (var d 0:double)
+    (while (lt? i n) (begin
+        (set! i (add i 1))
+        (set! d (addd d (divd 1.0 (dfromi i))))))
+    d))
 
 (func main ():int
     (begin
-        (print (harmonic 4:int))
+        (putd (harmonic 4))
         0))
 
 
