@@ -87,6 +87,11 @@ namespace Slip::Io {
         }
         int line() const;
         int col() const;
+
+        string_view text() const {
+            auto s = m_file->m_contents.c_str();
+            return { s + m_start, m_end - m_start };
+        }
     };
 
     struct TextInput {

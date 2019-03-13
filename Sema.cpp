@@ -59,10 +59,7 @@ namespace Slip::Sema {
         }
 
         void operator()(Ast::String* n, VisitInfo& vi) {
-            vi.info = _evalTypeExpr( n->m_declTypeExpr );
-            //n->m_type = &Ast::s_typeString;
-            //isa(n, &Ast::s_typeString);
-            assert( false );
+            vi.info = _internKnownType( &Ast::s_typeString );
         }
 
         void operator()(Ast::FunctionCall* n, VisitInfo& vi) {
@@ -70,6 +67,12 @@ namespace Slip::Sema {
             std::vector<TypeInfo*> ai;
             for (auto&& a : n->m_args) {
                 ai.emplace_back( dispatch(a) );
+            }
+            if(!fi->func) { //TODO extract method
+                auto& loc = n->m_loc;
+                auto text = loc.text();
+                RETURN_RES_IF( , !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s",
+                    loc.filename(), loc.line(), loc.col(), text.size(), text.begin() );
             }
             _isApplicable(fi, ai);
             vi.info = fi->get_func()->ret;

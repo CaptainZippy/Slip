@@ -158,8 +158,15 @@ namespace {
             for (auto a : n->m_args) {
                 args.push_back(dispatch(a));
             }
-            auto retId = newVarId();
-            out.write(string_concat("auto ", retId, " = ", func, "("));
+            string retId;
+            if( n->m_type != &Ast::s_typeVoid ) {
+                retId = newVarId();
+                out.write( string_concat( "auto ", retId, " = ", func, "(" ) );
+            }
+            else {
+                retId = "/*void*/";
+                out.write( string_concat(func, "(" ) );
+            }
             auto sep = "";
             for (auto a : args) {
                 out.write(string_concat(sep, a));
@@ -171,7 +178,12 @@ namespace {
 
         string operator()(Ast::Module* n) {
             out.begin( "#include<stdio.h>\n" );
+            out.write( "#include<string>\n" );
             out.begin("namespace XX {");
+            out.write( "struct string { std::string m_s; "
+                "string() = default; "
+                "string(const char* s, size_t l) : m_s(s,l) {} "
+                "};\n" );
             out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
@@ -179,9 +191,12 @@ namespace {
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
             out.write( "inline double divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double addd(double a, double b) { return a+b; }\n" );
-            out.write( "inline int puts(int a) { return printf(\"%i\\n\", a); }\n" );
+            out.write( "inline int puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
             out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
+            
+            out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
+            out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
             for (auto n : n->m_items) {
                 dispatch(n);
             }
