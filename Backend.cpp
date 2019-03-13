@@ -179,6 +179,7 @@ namespace {
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
             out.write( "inline double divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double addd(double a, double b) { return a+b; }\n" );
+            out.write( "inline int puts(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
             for (auto n : n->m_items) {

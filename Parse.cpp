@@ -448,6 +448,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
 
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
     auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
+    auto v_s = _makeFuncType( "(string)->void", &Ast::s_typeVoid, &Ast::s_typeString );
     auto v_i = _makeFuncType( "(int)->void", &Ast::s_typeVoid, &Ast::s_typeInt );
     auto v_d = _makeFuncType( "(double)->void", &Ast::s_typeVoid, &Ast::s_typeDouble );
     auto d_dd = _makeFuncType( "(double, double)->double", &Ast::s_typeDouble, &Ast::s_typeDouble, &Ast::s_typeDouble );
@@ -456,6 +457,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addIntrinsic( "lt?", b_ii );
     state.addIntrinsic( "add", i_ii );
     state.addIntrinsic( "sub", i_ii );
+    state.addIntrinsic( "puts", v_s );
     state.addIntrinsic( "puti", v_i );
     state.addIntrinsic( "putd", v_d );
     state.addIntrinsic( "addd", d_dd);
