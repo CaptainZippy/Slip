@@ -79,8 +79,8 @@ namespace Slip::Ast {
         AST_DECL();
         Type(string_view sym);
         Type(istring sym);
+        //non-empty for callable types. 
         std::vector<Ast::Type*> m_callable; //[0]=return [1:]=args
-        //TypeRef m_elemType; //TODO ptr/array type
     };
 
 
@@ -150,7 +150,8 @@ namespace Slip::Ast {
 
     struct FunctionDecl : Named {
         AST_DECL();
-        using Intrinsic = Result (*)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
+        //using Intrinsic = Result (*)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
+        using Intrinsic = Result (*)(array_view<Node*> args, Ast::Node** out);
 
         vector< Argument* > m_args;
         Ast::Node* m_declReturnTypeExpr{ nullptr };
@@ -167,15 +168,6 @@ namespace Slip::Ast {
             with(*this);
         }
 
-        Result invoke(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out) {
-            RETURN_RES_IF(Result::ERR, args.size() != m_args.size());
-            //todo check args
-            if (m_intrinsic) {
-                return (*m_intrinsic)(eval, args, out);
-            }
-            return Result::ERR;
-        }
-
             /// Create a named function of two arguments.
         static FunctionDecl* makeBinaryOp(string_view name, Argument* a, Argument* b, Node* ret);
 
@@ -185,7 +177,12 @@ namespace Slip::Ast {
 
     struct VariableDecl : Named {
         AST_DECL();
-        VariableDecl( istring s ) : Named( s ) {}
+        VariableDecl( istring name ) : Named( name ) {}
+        template<typename With>
+        VariableDecl( istring name, With&& with )
+            : Named( name ) {
+            with( *this );
+        }
         Node* m_initializer{ nullptr };
     };
 

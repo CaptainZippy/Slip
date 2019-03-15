@@ -68,12 +68,12 @@ namespace Slip::Io {
 
     struct SourceLocation {
 
-        const SourceNameAndContents* m_file;
-        size_t m_start;
-        size_t m_end;
+        const SourceNameAndContents* m_file{ nullptr };
+        size_t m_start{ 0 };
+        size_t m_end{ 0 };
 
-        SourceLocation() : m_start(0), m_end(0) {
-        }
+        SourceLocation() = default;
+
         SourceLocation(const SourceNameAndContents* f, long s, long e = -1) : m_file(f), m_start(s), m_end(e) {
         }
 

@@ -1,0 +1,4 @@
+
+(func main ():int (begin
+    (var a:(array_view string))
+    0))

@@ -184,6 +184,7 @@ namespace {
                 "string() = default; "
                 "string(const char* s, size_t l) : m_s(s,l) {} "
                 "};\n" );
+            out.write( "template<typename T> struct array_view { T* m_data; size_t m_count; };\n" );
             out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );

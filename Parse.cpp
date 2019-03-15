@@ -88,7 +88,7 @@ namespace Slip::Parse {
             assert(p.second);
         }
 
-        void addIntrinsic( string_view sym, Ast::Type* type) {
+        auto addIntrinsic( string_view sym, Ast::Type* type ) -> Ast::FunctionDecl* {
             auto s = istring::make( sym );
             auto f = new Ast::FunctionDecl( sym, WITH(_.m_type=type) );
             char name[2] = { 'a','0' };
@@ -99,6 +99,7 @@ namespace Slip::Parse {
             }
             auto p = syms.back().insert_or_assign(s, Pair{ nullptr, f });
             assert( p.second );
+            return f;
         }
 
         Lex::Symbol* symbol(Lex::Atom* atom) {
@@ -393,7 +394,9 @@ struct Parse::Var : Parse::Parser {
             RETURN_IF_FAILED( matchLex( args, &sym, &init ) );
             RETURN_IF_FAILED( state->parse( init, &expr ) );
         }
-        auto ret = new Ast::VariableDecl( istring::make( sym->text() ) );
+        Ast::Node* te;
+        RETURN_IF_FAILED( state->parse( sym->m_decltype, &te ) );
+        auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH(_.m_declTypeExpr=te) );
         ret->m_initializer = expr;
         state->addSym( sym->text(), ret );
         *out = ret;
@@ -426,6 +429,16 @@ static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
     return r;
 }
 
+static Result _makeArrayType( array_view<Ast::Node*> args, Ast::Node** out ) {
+    assert( args.size() == 1 );
+    auto type = dynamic_cast<Ast::Type*>( args[0] );
+    assert( type );
+    auto name = string_format( "array_view<%s>", type->name().c_str() );
+    auto r = new Ast::Type( name );
+    *out = r;
+    return Result::OK;
+}
+
 Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     State state;
     state.addParser("define", new Define());
@@ -454,6 +467,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     auto d_dd = _makeFuncType( "(double, double)->double", &Ast::s_typeDouble, &Ast::s_typeDouble, &Ast::s_typeDouble );
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
+    auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     state.addIntrinsic( "eq?", b_ii );
     state.addIntrinsic( "lt?", b_ii );
     state.addIntrinsic( "add", i_ii );
@@ -465,6 +479,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addIntrinsic( "divd", d_dd );
     state.addIntrinsic( "dfromi", d_i );
     state.addIntrinsic( "strcat!", v_ss );
+    { auto f = state.addIntrinsic( "array_view", t_t ); f->m_intrinsic = _makeArrayType; }
 
     auto module = make_unique_del<Ast::Module>();
     for (auto c : lex.items()) {

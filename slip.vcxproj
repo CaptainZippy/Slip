@@ -190,6 +190,7 @@
       <SubType>Designer</SubType>
     </None>
     <None Include="test.py" />
+    <None Include="test\array_type_01.slip" />
     <None Include="test\cond_expr_01.slip" />
     <None Include="test\intrinsic_01.slip" />
     <None Include="test\let_expr_01.slip" />

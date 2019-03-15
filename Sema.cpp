@@ -119,6 +119,9 @@ namespace Slip::Sema {
                 auto ti = dispatch( n->m_initializer );
                 vi.info = ti;
             }
+            else if( auto te = n->m_declTypeExpr ) {
+                vi.info = _evalTypeExpr( te );
+            }
             else {
                 assert( false );
                 vi.info = new TypeInfo{};
@@ -310,6 +313,19 @@ namespace Slip::Sema {
                 auto t = dynamic_cast<Ast::Type*>( r->m_target );
                 assert( t );
                 return _internKnownType( t );
+            }
+            else if( auto call = dynamic_cast<Ast::FunctionCall*>( te ) ) {
+                auto fnode = call->m_func;
+                if( auto r = dynamic_cast<Ast::Reference*>( fnode ) ) {
+                    fnode = r->m_target;
+                }
+                auto func = dynamic_cast<Ast::FunctionDecl*>( fnode );
+                assert( func );
+                Ast::Node* ret;
+                ( *func->m_intrinsic )( call->m_args, &ret );
+                auto type = dynamic_cast<Ast::Type*>( ret );
+                assert( type );
+                return _internKnownType( type );
             }
             assert( false );
             return nullptr;
