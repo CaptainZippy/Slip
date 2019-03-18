@@ -29,6 +29,7 @@
 #include <memory>
 #include <algorithm>
 #include <functional>
+#include <variant>
 
 #if defined(_MSC_VER)
     #pragma warning(suppress: 4455)

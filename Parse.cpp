@@ -78,14 +78,20 @@ namespace Slip::Parse {
 
         void addParser(string_view sym, Parser* value) {
             auto s = istring::make(sym);
-            auto p = syms.back().insert_or_assign(s, Pair{ value, nullptr });
-            assert(p.second);
+            auto p = syms.back().emplace(s, value);
+            assert(p.second); // new entry
         }
 
-        void addSym(string_view sym, Ast::Node* node) {
+        Result addSym(string_view sym, Ast::Node* node) {
             auto s = istring::make(sym);
-            auto p = syms.back().insert_or_assign(s, Pair{ nullptr, node });
-            assert(p.second);
+            auto p = syms.back().emplace(s, node);
+            if( p.second ) { // new entry
+                return Result::OK;
+            }
+            // Function overload?
+            SymbolValue& existing = p.first->second;
+            RETURN_IF_FAILED( existing.addOverload( node ) );
+            return Result::OK;
         }
 
         auto addIntrinsic( string_view sym, Ast::Type* type ) -> Ast::FunctionDecl* {
@@ -97,7 +103,7 @@ namespace Slip::Parse {
                 f->m_args.emplace_back( a );
                 name[0] += 1;
             }
-            auto p = syms.back().insert_or_assign(s, Pair{ nullptr, f });
+            auto p = syms.back().insert_or_assign(s, f);
             assert( p.second );
             return f;
         }
@@ -111,11 +117,25 @@ namespace Slip::Parse {
 
         Result parse(Lex::Atom* atom, Ast::Node** out);
 
-        //protected:
+        using SymbolBase = std::variant<Parser*, Ast::Node*, vector<Ast::Node*> >;
+        struct SymbolValue : public SymbolBase {
+            using SymbolBase::SymbolBase;
+            Parser* isBuiltin() const {
+                return index() == 0 ? get<0>(*this) : nullptr;
+            }
+            Ast::Node* isNode() const {
+                return index() == 1 ? get<1>(*this) : nullptr;
+            }
+            bool isOverload() const {
+                return index() == 2;
+            }
+            const vector<Ast::Node*>& overloads() const {
+                return get<2>(*this);
+            }
+            Result addOverload( Ast::Node* n );
+        };
 
-        typedef pair<Parser*, Ast::Node*> Pair;
-
-        Result lookup(string_view sym, const Pair** out) const {
+        Result lookup(string_view sym, const SymbolValue** out) const {
             auto s = istring::make(sym);
             for (auto&& cur : reversed(syms)) {
                 auto x = cur.find(s);
@@ -126,9 +146,8 @@ namespace Slip::Parse {
             }
             RETURN_RES_IF(Result::ERR, true, "symbol not found '%s'", s.c_str());
         }
-        list< map<istring, Pair> > syms;
+        list< map<istring, SymbolValue> > syms;
     };
-
 
     struct Define;
     struct Func;
@@ -139,6 +158,25 @@ namespace Slip::Parse {
     struct Begin;
     struct Var;
     struct Set;
+
+    Result State::SymbolValue::addOverload( Ast::Node* n ) {
+        RETURN_RES_IF( Result::ERR, isBuiltin(), "Fixme" );
+        auto newFunc = dynamic_cast<Ast::FunctionDecl*>( n );
+        RETURN_RES_IF( Result::ERR, newFunc == nullptr, "Only functions can be overloads" );
+        if( isOverload() ) {
+            //TODO check not duplicate
+            get<2>(*this).push_back( newFunc );
+            return Result::OK;
+        }
+        // this changes to overload
+        auto oldFunc = isNode();
+        RETURN_RES_IF( Result::ERR, oldFunc == nullptr, "Existing symbol");
+        std::vector<Ast::Node*> decls;
+        decls.emplace_back( oldFunc );
+        decls.emplace_back( newFunc );
+        *this = std::move( decls );
+        return Result::OK;
+    }
 }
 
 using namespace Slip;
@@ -164,20 +202,25 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         return Result::OK;
     }
     else if (auto sym = dynamic_cast<Lex::Symbol*>(atom)) {
-        const Pair* p;
+        const SymbolValue* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
-        RETURN_RES_IF(Result::ERR, p->first != nullptr);
+        RETURN_RES_IF(Result::ERR, p->isBuiltin());
+        RETURN_RES_IF(Result::ERR, p->isOverload());
+
         //TODO: detect symbol is decl or const.
-        if( auto at = dynamic_cast<Ast::Type*>( p->second ) ) {
-            *out = p->second;
+        if( auto node = p->isNode() ) {
+            if( auto ty = dynamic_cast<Ast::Type*>( node ) ) {
+                *out = ty;
+            }
+            else if( auto nu = dynamic_cast<Ast::Number*>( node ) ) {
+                *out = nu;
+            }
+            else {
+                *out = new Ast::Reference( node );
+            }
+            return Result::OK;
         }
-        else if( auto nu = dynamic_cast<Ast::Number*>( p->second ) ) {
-            *out = p->second;
-        }
-        else {
-            *out = new Ast::Reference(p->second);
-        }
-        return Result::OK;
+        
     }
     else if (auto list = dynamic_cast<Lex::List*>(atom)) {
         RETURN_RES_IF(Result::ERR, !list);
@@ -186,21 +229,24 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         auto sym = symbol(items[0]);
         RETURN_RES_IF(Result::ERR, !sym);
         Args args{ items }; args.advance();
-        const Pair* p;
+        const SymbolValue* p;
         RETURN_IF_FAILED(lookup(sym->text(), &p));
-        if (p->first) { // a builtin
-            return p->first->parse(this, args, out);
+        if (auto b = p->isBuiltin()) {
+            return b->parse(this, args, out);
         }
-        else {
-            vector<Ast::Node*> fa;
-            for (auto a : args) {
-                Ast::Node* n;
-                RETURN_IF_FAILED(parse(a, &n));
-                fa.push_back(n);
-            }
-            *out = new Ast::FunctionCall(new Ast::Reference(p->second), move(fa), WITH( _.m_loc = list->m_loc) );
-            return Result::OK;
+        vector<Ast::Node*> fa;
+        for (auto a : args) {
+            Ast::Node* n;
+            RETURN_IF_FAILED(parse(a, &n));
+            fa.push_back(n);
         }
+        if( auto func = p->isNode() ) {
+            *out = new Ast::FunctionCall(new Ast::Reference(func), move(fa), WITH( _.m_loc = list->m_loc) );
+        }
+        else if( p->isOverload() ) {
+            *out = new Ast::UnresolvedCall( sym->text(), p->overloads(), move( fa ), WITH( _.m_loc = list->m_loc ) );
+        }
+        return Result::OK;
     }
     else if (auto num = dynamic_cast<Lex::Number*>(atom)) {
         Ast::Node* te;
@@ -411,13 +457,12 @@ struct Parse::Set : Parse::Parser {
         Lex::Symbol* sym;
         Lex::Atom* expr;
         RETURN_IF_FAILED( matchLex( args, &sym, &expr ) );
-        State::Pair const* pair = nullptr;
-        RETURN_IF_FAILED( state->lookup( sym->text(), &pair ) );
-        RETURN_RES_IF( Result::ERR, pair->first != nullptr );
-        RETURN_RES_IF( Result::ERR, pair->second == nullptr );
+        State::SymbolValue const* value = nullptr;
+        RETURN_IF_FAILED( state->lookup( sym->text(), &value ) );
+        RETURN_RES_IF( Result::ERR, !value->isNode() );
         Ast::Node* rhs;
         RETURN_IF_FAILED( state->parse( expr, &rhs ) );
-        *out = new Ast::Assignment( pair->second, rhs );
+        *out = new Ast::Assignment( value->isNode(), rhs );
         return Result::OK;
     }
 };

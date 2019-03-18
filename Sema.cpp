@@ -95,6 +95,42 @@ namespace Slip::Sema {
             }
         }
 
+        void operator()( Ast::UnresolvedCall* n, VisitInfo& vi ) {
+            assert( !n->m_candidates.empty() );
+            std::vector<TypeInfo*> ai;
+            for( auto&& a : n->m_args ) {
+                ai.emplace_back( dispatch( a ) );
+            }
+            std::vector<TypeInfo*> ci;
+            std::vector<FuncInfo*> fi;
+            for( auto&& c : n->m_candidates ) {
+                auto ti = dispatch( c );
+                ci.emplace_back( ti );
+                fi.emplace_back( ti->func );
+            }
+            auto isCompatible = []( array_view<TypeInfo*> proto, array_view<TypeInfo*> args ) {
+                    if( proto.size() != args.size() ) {
+                        return false;
+                    }
+                    for( unsigned i = 0; i < args.size(); ++i ) {
+                        if( proto[i]->type && proto[i]->type != args[i]->type ) { //TODO non-exact
+                            return false;
+                        }
+                    }
+                    return true;
+                };
+            std::vector<unsigned> yes;
+            for( unsigned i = 0; i < n->m_candidates.size(); ++i ) {
+                if( isCompatible( ci[i]->get_func()->args, ai ) ) {
+                    yes.emplace_back( i );
+                }
+            }
+            assert( yes.size() == 1 );
+            vi.info = ci[yes[0]];
+            n->m_resolved = new Ast::FunctionCall( new Ast::Reference(n->m_candidates[yes[0]]), std::move(n->m_args));
+            dispatch( n->m_resolved );
+        }
+
         void operator()(Ast::FunctionDecl* n, VisitInfo& vi) {
             if( n->m_type ) { // intrinsic?
                 vi.info = _internKnownType( n->m_type );

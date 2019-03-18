@@ -1,0 +1,16 @@
+
+
+(func test (s:float)
+    (puts "func_float"))
+
+(func test (s:int)
+    (puts "func_int"))
+
+(func test (s:string)
+    (puts "func_string"))
+
+(func main ():int (begin
+    (test "hello":string)
+    (test 10:int)
+    (test 10:float)
+    0))

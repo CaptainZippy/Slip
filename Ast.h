@@ -181,6 +181,28 @@ namespace Slip::Ast {
         static FunctionDecl* makeIntrinsic(string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args);
     };
 
+    // Overloaded function call.
+    // We may not be able to tell which overload is chosen until after type inference.
+    struct UnresolvedCall : Named {
+        AST_DECL();
+
+        UnresolvedCall( string_view name )
+            : Named( name ) {
+        }
+
+        template<typename With>
+        UnresolvedCall( string_view name, const std::vector<Node*>& candidates, std::vector<Node*>&& args, With&& with )
+            : Named( name )
+            , m_candidates(candidates)
+            , m_args(std::move(args)) {
+            with( *this );
+        }
+
+        std::vector< Node* > m_candidates;
+        std::vector< Node* > m_args;
+        Node* m_resolved{ nullptr }; // null until one of the candidates is chosen.
+    };
+
     struct VariableDecl : Named {
         AST_DECL();
         VariableDecl( istring name ) : Named( name ) {}
