@@ -12,6 +12,7 @@ namespace Slip::Args {
     bool dumpParse{ false };
     bool dumpInfer{ false };
     vector<string> inputs;
+    string outputDir{ "." };
 
     struct Parser {
         using Action = function<void(string_view)>;
@@ -97,7 +98,16 @@ static void compile(const char* fname) {
     if (Args::dumpInfer)
         Ast::print(ast.get());
 
-    Io::TextOutput out{ string_format("local/%s.gen.cpp", fname).c_str() };
+    string_view path{ fname };
+    auto slash = path.find_last_of( "\\/"sv );
+    if( slash != string::npos ) {
+        path.remove_prefix( slash + 1 );
+    }
+    auto suff = path.find( ".slip"sv );
+    if( suff != string::npos ) {
+        path.remove_suffix( path.size() - suff );
+    }
+    Io::TextOutput out{ string_concat( Args::outputDir, "/", path, ".cpp").c_str() };
     Backend::generate(*ast, out);
 }
 
@@ -114,6 +124,8 @@ int main( int argc, const char* argv[] ) {
         [&parser](string_view v) { parser.help(); });
     parser.add("--nop[=ignored]", "Ignore this argument",
         [](string_view v) { /*ignore arg*/ });
+    parser.add( "--output-dir=dir", "Output to specified directory",
+        [] ( string_view v ) { Args::outputDir = v; } );
     parser.add("input...", "Input files to compile",
         [](string_view v) { Args::inputs.emplace_back(v); });
     try {
