@@ -1,6 +1,7 @@
 
 
-(func main () (begin
+(func main ():int (begin
     (var x 10)
     (var y 44)
-    (add x y)))
+    (add x y)
+    0))

@@ -195,6 +195,7 @@
     <None Include="test\function_overload_01.slip" />
     <None Include="test\intrinsic_01.slip" />
     <None Include="test\let_expr_01.slip" />
+    <None Include="test\recursive_01.slip" />
     <None Include="test\string_type_01.slip" />
     <None Include="test\type_infer_00.slip" />
     <None Include="test\type_infer_01.slip" />

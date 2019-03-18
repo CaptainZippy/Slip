@@ -1,7 +1,7 @@
- ; fail without explicit conversion int->double
+ ; TODO fail without explicit conversion int->double
 
-(func harmonic (n : int):double
-    n) ; <---- here
+(func harmonic (n : int):int
+    0) ; <---- here
 
 (func main ()
     (harmonic 4))

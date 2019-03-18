@@ -1,5 +1,6 @@
 
-(func main():int
+(func main():int (begin
     (cond
         ((eq? 1 0) (sub 8 2))
-        ((add 1 0) (puti 11))))
+        (true (add 11 33)))
+    0))

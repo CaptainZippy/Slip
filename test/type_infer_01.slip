@@ -3,7 +3,7 @@
 ;
 
 (func harmonic (n : int):int
-    n) 
+    0) 
 
 (func main ()
     (harmonic 4:int))

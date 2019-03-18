@@ -1,11 +1,11 @@
 
-(func maybe (n:int):int
-    0)
+(func maybe (n:int):bool
+    false)
 
 (func recurse (n:int):int
     (cond
-        ((maybe n) n)
-        (true (recurse n))))
+        ((maybe n) (recurse (sub n 1)))
+        (true 0)))
 
 (func main():int
     (recurse 11))

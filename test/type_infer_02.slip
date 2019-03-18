@@ -1,6 +1,6 @@
 
 (func harmonic (n : int):int
-    n)
+    0)
 
 (func main ()
     (harmonic 4)) ; infer that 4 is an integer
