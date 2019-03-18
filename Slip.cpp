@@ -16,8 +16,9 @@ namespace Slip::Args {
     struct Parser {
         using Action = function<void(string_view)>;
         struct Opt {
-            string_view m_meta;
-            string_view m_help;
+            string_view m_meta; // e.g. --arg1=FOO, --arg2, --arg3 FOO BAR
+            string_view m_key; // The part to match, m_meta up to the first one of " ,.[=" e.g. "--arg"
+            string_view m_help; // Text for humans
             Action m_action;
         };
         std::vector<Opt> m_opts;
@@ -25,7 +26,9 @@ namespace Slip::Args {
 
         void add(string_view meta, string_view help, Action&& action) {
             auto& o = (meta[0] == '-') ? m_opts.emplace_back() : m_positional.emplace_back();
+            auto sl = meta.find_first_of( ". [=" );
             o.m_meta = meta;
+            o.m_key = sl == string::npos ? meta : meta.substr( 0, sl );
             o.m_help = help;
             o.m_action = move(action);
         }
@@ -42,8 +45,8 @@ namespace Slip::Args {
                         val = key_val.substr(equals + 1);
                     }
                     bool found = false;
-                    for (auto opt : m_opts) {
-                        if (opt.m_meta == key) {
+                    for (auto&& opt : m_opts) {
+                        if (opt.m_key == key) {
                             opt.m_action(val);
                             found = true;
                             break;
@@ -60,6 +63,23 @@ namespace Slip::Args {
                     positionals.front().m_action(key_val);
                     positionals = positionals.ltrim(1);
                 }
+            }
+        }
+
+        void help() {
+            printf("slip ");
+            for( auto&& opt : m_opts ) {
+                printf("%s", string_concat( "[", opt.m_meta, "] ").c_str() );
+            }
+            for( auto&& opt : m_positional ) {
+                printf( "%s", string_concat( opt.m_meta ).c_str() );
+            }
+            printf("\n");
+            for( auto&& opt : m_opts ) {
+                printf("%s\n", string_concat("\t", opt.m_meta, "\t", opt.m_help ).c_str());
+            }
+            for( auto&& opt : m_positional ) {
+                printf( "%s\n", string_concat( "\t", opt.m_meta, "\t", opt.m_help ).c_str() );
             }
         }
     };
@@ -84,10 +104,18 @@ static void compile(const char* fname) {
 int main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
-    parser.add("--dump-parse", {}, [](string_view v) { Args::dumpParse = true; });
-    parser.add("--dump-infer", {}, [](string_view v) { Args::dumpInfer = true; });
-    parser.add("--nop", {}, [](string_view v) { /*ignore arg*/ });
-    parser.add("input", "Input file", [](string_view v) { Args::inputs.emplace_back(v); });
+    parser.add("--dump-parse"sv, "Debug print each module after parsing"sv,
+        [](string_view v) { Args::dumpParse = true; });
+    parser.add("--dump-infer", "Debug print each module after type inference"sv,
+        [](string_view v) { Args::dumpInfer = true; });
+    parser.add("-h", "Show help"sv,
+        [&parser](string_view v) { parser.help(); });
+    parser.add("--help", "Show help"sv,
+        [&parser](string_view v) { parser.help(); });
+    parser.add("--nop[=ignored]", "Ignore this argument",
+        [](string_view v) { /*ignore arg*/ });
+    parser.add("input...", "Input files to compile",
+        [](string_view v) { Args::inputs.emplace_back(v); });
     try {
         parser.parse(make_array_view(argv + 1, argc - 1));
         for (auto input : Args::inputs) {
