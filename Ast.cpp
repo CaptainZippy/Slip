@@ -109,11 +109,19 @@ namespace Slip::Ast {
 
 using namespace Slip;
 
+Ast::Node* Ast::Node::resolve() {
+    return this;
+}
+
+Ast::Node* Ast::Reference::resolve() {
+    return m_target;
+}
 
 Ast::Type Ast::s_typeType("Type"sv);
 Ast::Type Ast::s_typeInt("int"sv);
 Ast::Type Ast::s_typeBool("bool"sv);
-Ast::Type Ast::s_typeDouble("double"sv);
+Ast::Type Ast::s_typeDouble( "double"sv );
+Ast::Type Ast::s_typeFloat("float"sv);
 Ast::Type Ast::s_typeVoid("void"sv);
 Ast::Type Ast::s_typeString("string"sv);
 

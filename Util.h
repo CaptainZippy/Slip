@@ -175,6 +175,11 @@ namespace Slip {
         return c.erase(std::remove_if(c.begin(), c.end(), lambda), c.end());
     }
 
+    template <typename Cont, typename Lambda>
+    auto for_each( Cont& c, Lambda&& lambda ) {
+        return std::for_each( c.begin(), c.end(), lambda );
+    }
+
     // Interned string
     struct istring {
         static istring make(const char* s);

@@ -451,6 +451,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addParser("var", new Var());
     state.addParser("set!", new Set());
     state.addSym("int", &Ast::s_typeInt);
+    state.addSym("float", &Ast::s_typeFloat);
     state.addSym("double", &Ast::s_typeDouble);
     state.addSym("void", &Ast::s_typeVoid);
     state.addSym("string", &Ast::s_typeString);

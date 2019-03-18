@@ -18,10 +18,12 @@ namespace Slip::Sema {
     private:
         friend struct ConstraintBuilder;
         Ast::Type* type{ nullptr };
-        FuncInfo* func{ nullptr };//TODO: Union?
+        
         int triggerCount{ 0 };
         std::vector<TypeInfo*> triggerNotify;
         std::function<void( TypeInfo* )> triggerAction;
+
+        FuncInfo* func{ nullptr };//TODO: Union?
     public:
         auto get_type() const {
             assert( type );
@@ -233,6 +235,9 @@ namespace Slip::Sema {
                         break;
                     }
                 }
+            }
+            for( auto&& c : m_convertible ) {
+                assert( c.derived->type == c.base->type ); //TODO inheritance check
             }
             for( auto&& v : m_visited ) {
                 assert( v.node );

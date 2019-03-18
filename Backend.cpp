@@ -7,12 +7,15 @@ namespace {
     using namespace std;
     using namespace Slip;
     struct Generator {
+
+        Io::TextOutput& out;
+        int m_counter = 1;
+		
         string newVarId() {
             return string_format("_%i", m_counter++);
         }
 
-        Io::TextOutput& out;
-        inline string dispatch(Ast::Node* n) {
+        string dispatch(Ast::Node* n) {
             return Ast::dispatch<string>(n, *this);
         }
 
@@ -30,7 +33,7 @@ namespace {
             return n->m_name.std_str();
         }
         string operator()(Ast::Number* n) {
-            return n->m_num;
+            return string_format("(%s)%s", n->m_type->name().c_str(), n->m_num.c_str());
         }
         string operator()(Ast::String* n) {
             return string_concat("\"", n->m_str, "\"_str");
@@ -204,7 +207,6 @@ namespace {
             out.end("}");
             return "";
         }
-        int m_counter = 1;
     };
 }
 

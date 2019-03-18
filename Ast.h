@@ -30,6 +30,8 @@ namespace Slip::Ast {
             w(*this);
         }
 
+        virtual Node* resolve();
+
         size_t m_userData;
         Ast::Type* m_type{ nullptr };
         Ast::Node* m_declTypeExpr{nullptr};
@@ -72,6 +74,7 @@ namespace Slip::Ast {
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeBool;
     extern Ast::Type s_typeDouble;
+    extern Ast::Type s_typeFloat;
     extern Ast::Type s_typeVoid;
     extern Ast::Type s_typeString;
 
@@ -133,6 +136,9 @@ namespace Slip::Ast {
         AST_DECL();
         Node* m_func{ nullptr };
         vector< Node* > m_args;
+        FunctionCall( Node* func, vector< Node* >&& args )
+            : m_func( func ), m_args( args ) {
+        }
         template<typename With>
         FunctionCall( Node* func, vector< Node* >&& args, With&& with )
             : m_func(func), m_args(args) {
@@ -206,6 +212,8 @@ namespace Slip::Ast {
         AST_DECL();
         Reference(Node* s) : m_target(s) {
         }
+        Node* resolve() override;
+
         Node* m_target;
     };
 
