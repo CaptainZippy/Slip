@@ -4,6 +4,7 @@
         "functional": "cpp",
         "array": "cpp",
         "initializer_list": "cpp",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "string_view": "cpp"
     }
 }

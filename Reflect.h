@@ -113,7 +113,7 @@ namespace Slip::Reflect {
     struct TypeOf< string > {
         static inline const Type* value() {
             static const Type t{ Kind::String, nullptr, nullptr, "char[]",
-                sizeof(string), nullptr, nullptr, [](const void* addr) { return string_view{ *(string*)addr }; } };
+                sizeof(string), nullptr, nullptr, [](const void* addr) { return string_view{ ((string*)addr)->data(), ((string*)addr)->size() }; } };
             return &t;
         }
     };
@@ -122,7 +122,7 @@ namespace Slip::Reflect {
     struct TypeOf<istring> {
         static inline const Type* value() {
             static const Type t{ Kind::String, nullptr, nullptr, "char[]",
-                sizeof(istring), nullptr, nullptr, [](const void* addr) { return string_view(*(istring*)addr); } };
+                sizeof(istring), nullptr, nullptr, [](const void* addr) { return ((istring*)addr)->view(); } };
             return &t;
         }
     };
@@ -157,7 +157,7 @@ namespace Slip::Reflect {
     struct _Auto; friend struct _Auto; \
     static Reflect::Type s_reflectType; \
     static const Reflect::Type* staticType() { return &s_reflectType; } \
-    const Reflect::Type* dynamicType() const { return &s_reflectType; } \
+    const Reflect::Type* dynamicType() const override { return &s_reflectType; } \
     struct Terminator
 
 #define REFLECT_BEGIN(NAME) \

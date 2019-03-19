@@ -58,6 +58,7 @@ namespace Slip::Io {
     };
 
     struct SourceManager {
+        virtual ~SourceManager() = default;
         virtual TextInput load(const char* fname) = 0;
     };
 
@@ -74,13 +75,11 @@ namespace Slip::Io {
 
         SourceLocation() = default;
 
-        SourceLocation(const SourceNameAndContents* f, long s, long e = -1) : m_file(f), m_start(s), m_end(e) {
+        SourceLocation(const SourceNameAndContents* f, long s, long e = -1) : m_file(f), m_start(s), m_end(e>=0?e:s) {
         }
 
         SourceLocation(SourceLocation s, SourceLocation e) : m_file(s.m_file), m_start(s.m_start), m_end(e.m_start) {
             assert(s.m_file == e.m_file);
-            assert(s.m_end == -1);
-            assert(e.m_end == -1);
         }
         const char* filename() const {
             return m_file ? m_file->m_name.data() : "<unnamed>";
@@ -90,6 +89,7 @@ namespace Slip::Io {
 
         string_view text() const {
             auto s = m_file->m_contents.c_str();
+            assert(m_end >= 0);
             return { s + m_start, m_end - m_start };
         }
     };

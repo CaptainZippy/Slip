@@ -127,7 +127,7 @@ namespace {
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
-                assert(a->m_name);
+                assert(a->m_name.c_str());
                 out.write(string_concat(sep, a->m_type->name(), " ", a->m_name));
                 sep = ", ";
             }
