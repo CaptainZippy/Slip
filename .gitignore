@@ -1,5 +1,7 @@
 # Git merge files
 *.orig
+# Vim swap files
+*.swp
 
 # Local untracked files 
 local

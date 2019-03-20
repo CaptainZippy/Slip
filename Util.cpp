@@ -89,6 +89,7 @@ istring istring::make(string_view s) {
 
 }
 
+#if defined(_MSC_VER)
 namespace {
     template<unsigned bytes> struct FnvParams;
     template<> struct FnvParams<4> {
@@ -110,3 +111,4 @@ std::size_t std::hash<std::string_view>::operator()(std::string_view const& s) c
     }
     return hash;
 }
+#endif

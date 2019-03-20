@@ -48,7 +48,7 @@ namespace Slip {
     Result::failed("Failed", __FILE__, __LINE__, "" __VA_ARGS__); \
     return RES; } while(0)
 
-#define THROW(__VA_ARGS__) throw Slip::Exception(__VA_ARGS__)
+#define THROW(...) throw Slip::Exception(__VA_ARGS__)
 
     template<typename T>
     struct array_view {
@@ -185,14 +185,13 @@ namespace Slip {
         static istring make(const char* s);
         static istring make(std::string_view s);
 
-
         inline istring() : m_str(&s_empty[sizeof(size_t)]) {}
 
         inline operator std::string_view() const {
             return { m_str, size() };
         }
-        inline operator const char*() const {
-            return m_str;
+        inline std::string_view view() const {
+            return { m_str, size() };
         }
         inline const char* c_str() const {
             return m_str;
@@ -200,7 +199,6 @@ namespace Slip {
         inline std::string std_str() const {
             return m_str;
         }
-
         inline size_t size() const {
             return reinterpret_cast<const size_t*>(m_str)[-1];
         }
@@ -212,9 +210,12 @@ namespace Slip {
     };
 
 
+    inline bool operator<(istring a, istring b) {
+        return a.view() < b.view();
+    }
 
     inline bool operator==(istring a, istring b) {
-        return (const char*)a == (const char*)b;
+        return a.c_str() == b.c_str();
     }
 
     std::string string_concat(array_view<std::string_view> strs);
@@ -225,19 +226,22 @@ namespace Slip {
         return string_concat(make_array_view(strs));
     }
 
-    template<class _Ty, class... _Types, enable_if_t<!is_array_v<_Ty>, int> = 0>
+    template<class _Ty, class... _Types, enable_if_t<!is_array<_Ty>::value, int> = 0>
     inline unique_ptr_del<_Ty> make_unique_del(_Types&&... _Args) {
-        return unique_ptr_del<_Ty>(new _Ty(_STD forward<_Types>(_Args)...), [](_Ty* t) {delete t; });
+        return unique_ptr_del<_Ty>(new _Ty(std::forward<_Types>(_Args)...), [](_Ty* t) {delete t; });
     }
 
 }
 
 namespace std {
+
+#if defined(_MSC_VER)
     template<> struct hash<string_view> {
         typedef string_view argument_type;
         typedef std::size_t result_type;
         std::size_t operator()(string_view const& s) const;
     };
+#endif
     template<> struct hash<Slip::istring> {
         typedef Slip::istring argument_type;
         typedef std::size_t result_type;

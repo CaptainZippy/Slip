@@ -154,5 +154,6 @@ Slip::unique_ptr_del<Lex::List> Lex::parse_input( Lex::TextInput& input ) {
 }
 
 Slip::unique_ptr_del<Lex::List> Slip::Lex::parse_file(Slip::Io::SourceManager& sm, const char* fname) {
-    return parse_input(sm.load(fname));
+    auto data = sm.load(fname);
+    return parse_input(data);
 }
