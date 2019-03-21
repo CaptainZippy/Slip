@@ -9,14 +9,25 @@ namespace {
     struct Generator {
 
         Io::TextOutput& out;
+        std::unordered_map<Ast::Node*, istring> dispatched;
         int m_counter = 1;
-		
+
+        Generator( Io::TextOutput& o ) : out( o ) {
+            // populate "dispatched" with intrinsics
+        }
+
         string newVarId() {
             return string_format("_%i", m_counter++);
         }
 
         string dispatch(Ast::Node* n) {
-            return Ast::dispatch<string>(n, *this);
+            auto it = dispatched.emplace( n, istring() );
+            if( it.second == false) {
+                return it.first->second.std_str();
+            }
+            auto ret = Ast::dispatch<string>( n, *this );
+            it.first->second = istring::make(ret);
+            return ret;
         }
 
         string operator()(Ast::Node* n) {
@@ -24,10 +35,20 @@ namespace {
             return "";
         }
         string operator()(Ast::Reference* n) {
+            auto it = dispatched.find( n->m_target );
+            if( it == dispatched.end() ) {
+                if( auto t = dynamic_cast<Ast::Named*>(n->m_target) ) { //TODO: hack
+                    return sanitize( t->name() );
+                }
+                assert( false );
+            }
+            return it->second.std_str();
+            #if 0
             if( auto t = dynamic_cast<Ast::Named*>( n->m_target ) ) {
                 return sanitize(t->name());
             }
             return "??";
+            #endif
         }
         string operator()(Ast::Argument* n) {
             return n->m_name.std_str();
@@ -123,7 +144,14 @@ namespace {
         }
 
         string operator()(Ast::FunctionDecl* n) {
-            out.begin(string_concat("\n", n->m_type->m_callable[0]->name(), " ", n->m_name, "("));
+            std::string symbol = n->m_name.std_str();
+            for( auto a : n->m_args ) {
+                assert( a->m_type );
+                assert( a->m_name.c_str() );
+                symbol.append( "__" );
+                symbol.append( a->m_type->name() ); // todo valid symbol, spaces etc
+            }
+            out.begin(string_concat("\n", n->m_type->m_callable[0]->name(), " ", symbol, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
                 assert(a->m_type);
@@ -135,7 +163,7 @@ namespace {
             string ret = dispatch(n->m_body);
             out.write(string_concat("return ", ret, ";\n"));
             out.end("}\n");
-            return n->m_name.std_str();
+            return symbol;
         }
 
         string operator()( Ast::VariableDecl* n ) {
