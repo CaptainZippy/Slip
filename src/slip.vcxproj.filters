@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Reflect.cpp" />
+    <ClCompile Include="Lex.cpp" />
+    <ClCompile Include="Ast.cpp" />
+    <ClCompile Include="Parse.cpp" />
+    <ClCompile Include="pch/Pch.cpp">
+      <Filter>pch</Filter>
+    </ClCompile>
+    <ClCompile Include="Util.cpp" />
+    <ClCompile Include="Backend.cpp" />
+    <ClCompile Include="Sema.cpp" />
+    <ClCompile Include="Io.cpp" />
+    <ClCompile Include="Slip.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Reflect.h" />
+    <ClInclude Include="Ast.h" />
+    <ClInclude Include="Lex.h" />
+    <ClInclude Include="Parse.h" />
+    <ClInclude Include="pch/Pch.h">
+      <Filter>pch</Filter>
+    </ClInclude>
+    <ClInclude Include="Util.h" />
+    <ClInclude Include="Backend.h" />
+    <ClInclude Include="Sema.h" />
+    <ClInclude Include="Slip.h" />
+    <ClInclude Include="Io.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="bench\ack.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\ary.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\fibo.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\hello.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\nestedloop.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\nsieve.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\harmonic.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="bench\moments.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="slip.natvis">
+      <Filter>other</Filter>
+    </None>
+    <None Include="test.py">
+      <Filter>other</Filter>
+    </None>
+    <None Include="Ast.inc" />
+    <None Include="test\type_infer_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\type_infer_02.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\type_infer_03.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\let_expr_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\type_infer_00.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\cond_expr_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\intrinsic_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\var_expr_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\string_type_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\array_type_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\function_overload_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\recursive_01.slip">
+      <Filter>test</Filter>
+    </None>
+    <None Include="test\array_type_02.slip">
+      <Filter>test</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="bench">
+      <UniqueIdentifier>{20f4cd82-ed0c-4ef2-ad8e-b39e2ba77a1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="other">
+      <UniqueIdentifier>{3731e926-9eb2-4810-97ba-fc8ca4e6400d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="pch">
+      <UniqueIdentifier>{77bc5d13-8bc0-40ff-9c79-346407c60d08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test">
+      <UniqueIdentifier>{800e09ae-c469-4745-b6df-7b36c828860a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="todo.txt">
+      <Filter>other</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis">
+      <Filter>other</Filter>
+    </Natvis>
+  </ItemGroup>
+</Project>
