@@ -29,75 +29,72 @@
     <ClInclude Include="Io.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="bench\ack.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\ary.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\fibo.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\hello.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\nestedloop.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\nsieve.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\harmonic.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="bench\moments.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="slip.natvis">
-      <Filter>other</Filter>
-    </None>
-    <None Include="test.py">
-      <Filter>other</Filter>
-    </None>
     <None Include="Ast.inc" />
-    <None Include="test\type_infer_01.slip">
+    <None Include="..\test\type_infer_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\type_infer_02.slip">
+    <None Include="..\test\type_infer_02.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\type_infer_03.slip">
+    <None Include="..\test\type_infer_03.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\let_expr_01.slip">
+    <None Include="..\test\let_expr_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\type_infer_00.slip">
+    <None Include="..\test\type_infer_00.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\cond_expr_01.slip">
+    <None Include="..\test\cond_expr_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\intrinsic_01.slip">
+    <None Include="..\test\intrinsic_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\var_expr_01.slip">
+    <None Include="..\test\var_expr_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\string_type_01.slip">
+    <None Include="..\test\string_type_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\array_type_01.slip">
+    <None Include="..\test\array_type_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\function_overload_01.slip">
+    <None Include="..\test\function_overload_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\recursive_01.slip">
+    <None Include="..\test\recursive_01.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="test\array_type_02.slip">
+    <None Include="..\test\array_type_02.slip">
       <Filter>test</Filter>
+    </None>
+    <None Include="..\bench\ack.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\ary.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\fibo.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\harmonic.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\hello.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\moments.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\nestedloop.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\nsieve.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\stl.natjmc">
+      <Filter>other</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -115,12 +112,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="todo.txt">
-      <Filter>other</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis">
+      <Filter>other</Filter>
+    </Natvis>
+    <Natvis Include="..\slip.natvis">
       <Filter>other</Filter>
     </Natvis>
   </ItemGroup>
