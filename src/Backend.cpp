@@ -20,14 +20,17 @@ namespace {
             return string_format("_%i", m_counter++);
         }
 
+        void addName( Ast::Node* n, istring name ) {
+            auto it = dispatched.insert_or_assign( n, name );
+            assert( it.second == false ); // assert we assigned not inserted
+        }
+
         string dispatch(Ast::Node* n) {
             auto it = dispatched.emplace( n, istring() );
             if( it.second == false) {
                 return it.first->second.std_str();
             }
-            auto ret = Ast::dispatch<string>( n, *this );
-            it.first->second = istring::make(ret);
-            return ret;
+            return Ast::dispatch<string>( n, *this );
         }
 
         string operator()(Ast::Node* n) {
@@ -51,6 +54,7 @@ namespace {
             #endif
         }
         string operator()(Ast::Argument* n) {
+            addName( n, n->name() );
             return n->m_name.std_str();
         }
         string operator()(Ast::Number* n) {
@@ -151,6 +155,7 @@ namespace {
                 symbol.append( "__" );
                 symbol.append( a->m_type->name() ); // todo valid symbol, spaces etc
             }
+            addName( n, istring::make( symbol ) );
             out.begin(string_concat("\n", n->m_type->m_callable[0]->name(), " ", symbol, "("));
             const char* sep = "";
             for (auto a : n->m_args) {
@@ -167,6 +172,7 @@ namespace {
         }
 
         string operator()( Ast::VariableDecl* n ) {
+            addName( n, n->name() );
             out.begin( string_concat( n->m_type->name(), " "sv, n->m_name) );
             if( n->m_initializer ) {
                 out.write( string_concat(" = "sv, dispatch( n->m_initializer )));
