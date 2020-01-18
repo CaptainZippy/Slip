@@ -226,11 +226,15 @@ Result Parse::State::parse(Lex::Atom* atom, Ast::Node** out) {
         RETURN_RES_IF(Result::ERR, !list);
         RETURN_RES_IF(Result::ERR, list->size() == 0);
         auto items = list->items();
-        auto sym = symbol(items[0]);
-        RETURN_RES_IF(Result::ERR, !sym);
+        auto first = items[0];
+        const SymbolValue* p = nullptr;
+        if( auto sym = dynamic_cast<Lex::Symbol*>( first ) ) {
+            RETURN_IF_FAILED( lookup( sym->text(), &p ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
+        }
+        else {
+            RETURN_RES_IF_REACHED( Result::ERR );
+        }
         Args args{ items }; args.advance();
-        const SymbolValue* p;
-        RETURN_IF_FAILED(lookup(sym->text(), &p));
         if (auto b = p->isBuiltin()) {
             return b->parse(this, args, out);
         }
@@ -319,9 +323,22 @@ struct Parse::Func : Parse::Parser {
 
 
 struct Parse::Let : Parse::Parser {
-    Result _parse(State* state, Args& args, Ast::Node** out) const override {
-        Lex::List* llets;
+    Result _parse( State* state, Args& args, Ast::Node** out ) const override {
+        Lex::Symbol* lname;
         Lex::Atom* lbody;
+        if( matchLex( args, &lname, &lbody ).isOk() ) { // short form (let foo 0)
+
+            Ast::Node* aval;
+            RETURN_IF_FAILED( state->parse( lbody, &aval ) );
+            Ast::Node* te;
+            RETURN_IF_FAILED( state->parse( lname->m_decltype, &te ) );
+            auto def = new Ast::Definition( lname->text(), aval, WITH( _.m_loc = lbody->m_loc, _.m_declTypeExpr = te ) );
+            state->addSym( lname->text(), def );
+            *out = def;
+            return Result::OK;
+        }
+
+        Lex::List* llets; // long form (let ((a 0) (b 1)) (+ a b))
         RETURN_IF_FAILED(matchLex(args, &llets, &lbody));
 
         state->enterScope();
@@ -474,11 +491,21 @@ static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
     return r;
 }
 
-static Result _makeArrayType( array_view<Ast::Node*> args, Ast::Node** out ) {
+static Result _makeArrayViewType( array_view<Ast::Node*> args, Ast::Node** out ) {
     assert( args.size() == 1 );
     auto type = dynamic_cast<Ast::Type*>( args[0] );
     assert( type );
     auto name = string_format( "array_view<%s>", type->name().c_str() );
+    auto r = new Ast::Type( name );
+    *out = r;
+    return Result::OK;
+}
+
+static Result _makeArrayStaticType( array_view<Ast::Node*> args, Ast::Node** out ) {
+    assert( args.size() == 1 );
+    auto type = dynamic_cast<Ast::Type*>( args[0] );
+    assert( type );
+    auto name = string_format( "array_static<%s>", type->name().c_str() );
     auto r = new Ast::Type( name );
     *out = r;
     return Result::OK;
@@ -525,7 +552,8 @@ Slip::unique_ptr_del<Ast::Module> Parse::module(Lex::List& lex) {
     state.addIntrinsic( "divd", d_dd );
     state.addIntrinsic( "dfromi", d_i );
     state.addIntrinsic( "strcat!", v_ss );
-    { auto f = state.addIntrinsic( "array_view", t_t ); f->m_intrinsic = _makeArrayType; }
+    { auto f = state.addIntrinsic( "array_view", t_t ); f->m_intrinsic = _makeArrayViewType; }
+    { auto f = state.addIntrinsic( "array_static", t_t ); f->m_intrinsic = _makeArrayStaticType; }
 
     auto module = make_unique_del<Ast::Module>();
     for (auto c : lex.items()) {
