@@ -16,7 +16,7 @@
             </ArrayItems>
         </Expand>
     </Type>
-    <Type Name="Iter&lt;*&gt;">
+    <Type Name="Slip::Parse::Iter&lt;*&gt;">
         <Expand>
             <ArrayItems>
                 <Size>m_end-m_begin</Size>
