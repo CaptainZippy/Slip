@@ -1,0 +1,13 @@
+---
+BasedOnStyle: Google
+IndentWidth: 4
+---
+Language: Cpp
+NamespaceIndentation: All
+#AllowShortFunctionsOnASingleLine: false
+ColumnLimit: 140
+SpacesInParentheses: true
+SpaceBeforeParens: Never
+DerivePointerAlignment: false
+PointerBindsToType : true
+BreakConstructorInitializersBeforeComma: true

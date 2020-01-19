@@ -96,6 +96,9 @@
     <None Include="..\stl.natjmc">
       <Filter>other</Filter>
     </None>
+    <None Include="..\.clang-format">
+      <Filter>other</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

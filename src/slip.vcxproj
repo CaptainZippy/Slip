@@ -177,6 +177,7 @@
     <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\.clang-format" />
     <None Include="..\bench\ack.slip" />
     <None Include="..\bench\ary.slip" />
     <None Include="..\bench\fibo.slip" />
