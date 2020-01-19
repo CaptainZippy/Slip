@@ -1,3 +1,4 @@
+#Good
 
 (func fib (n:int):int
     (if (lt? n 2)

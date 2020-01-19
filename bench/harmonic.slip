@@ -1,5 +1,7 @@
+#TODO iterators
 
 (func harmonic (n : int) : double (begin
+    ; (sum (iter (div_f 1.0 (float i)) (range 1 n))
     (var i 0:int)
     (var d 0:double)
     (while (lt? i n) (begin
@@ -14,10 +16,3 @@
 
 
 
-;begin
-;   (for i (range 1 n)
-;      (set! acc (add_f (div_f 1.0 (float i)) acc)))
-; acc))))
-    
-;(define main (lambda (argv)
-;    (map (lambda (x) (print "Harmonic" x (harmonic x))) argv)))
