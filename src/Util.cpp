@@ -25,12 +25,15 @@ namespace Slip {
         return str;
     }
 
-    std::string string_formatv( const char* fmt, va_list ap ) {
+    std::string string_formatv( const char* fmt, va_list arglist ) {
         std::string str;
         str.resize( str.capacity() );
 
         while( 1 ) {
-            int n = vsnprintf( &str[0], str.size(), fmt, ap ) + 1;  // incl nul
+            va_list al;
+            va_copy( al, arglist );
+            int n = vsnprintf( &str[0], str.size(), fmt, al ) + 1;  // incl nul
+            va_end( al );
 
             if( n < 0 ) {
                 str.resize( str.size() * 2 );
