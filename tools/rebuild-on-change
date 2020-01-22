@@ -1,0 +1,13 @@
+#! /bin/sh
+
+if [ ! -e build.ninja ]; then
+	echo "build.ninja not found in current folder"
+	exit 1
+fi
+
+if [ ! -e ../slip/src ]; then
+	echo "Expected to find source in ../slip/src"
+	exit 1
+fi
+
+inotify-hookable  --watch-directories ../slip/src/ --on-modify-command "ninja"
