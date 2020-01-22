@@ -355,7 +355,7 @@ struct Parse::If : Parse::Parser {
         RETURN_IF_FAILED( state->parse( ltrue, &ntrue ) );
         RETURN_IF_FAILED( state->parse( lfalse, &nfalse ) );
 
-        *out = new Ast::If( ncond, ntrue, nfalse );
+        *out = new Ast::If( ncond, ntrue, nfalse, WITH( _.m_loc = lcond->m_loc ) );
         return Result::OK;
     }
 };
@@ -371,7 +371,7 @@ struct Parse::While : Parse::Parser {
         RETURN_IF_FAILED( state->parse( lcond, &ncond ) );
         RETURN_IF_FAILED( state->parse( lbody, &nbody ) );
 
-        *out = new Ast::While( ncond, nbody );
+        *out = new Ast::While( ncond, nbody, WITH( _.m_loc = lcond->m_loc ) );
         return Result::OK;
     }
 };
@@ -392,7 +392,7 @@ struct Parse::Cond : Parse::Parser {
             RETURN_IF_FAILED( state->parse( pair->at( 1 ), &iftrue ) );
             cases.emplace_back( cond, iftrue );
         }
-        auto cond = new Ast::Cond;
+        auto cond = new Ast::Cond( WITH( /*TODO loc*/ ) );
         cond->m_cases.swap( cases );
         *out = cond;
         return Result::OK;
@@ -429,7 +429,7 @@ struct Parse::Var : Parse::Parser {
         }
         Ast::Node* te;
         RETURN_IF_FAILED( state->parse( sym->m_decltype, &te ) );
-        auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = te ) );
+        auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = te, _.m_loc = sym->m_loc ) );
         ret->m_initializer = expr;
         state->addSym( sym->text(), ret );
         *out = ret;
@@ -448,7 +448,7 @@ struct Parse::Set : Parse::Parser {
         RETURN_RES_IF( Result::ERR, !value->isNode() );
         Ast::Node* rhs;
         RETURN_IF_FAILED( state->parse( expr, &rhs ) );
-        *out = new Ast::Assignment( value->isNode(), rhs );
+        *out = new Ast::Assignment( value->isNode(), rhs, WITH( _.m_loc = sym->m_loc ) );
         return Result::OK;
     }
 };

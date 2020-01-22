@@ -54,7 +54,10 @@ namespace Slip::Ast {
         Node* m_true;
         Node* m_false;
 
-        If( Node* c, Node* t, Node* f ) : m_cond( c ), m_true( t ), m_false( f ) {}
+        template <typename With>
+        If( Node* c, Node* t, Node* f, With&& with ) : m_cond( c ), m_true( t ), m_false( f ) {
+            with( *this );
+        }
     };
 
     struct While : Node {
@@ -62,12 +65,20 @@ namespace Slip::Ast {
         Node* m_cond;
         Node* m_body;
 
-        While( Node* c, Node* b ) : m_cond( c ), m_body( b ) {}
+        template <typename With>
+        While( Node* c, Node* b, With&& with ) : m_cond( c ), m_body( b ) {
+            with( *this );
+        }
     };
 
     struct Cond : Node {
         AST_DECL();
         vector<pair<Node*, Node*> > m_cases;
+
+        template <typename With>
+        Cond( With&& with ) {
+            with( *this );
+        }
     };
 
     extern Ast::Type s_typeType;
@@ -92,7 +103,6 @@ namespace Slip::Ast {
 
     struct Number : Node {
         AST_DECL();
-        Number( string_view n ) : m_num( n ) {}
         template <typename With>
         Number( string_view n, With&& with ) : m_num( n ) {
             with( *this );
@@ -107,7 +117,6 @@ namespace Slip::Ast {
 
     struct String : Node {
         AST_DECL();
-        String( string_view n ) : m_str( n ) {}
         template <typename With>
         String( string_view n, With&& with ) : m_str( n ) {
             with( *this );
@@ -130,7 +139,7 @@ namespace Slip::Ast {
         AST_DECL();
         Node* m_func{nullptr};
         vector<Node*> m_args;
-        FunctionCall( Node* func, vector<Node*>&& args ) : m_func( func ), m_args( args ) {}
+
         template <typename With>
         FunctionCall( Node* func, vector<Node*>&& args, With&& with ) : m_func( func ), m_args( args ) {
             with( *this );
@@ -189,7 +198,6 @@ namespace Slip::Ast {
 
     struct VariableDecl : Named {
         AST_DECL();
-        VariableDecl( istring name ) : Named( name ) {}
         template <typename With>
         VariableDecl( istring name, With&& with ) : Named( name ) {
             with( *this );
@@ -199,9 +207,13 @@ namespace Slip::Ast {
 
     struct Assignment : Node {
         AST_DECL();
-        Assignment( Node* lhs, Node* rhs ) : m_lhs( lhs ), m_rhs( rhs ) {}
         Node* m_lhs{nullptr};
         Node* m_rhs{nullptr};
+
+        template <typename With>
+        Assignment( Node* lhs, Node* rhs, With&& with ) : m_lhs( lhs ), m_rhs( rhs ) {
+            with( *this );
+        }
     };
 
     struct Sequence : Node {
@@ -229,7 +241,6 @@ namespace Slip::Ast {
 
         Node* m_value = nullptr;
 
-        Definition( string_view sym, Node* value ) : Named( sym ), m_value( value ) {}
         template <typename With>
         Definition( string_view sym, Node* value, With&& with ) : Named( sym ), m_value( value ) {
             with( *this );

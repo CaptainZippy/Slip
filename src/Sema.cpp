@@ -117,7 +117,8 @@ namespace Slip::Sema {
             }
             assert( yes.size() == 1 );
             vi.info = ci[yes[0]];
-            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( n->m_candidates[yes[0]] ), std::move( n->m_args ) );
+            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( n->m_candidates[yes[0]] ), std::move( n->m_args ),
+                                                   [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             dispatch( n->m_resolved );
         }
 
