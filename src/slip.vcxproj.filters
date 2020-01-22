@@ -99,6 +99,9 @@
     <None Include="..\.clang-format">
       <Filter>other</Filter>
     </None>
+    <None Include="..\test\macro_expr_01.slip">
+      <Filter>test</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

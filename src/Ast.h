@@ -178,6 +178,31 @@ namespace Slip::Ast {
         static FunctionDecl* makeIntrinsic( string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args );
     };
 
+    struct MacroDecl : Named {
+        AST_DECL();
+
+        vector<Argument*> m_args;
+        vector<Argument*> m_env;
+        Node* m_body{nullptr};
+
+        template <typename With>
+        MacroDecl( string_view name, With&& with ) : Named( name ) {
+            with( *this );
+        }
+    };
+
+    struct MacroExpansion : Node {
+        AST_DECL();
+        Node* m_expansion{nullptr};
+        MacroDecl* m_macro{nullptr};
+        vector<Node*> m_args;
+        MacroExpansion( MacroDecl* macro, vector<Node*>&& args ) : m_macro( macro ), m_args( args ) {}
+        template <typename With>
+        MacroExpansion( MacroDecl* macro, vector<Node*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
+            with( *this );
+        }
+    };
+
     // Overloaded function call.
     // We may not be able to tell which overload is chosen until after type inference.
     struct UnresolvedCall : Named {

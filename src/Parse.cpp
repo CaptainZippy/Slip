@@ -106,6 +106,8 @@ namespace Slip::Parse {
 
         Result parse( Lex::Atom* atom, Ast::Node** out );
 
+        Result macroExpand( Ast::MacroDecl* macro, Args args, Ast::Node** out );
+
         using SymbolBase = std::variant<Parser*, Ast::Node*, vector<Ast::Node*>>;
         struct SymbolValue : public SymbolBase {
             using SymbolBase::SymbolBase;
@@ -139,6 +141,7 @@ namespace Slip::Parse {
     struct Begin;
     struct Var;
     struct Set;
+    struct Macro;
 
     Result State::SymbolValue::addOverload( Ast::Node* n ) {
         RETURN_RES_IF( Result::ERR, isBuiltin(), "Fixme" );
@@ -214,6 +217,8 @@ Result Parse::State::parse( Lex::Atom* atom, Ast::Node** out ) {
         args.advance();
         if( auto b = p->isBuiltin() ) {
             return b->parse( this, args, out );
+        } else if( auto macro = dynamic_cast<Ast::MacroDecl*>( p->isNode() ) ) {
+            return macroExpand( macro, args, out );
         }
         vector<Ast::Node*> fa;
         for( auto a : args ) {
@@ -221,8 +226,8 @@ Result Parse::State::parse( Lex::Atom* atom, Ast::Node** out ) {
             RETURN_IF_FAILED( parse( a, &n ) );
             fa.push_back( n );
         }
-        if( auto func = p->isNode() ) {
-            *out = new Ast::FunctionCall( new Ast::Reference( func ), move( fa ), WITH( _.m_loc = list->m_loc ) );
+        if( auto node = p->isNode() ) {
+            *out = new Ast::FunctionCall( new Ast::Reference( node ), move( fa ), WITH( _.m_loc = list->m_loc ) );
         } else if( p->isOverload() ) {
             *out = new Ast::UnresolvedCall( sym->text(), p->overloads(), move( fa ), WITH( _.m_loc = list->m_loc ) );
         }
@@ -241,6 +246,75 @@ Result Parse::State::parse( Lex::Atom* atom, Ast::Node** out ) {
         return Result::OK;
     }
     RETURN_RES_IF( Result::ERR, true );
+}
+
+namespace {
+    using namespace Ast;
+    struct ExpandWalker {
+        Parse::State* m_state;
+        unordered_map<istring, Lex::Atom*> m_args;
+
+        Result setArgs( const vector<Argument*>& names, Slip::Parse::Args& values ) {
+            RETURN_RES_IF( Result::ERR, names.size() != values.size() );
+            for( unsigned i = 0; i < names.size(); ++i ) {
+                m_args.emplace( names[i]->name(), values.cur() );
+                values.advance();
+            }
+            return Result::OK;
+        }
+
+        template <typename T>
+        T* dispatch( T* n ) {
+            return (T*)Ast::dispatch<Ast::Node*>( n, *this );
+        }
+
+        Ast::Node* operator()( Ast::Node* n ) {
+            __debugbreak();
+            return n;
+        }
+        Ast::Node* operator()( Ast::Number* n ) { return n; }
+        Ast::Node* operator()( Ast::String* n ) { return n; }
+
+        Ast::Node* operator()( Ast::FunctionCall* call ) {
+            if( auto fref = dynamic_cast<Ast::Reference*>( call->m_func ) ) {
+                if( auto decl = dynamic_cast<Ast::FunctionDecl*>( fref->m_target ) ) {
+                    if( decl->name().view() == "expand"sv ) {
+                        if( auto aref = dynamic_cast<Ast::Reference*>( call->m_args[0] ) ) {
+                            if( auto aname = dynamic_cast<Ast::Named*>( aref->m_target ) ) {
+                                auto iter = m_args.find( aname->name() );
+                                if( iter != m_args.end() ) {
+                                    Ast::Node* out;
+                                    m_state->parse( iter->second, &out );
+                                    return out;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            auto func = dispatch( call->m_func );
+            vector<Ast::Node*> args;
+            for( auto&& c : call->m_args ) {
+                args.push_back( dispatch( c ) );
+            }
+            return new FunctionCall( func, move( args ), WITH( _.m_loc = call->m_loc ) );
+        }
+
+        Ast::Node* operator()( Ast::Cond* cond ) {
+            auto ret = new Cond( WITH( _.m_loc = cond->m_loc ) );
+            for( auto&& c : cond->m_cases ) {
+                ret->m_cases.emplace_back( dispatch( c.first ), dispatch( c.second ) );
+            }
+            return ret;
+        }
+    };
+}  // namespace
+
+Result Parse::State::macroExpand( Ast::MacroDecl* macro, Args args, Ast::Node** out ) {
+    ExpandWalker expander{this};
+    RETURN_IF_FAILED( expander.setArgs( macro->m_args, args ) );
+    *out = Ast::dispatch<Ast::Node*>( macro->m_body, expander );
+    return Result::OK;
 }
 
 struct Parse::Define : Parse::Parser {
@@ -282,6 +356,7 @@ struct Parse::Func : Parse::Parser {
             auto arg = new Ast::Argument( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
             func->m_args.push_back( arg );
         }
+        // TODO check unique names
         for( auto a : func->m_args ) {
             state->addSym( a->m_name, a );
         }
@@ -453,6 +528,34 @@ struct Parse::Set : Parse::Parser {
     }
 };
 
+struct Parse::Macro : Parse::Parser {
+    Result _parse( State* state, Args& args, Ast::Node** out ) const override {
+        *out = nullptr;
+        Lex::Symbol* lname;
+        Lex::List* largs;
+        Lex::Atom* lbody;
+        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody ) );
+        auto macro = new Ast::MacroDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
+        state->addSym( macro->m_name, macro );
+        state->enterScope();
+        for( auto item : largs->items() ) {
+            auto sym = dynamic_cast<Lex::Symbol*>( item );
+            RETURN_RES_IF( Result::ERR, sym == nullptr );
+            auto arg = new Ast::Argument( sym->text(), WITH( _.m_loc = sym->m_loc ) );
+            macro->m_args.push_back( arg );
+        }
+        for( auto a : macro->m_args ) {
+            state->addSym( a->m_name, a );
+        }
+        Ast::Node* body;
+        RETURN_IF_FAILED( state->parse( lbody, &body ) );
+        state->leaveScope();
+        macro->m_body = body;
+        *out = macro;
+        return Result::OK;
+    }
+};
+
 template <typename... Args>
 static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
     auto r = new Ast::Type( name );
@@ -491,6 +594,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     state.addParser( "begin", new Begin() );
     state.addParser( "var", new Var() );
     state.addParser( "set!", new Set() );
+    state.addParser( "macro", new Macro() );
     state.addSym( "int", &Ast::s_typeInt );
     state.addSym( "float", &Ast::s_typeFloat );
     state.addSym( "double", &Ast::s_typeDouble );
@@ -510,6 +614,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
+    auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid);
     state.addIntrinsic( "eq?", b_ii );
     state.addIntrinsic( "lt?", b_ii );
     state.addIntrinsic( "add", i_ii );
@@ -521,6 +626,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     state.addIntrinsic( "divd", d_dd );
     state.addIntrinsic( "dfromi", d_i );
     state.addIntrinsic( "strcat!", v_ss );
+    state.addIntrinsic( "expand", v_v );
     {
         auto f = state.addIntrinsic( "array_view", t_t );
         f->m_intrinsic = _makeArrayViewType;

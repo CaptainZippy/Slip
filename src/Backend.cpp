@@ -19,15 +19,11 @@ namespace {
         string newVarId() { return string_format( "_%i", m_counter++ ); }
 
         void addName( Ast::Node* n, istring name ) {
-            auto it = dispatched.insert_or_assign( n, name );
-            assert( it.second == false );  // assert we assigned not inserted
+            auto it = dispatched.emplace( n, name );
+            assert( it.second );  // assert we inserted a new
         }
 
         string dispatch( Ast::Node* n ) {
-            auto it = dispatched.emplace( n, istring() );
-            if( it.second == false ) {
-                return it.first->second.std_str();
-            }
             return Ast::dispatch<string>( n, *this );
         }
 
@@ -35,6 +31,11 @@ namespace {
             assert( 0 );
             return "";
         }
+
+        string operator()( Ast::MacroDecl* n ) { return ""; }
+
+        string operator()( Ast::MacroExpansion* n ) { return dispatch( n->m_expansion ); }
+
         string operator()( Ast::Reference* n ) {
             auto it = dispatched.find( n->m_target );
             if( it == dispatched.end() ) {

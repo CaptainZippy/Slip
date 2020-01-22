@@ -75,6 +75,10 @@ namespace Slip::Sema {
 
         void operator()( Ast::Argument* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( n->m_declTypeExpr ); }
 
+        void operator()( Ast::MacroDecl* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( &Ast::s_typeVoid ); }
+
+        void operator()( Ast::MacroExpansion* n, VisitInfo& vi ) { vi.info = dispatch( n->m_expansion ); }
+
         void operator()( Ast::Sequence* n, VisitInfo& vi ) {
             if( n->m_items.empty() ) {
                 vi.info = _internKnownType( &Ast::s_typeVoid );

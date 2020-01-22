@@ -73,6 +73,19 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( MacroDecl )
+    REFLECT_PARENT( Named )
+    REFLECT_FIELD2( m_args, Flags::Child )
+    REFLECT_FIELD2( m_body, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( MacroExpansion )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_expansion, Flags::Child )
+    REFLECT_FIELD2( m_macro, Flags::Child )
+    REFLECT_FIELD2( m_args, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( UnresolvedCall )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_candidates, Flags::Child )
