@@ -56,57 +56,8 @@ namespace Slip::Parse {
         virtual Result _parse( State* state, Args& args, Ast::Node** out ) const = 0;
     };
 
-    struct State {
-        State() { enterScope(); }
-
-        ~State() { leaveScope(); }
-
-        void enterScope() { syms.resize( syms.size() + 1 ); }
-
-        void leaveScope() { syms.pop_back(); }
-
-        void addParser( string_view sym, Parser* value ) {
-            auto s = istring::make( sym );
-            auto p = syms.back().emplace( s, value );
-            assert( p.second );  // new entry
-        }
-
-        Result addSym( string_view sym, Ast::Node* node ) {
-            auto s = istring::make( sym );
-            auto p = syms.back().emplace( s, node );
-            if( p.second ) {  // new entry
-                return Result::OK;
-            }
-            // Function overload?
-            SymbolValue& existing = p.first->second;
-            RETURN_IF_FAILED( existing.addOverload( node ) );
-            return Result::OK;
-        }
-
-        auto addIntrinsic( string_view sym, Ast::Type* type ) -> Ast::FunctionDecl* {
-            auto s = istring::make( sym );
-            auto f = new Ast::FunctionDecl( sym, WITH( _.m_type = type ) );
-            char name[2] = {'a', '0'};
-            for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
-                auto a = new Ast::Argument( name, WITH( _.m_type = at ) );
-                f->m_args.emplace_back( a );
-                name[0] += 1;
-            }
-            auto p = syms.back().insert_or_assign( s, f );
-            assert( p.second );
-            return f;
-        }
-
-        Lex::Symbol* symbol( Lex::Atom* atom ) {
-            if( auto sym = dynamic_cast<Lex::Symbol*>( atom ) ) {
-                return sym;
-            }
-            return nullptr;
-        }
-
-        Result parse( Lex::Atom* atom, Ast::Node** out );
-
-        Result macroExpand( Ast::MacroDecl* macro, Args args, Ast::Node** out );
+    struct Environment {
+        Environment( std::shared_ptr<Environment>&& parent ) : parent_( parent ) {}
 
         using SymbolBase = std::variant<Parser*, Ast::Node*, vector<Ast::Node*>>;
         struct SymbolValue : public SymbolBase {
@@ -120,16 +71,83 @@ namespace Slip::Parse {
 
         Result lookup( string_view sym, const SymbolValue** out ) const {
             auto s = istring::make( sym );
-            for( auto&& cur : reversed( syms ) ) {
-                auto x = cur.find( s );
-                if( x != cur.end() ) {
+
+            for( auto cur = this; cur != nullptr; cur = cur->parent_.get() ) {
+                auto x = cur->syms_.find( s );
+                if( x != cur->syms_.end() ) {
                     *out = &x->second;
                     return Result::OK;
                 }
             }
             RETURN_RES_IF( Result::ERR, true, "symbol not found '%s'", s.c_str() );
         }
-        list<map<istring, SymbolValue>> syms;
+
+        template <typename T>
+        auto bind( istring sym, T value ) {
+            return syms_.emplace( sym, value );
+        }
+
+        std::shared_ptr<Environment> parent_;
+        std::map<istring, SymbolValue> syms_;
+    };
+
+    struct State {
+        State() { enterScope(); }
+
+        ~State() { leaveScope(); }
+
+        void enterScope() { env_ = std::make_shared<Environment>( std::move( env_ ) ); }
+
+        void leaveScope() { env_ = env_->parent_; }
+
+        void addParser( string_view sym, Parser* value ) {
+            auto s = istring::make( sym );
+            auto p = env_->bind( s, value );
+            assert( p.second );  // new entry
+        }
+
+        Result addSym( string_view sym, Ast::Node* node ) {
+            auto s = istring::make( sym );
+            auto p = env_->bind( s, node );
+            if( p.second ) {  // new entry
+                return Result::OK;
+            }
+            // Function overload?
+            assert( false );  // TODO
+            // SymbolValue& existing = p.first->second;
+            // RETURN_IF_FAILED( existing.addOverload( node ) );
+            return Result::OK;
+        }
+
+        auto addIntrinsic( string_view sym, Ast::Type* type ) -> Ast::FunctionDecl* {
+            auto s = istring::make( sym );
+            auto f = new Ast::FunctionDecl( sym, WITH( _.m_type = type ) );
+            char name[2] = {'a', '0'};
+            for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
+                auto a = new Ast::Argument( name, WITH( _.m_type = at ) );
+                f->m_args.emplace_back( a );
+                name[0] += 1;
+            }
+            auto p = env_->bind( s, f );
+            assert( p.second );
+            return f;
+        }
+
+        Lex::Symbol* symbol( Lex::Atom* atom ) {
+            if( auto sym = dynamic_cast<Lex::Symbol*>( atom ) ) {
+                return sym;
+            }
+            return nullptr;
+        }
+
+        using SymbolValue = Environment::SymbolValue;
+        Result parse( Lex::Atom* atom, Ast::Node** out );
+
+        Result macroExpand( Ast::MacroDecl* macro, Args args, Ast::Node** out );
+
+        Result lookup( string_view sym, const Environment::SymbolValue** out ) const { return env_->lookup( sym, out ); }
+
+        std::shared_ptr<Environment> env_;
     };
 
     struct Define;
@@ -143,7 +161,7 @@ namespace Slip::Parse {
     struct Set;
     struct Macro;
 
-    Result State::SymbolValue::addOverload( Ast::Node* n ) {
+    Result Environment::SymbolValue::addOverload( Ast::Node* n ) {
         RETURN_RES_IF( Result::ERR, isBuiltin(), "Fixme" );
         auto newFunc = dynamic_cast<Ast::FunctionDecl*>( n );
         RETURN_RES_IF( Result::ERR, newFunc == nullptr, "Only functions can be overloads" );
@@ -186,7 +204,7 @@ Result Parse::State::parse( Lex::Atom* atom, Ast::Node** out ) {
         return Result::OK;
     } else if( auto sym = dynamic_cast<Lex::Symbol*>( atom ) ) {
         const SymbolValue* p;
-        RETURN_IF_FAILED( lookup( sym->text(), &p ) );
+        RETURN_IF_FAILED( env_->lookup( sym->text(), &p ) );
         RETURN_RES_IF( Result::ERR, p->isBuiltin() );
         RETURN_RES_IF( Result::ERR, p->isOverload() );
 
@@ -614,7 +632,7 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
-    auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid);
+    auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
     state.addIntrinsic( "eq?", b_ii );
     state.addIntrinsic( "lt?", b_ii );
     state.addIntrinsic( "add", i_ii );
