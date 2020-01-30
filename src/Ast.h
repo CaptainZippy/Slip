@@ -178,15 +178,67 @@ namespace Slip::Ast {
         static FunctionDecl* makeIntrinsic( string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args );
     };
 
+    struct Builtin : Named {
+        AST_DECL();
+        using ParseFunc = Result ( * )( Ast::Environment* env, Lex::List* list, Ast::Node** out );
+
+        Builtin( string_view name, ParseFunc func ) : Named( name ), m_func( func ) {}
+
+        Result parse( Ast::Environment* env, Lex::List* list, Ast::Node** out ) { return ( *m_func )( env, list, out ); }
+
+        ParseFunc m_func;
+    };
+
+    struct Environment : Node {
+        AST_DECL();
+
+        Environment( Environment* parent ) : parent_( parent ) {}
+
+        Result lookup( string_view sym, Node** out ) const {
+            auto s = istring::make( sym );
+
+            for( auto cur = this; cur != nullptr; cur = cur->parent_ ) {
+                auto x = cur->syms_.find( s );
+                if( x != cur->syms_.end() ) {
+                    *out = x->second;
+                    return Result::OK;
+                }
+            }
+            RETURN_RES_IF( Result::ERR, true, "symbol not found '%s'", s.c_str() );
+        }
+        Node* lookup( istring sym ) const {
+            Node* ret;
+            auto res = lookup( sym, &ret );
+            assert( res.isOk() );
+            return ret;
+        }
+        Node* lookup( string_view sym ) const {
+            Node* ret;
+            auto res = lookup( sym, &ret );
+            assert( res.isOk() );
+            return ret;
+        }
+
+        Result bind( istring sym, Node* value ) {
+            auto p = syms_.emplace( sym, value );
+            RETURN_RES_IF( Result::ERR, !p.second );
+            return Result::OK;
+        }
+        auto bind( string_view sym, Node* value ) { return bind( istring::make( sym ), value ); }
+
+        Environment* parent_;
+        std::map<istring, Node*> syms_;
+    };
+
     struct MacroDecl : Named {
         AST_DECL();
 
         vector<Argument*> m_args;
-        vector<Argument*> m_env;
+        Environment* m_env;
         Node* m_body{nullptr};
 
         template <typename With>
-        MacroDecl( string_view name, With&& with ) : Named( name ) {
+        MacroDecl( string_view name, Environment* env, With&& with ) : Named( name ), m_env( env ) {
             with( *this );
         }
     };
@@ -201,24 +253,6 @@ namespace Slip::Ast {
         MacroExpansion( MacroDecl* macro, vector<Node*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
             with( *this );
         }
-    };
-
-    // Overloaded function call.
-    // We may not be able to tell which overload is chosen until after type inference.
-    struct UnresolvedCall : Named {
-        AST_DECL();
-
-        UnresolvedCall( string_view name ) : Named( name ) {}
-
-        template <typename With>
-        UnresolvedCall( string_view name, const std::vector<Node*>& candidates, std::vector<Node*>&& args, With&& with )
-            : Named( name ), m_candidates( candidates ), m_args( std::move( args ) ) {
-            with( *this );
-        }
-
-        std::vector<Node*> m_candidates;
-        std::vector<Node*> m_args;
-        Node* m_resolved{nullptr};  // null until one of the candidates is chosen.
     };
 
     struct VariableDecl : Named {

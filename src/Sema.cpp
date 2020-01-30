@@ -89,6 +89,7 @@ namespace Slip::Sema {
             }
         }
 
+#if 0
         void operator()( Ast::UnresolvedCall* n, VisitInfo& vi ) {
             assert( !n->m_candidates.empty() );
             std::vector<TypeInfo*> ai;
@@ -125,6 +126,7 @@ namespace Slip::Sema {
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             dispatch( n->m_resolved );
         }
+#endif
 
         void operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
             if( n->m_type ) {  // intrinsic?

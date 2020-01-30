@@ -207,11 +207,6 @@ namespace {
             return retId;
         }
 
-        string operator()( Ast::UnresolvedCall* n ) {
-            assert( n->m_resolved );
-            return dispatch( n->m_resolved );
-        }
-
         string operator()( Ast::Module* n ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );
