@@ -9,6 +9,7 @@ slip_tests = [
     'let_expr_01',
     'macro_expr_01',
     'macro_expr_02',
+    'macro_expr_03',
     'recursive_01',
     'string_type_01',
     'type_infer_00',

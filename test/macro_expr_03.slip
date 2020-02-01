@@ -1,0 +1,16 @@
+; Macro in a macro
+
+(macro bar (body) (begin
+    (var a "bar":string)
+    (expand body)
+    (expand body)))
+
+(macro foo (body) (begin
+    (var a "foo":string)
+    (expand body)
+    (bar (expand body))))
+
+(func main ():int (begin
+    (var a 101:int)
+    (foo (puti a))
+    0:int))
