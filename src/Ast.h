@@ -180,13 +180,14 @@ namespace Slip::Ast {
 
     struct Builtin : Named {
         AST_DECL();
-        using ParseFunc = Result ( * )( Ast::Environment* env, Lex::List* list, Ast::Node** out );
+        using ParseFunc = Result ( * )( Ast::Environment* env, Lex::List* list, void* context, Ast::Node** out );
 
-        Builtin( string_view name, ParseFunc func ) : Named( name ), m_func( func ) {}
+        Builtin( string_view name, ParseFunc func, void* ctx=nullptr ) : Named( name ), m_func( func ), m_context(ctx) {}
 
-        Result parse( Ast::Environment* env, Lex::List* list, Ast::Node** out ) { return ( *m_func )( env, list, out ); }
+        Result parse( Ast::Environment* env, Lex::List* list, Ast::Node** out ) { return ( *m_func )( env, list, m_context, out ); }
 
         ParseFunc m_func;
+        void* m_context;
     };
 
     struct Environment : Node {
@@ -235,7 +236,7 @@ namespace Slip::Ast {
 
         vector<Argument*> m_args;
         Environment* m_env;
-        Node* m_body{nullptr};
+        Lex::Atom* m_body{nullptr};
 
         template <typename With>
         MacroDecl( string_view name, Environment* env, With&& with ) : Named( name ), m_env( env ) {

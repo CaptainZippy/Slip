@@ -84,6 +84,44 @@ static Result matchLex( Lex::List* list, REST... rest ) {
     return matchLex( args, rest... );
 }
 
+static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out );
+
+struct MacroContext {
+    Ast::MacroDecl* macro;
+    array_view<Lex::Atom*> args;
+    Ast::Environment* expansionEnv;
+    Lex::Atom* find( string_view sv ) {
+        for( int i = 0; i < macro->m_args.size(); ++i ) {
+            auto a = macro->m_args[i];
+            if( a->name() == sv ) {
+                return args[i];
+            }
+        }
+        return nullptr;
+    }
+};
+
+static Result macroExpand1( Ast::Environment* env, Lex::List* list, void* context, Ast::Node** out ) {
+    RETURN_RES_IF( Result::ERR, list->size() != 2 );
+    auto sym = dynamic_cast<Lex::Symbol*>( list->at( 1 ) );
+    RETURN_RES_IF( Result::ERR, sym == nullptr );
+    auto info = static_cast<MacroContext*>( context );
+    auto repl = info->find( sym->text() );
+    RETURN_IF_FAILED( parse1( info->expansionEnv, repl, out ) );
+    return Result::OK;
+}
+
+static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
+    auto args = list->items().ltrim( 1 );
+    RETURN_RES_IF( Result::ERR, args.size() != macro->m_args.size() );
+    Ast::Environment inner{macro->m_env};
+    MacroContext context{macro, args, env};
+    Ast::Builtin expander{"expand"sv, &macroExpand1, &context};
+    inner.bind( "expand"sv, &expander );
+    RETURN_IF_FAILED( parse1( &inner, macro->m_body, out ) );
+    return Result::OK;
+}
+
 static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) {
     *out = nullptr;
     if( atom == nullptr ) {
@@ -113,13 +151,15 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
             RETURN_RES_IF_REACHED( Result::ERR );
         }
 
-        if( auto b = dynamic_cast<Ast::Builtin*>(p) ) {
+        if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
             return b->parse( env, list, out );
+        } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
+            return macroExpand( m, env, list, out );
         }
         vector<Ast::Node*> fa;
-        for( auto a : list->items().ltrim(1) ) {
+        for( auto a : list->items().ltrim( 1 ) ) {
             Ast::Node* n;
-            RETURN_IF_FAILED( parse1(env, a, &n ) );
+            RETURN_IF_FAILED( parse1( env, a, &n ) );
             fa.push_back( n );
         }
         *out = new Ast::FunctionCall( new Ast::Reference( p ), move( fa ), WITH( _.m_loc = list->m_loc ) );
@@ -141,7 +181,7 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
 }
 
 struct Parse::Define {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Symbol* lname;
         Lex::Atom* lval;
         RETURN_IF_FAILED( matchLex( args, &lname, &lval ) );
@@ -157,7 +197,7 @@ struct Parse::Define {
 };
 
 struct Parse::Func {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* lname;
         Lex::List* largs;
@@ -192,7 +232,7 @@ struct Parse::Func {
 };
 
 struct Parse::Let {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Symbol* lname;
         Lex::Atom* lbody;
         if( matchLex( args, &lname, &lbody ).isOk() ) {  // short form (let foo 0)
@@ -238,7 +278,7 @@ struct Parse::Let {
 };
 
 struct Parse::If {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Atom* lcond;
         Lex::Atom* ltrue;
         Lex::Atom* lfalse;
@@ -257,7 +297,7 @@ struct Parse::If {
 };
 
 struct Parse::While {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Atom* lcond;
         Lex::Atom* lbody;
         RETURN_IF_FAILED( matchLex( args, &lcond, &lbody ) );
@@ -273,11 +313,11 @@ struct Parse::While {
 };
 
 struct Parse::Cond {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_RES_IF( Result::ERR, args->size() < 2 );
         vector<pair<Ast::Node*, Ast::Node*>> cases;
-        for( auto&& arg : args->items().ltrim(1) ) {
+        for( auto&& arg : args->items().ltrim( 1 ) ) {
             auto pair = dynamic_cast<Lex::List*>( arg );
             RETURN_RES_IF( Result::ERR, pair == nullptr );
             RETURN_RES_IF( Result::ERR, pair->size() != 2 );
@@ -296,10 +336,10 @@ struct Parse::Cond {
 };
 
 struct Parse::Begin {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
-        for( auto arg : args->items().ltrim(1) ) {
+        for( auto arg : args->items().ltrim( 1 ) ) {
             Ast::Node* n;
             RETURN_IF_FAILED( parse1( state, arg, &n ) );
             ret->m_items.push_back( n );
@@ -310,7 +350,7 @@ struct Parse::Begin {
 };
 
 struct Parse::Var {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_RES_IF( Result::ERR, args->size() < 2 );
         RETURN_RES_IF( Result::ERR, args->size() > 3 );
@@ -334,7 +374,7 @@ struct Parse::Var {
 };
 
 struct Parse::Set {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* sym;
         Lex::Atom* expr;
@@ -349,27 +389,21 @@ struct Parse::Set {
 };
 
 struct Parse::Macro {
-    static Result parse( Ast::Environment* state, Lex::List* args, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* lname;
         Lex::List* largs;
         Lex::Atom* lbody;
         RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody ) );
-        auto macro = new Ast::MacroDecl( lname->text(), state, WITH( _.m_loc = lname->m_loc ) );
-        state->bind( macro->m_name, macro );
-        auto inner = new Ast::Environment( state );
-        for( auto item : largs->items().ltrim(1) ) {
+        auto macro = new Ast::MacroDecl( lname->text(), env, WITH( _.m_loc = lname->m_loc ) );
+        for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
             RETURN_RES_IF( Result::ERR, sym == nullptr );
             auto arg = new Ast::Argument( sym->text(), WITH( _.m_loc = sym->m_loc ) );
             macro->m_args.push_back( arg );
         }
-        for( auto a : macro->m_args ) {
-            inner->bind( a->m_name, a );
-        }
-        Ast::Node* body;
-        RETURN_IF_FAILED( parse1( inner, lbody, &body ) );
-        macro->m_body = body;
+        env->bind( macro->m_name, macro );
+        macro->m_body = lbody;
         *out = macro;
         return Result::OK;
     }
@@ -462,7 +496,6 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     addIntrinsic( env, "divd", d_dd );
     addIntrinsic( env, "dfromi", d_i );
     addIntrinsic( env, "strcat!", v_ss );
-    //addIntrinsic( env, "expand", v_v );
 
     auto module = make_unique_del<Ast::Module>();
     for( auto c : lex.items() ) {

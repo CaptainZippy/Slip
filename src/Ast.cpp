@@ -84,7 +84,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN( MacroDecl )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_args, Flags::Child )
-    REFLECT_FIELD2( m_body, Flags::Child )
+    //REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( MacroExpansion )
