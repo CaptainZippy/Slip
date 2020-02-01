@@ -1,4 +1,4 @@
-# Good
+; Good
 
 (func ack (m:int n:int):int
     (cond

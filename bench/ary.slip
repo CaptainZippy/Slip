@@ -1,4 +1,4 @@
-#TODO Buffers
+; TODO Buffers
 
 (define fill_vec! (lambda (vec fill)
     (for i (range (vec_size vec))

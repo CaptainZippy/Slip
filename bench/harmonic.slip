@@ -1,4 +1,4 @@
-#TODO iterators
+; TODO iterators
 
 (func harmonic (n : int) : double (begin
     ; (sum (iter (div_f 1.0 (float i)) (range 1 n))
@@ -13,6 +13,3 @@
     (begin
         (putd (harmonic 4))
         0))
-
-
-

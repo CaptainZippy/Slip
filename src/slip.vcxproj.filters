@@ -105,6 +105,9 @@
     <None Include="..\test\macro_expr_02.slip">
       <Filter>test</Filter>
     </None>
+    <None Include="..\bench\meson.build">
+      <Filter>bench</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

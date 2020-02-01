@@ -178,11 +178,10 @@ namespace {
         }
 
         string operator()( Ast::Assignment* n ) {
-            out.write( "/*" );
-            auto lhs = dispatch( n->m_lhs );
-            out.write( "*/" );
-            out.write( string_concat( lhs, " = "sv, dispatch( n->m_rhs ), ";\n"sv ) );
-            return lhs;
+            auto it = dispatched.find( n->m_lhs);
+            assert( it != dispatched.end() );
+            out.write( string_concat( it->second, " = "sv, dispatch( n->m_rhs ), ";\n"sv ) );
+            return it->second.std_str();
         }
 
         string operator()( Ast::FunctionCall* n ) {

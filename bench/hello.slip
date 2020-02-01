@@ -1,4 +1,4 @@
-#TODO Arrays
+; TODO Arrays
 
 (func main (argv:(array string)):int (begin
     (puts "hello ")

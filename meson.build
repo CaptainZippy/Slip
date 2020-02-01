@@ -33,3 +33,4 @@ slip_compile = generator(slipcc,
     arguments: ['--output-dir=@BUILD_DIR@', '@INPUT@'])
 
 subdir('test')
+subdir('bench')
