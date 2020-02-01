@@ -21,6 +21,10 @@ namespace Slip::Ast {
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
 
+       private:
+        static size_t s_serial;
+
+       public:
         virtual int tag() const;
 
         Node() = default;
@@ -36,6 +40,7 @@ namespace Slip::Ast {
         Ast::Type* m_type{nullptr};
         Ast::Node* m_declTypeExpr{nullptr};
         Io::SourceLocation m_loc;
+        size_t m_serial{s_serial++};
     };
 
     struct Named : Node {

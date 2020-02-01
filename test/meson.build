@@ -8,6 +8,7 @@ slip_tests = [
     'intrinsic_01',
     'let_expr_01',
     'macro_expr_01',
+    'macro_expr_02',
     'recursive_01',
     'string_type_01',
     'type_infer_00',

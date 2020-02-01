@@ -1,3 +1,6 @@
+# Temp build files
+build/
+
 # Git merge files
 *.orig
 # Vim swap files

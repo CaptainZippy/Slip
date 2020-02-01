@@ -1,0 +1,11 @@
+; Variable 'a' in macro shouldn't clash with 'a' at expansion.
+
+(macro twice (body) (begin
+    (var a 2:int)
+    (expand body)
+    (expand body)))
+
+(func main ():int (begin
+    (var a 101:int)
+    (twice (puti a))
+    0:int))

@@ -132,6 +132,8 @@ namespace Slip::Ast {
 
 using namespace Slip;
 
+size_t Ast::Node::s_serial;
+
 Ast::Node* Ast::Node::resolve() { return this; }
 
 Ast::Node* Ast::Reference::resolve() { return m_target; }

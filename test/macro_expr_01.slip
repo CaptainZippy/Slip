@@ -1,0 +1,11 @@
+; Basic macro test
+
+(macro if2 (c a b)
+    (cond
+        ((expand c) (expand a))
+        (true       (expand b))
+))
+
+(func main ():int (begin
+    (puts (if2 true "true" "false"))
+    0:int))
