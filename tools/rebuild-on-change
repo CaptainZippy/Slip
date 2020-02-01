@@ -1,10 +1,13 @@
 #! /bin/sh
 
-if [ ! -e build.ninja ]; then
+tools=$(dirname "$0")
+root=$(realpath "$tools/..")
+build="$root/build/meson"
+
+if [ ! -e "$build/build.ninja" ]; then
 	echo "build.ninja not found in current folder"
 	exit 1
 fi
 
-tools=$(dirname "$0")
-root=$(realpath "$tools/..")
+cd $build
 inotify-hookable  --watch-directories "$root" --ignore-paths "$root/build" --on-modify-command "ninja" "$@"
