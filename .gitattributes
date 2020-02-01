@@ -15,4 +15,4 @@
 *.PDF	 diff=astextplain
 *.rtf	 diff=astextplain
 *.RTF	 diff=astextplain
-
+tools/rebuild-on-change eol=lf

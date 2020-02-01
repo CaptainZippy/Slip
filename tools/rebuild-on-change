@@ -5,9 +5,6 @@ if [ ! -e build.ninja ]; then
 	exit 1
 fi
 
-if [ ! -e ../slip/src ]; then
-	echo "Expected to find source in ../slip/src"
-	exit 1
-fi
-
-inotify-hookable  --watch-directories ../slip/src/ --on-modify-command "ninja"
+tools=$(dirname "$0")
+root=$(realpath "$tools/..")
+inotify-hookable  --watch-directories "$root" --ignore-paths "$root/build" --on-modify-command "ninja" "$@"
