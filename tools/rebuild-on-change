@@ -10,4 +10,4 @@ if [ ! -e "$build/build.ninja" ]; then
 fi
 
 cd $build
-inotify-hookable  --watch-directories "$root" --ignore-paths "$root/build" --on-modify-command "ninja" "$@"
+inotify-hookable  --watch-directories "$root" --ignore-paths "$root/build" --on-modify-command "ninja $@"
