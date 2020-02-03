@@ -6,6 +6,6 @@
         (true       (expand b))
 ))
 
-(func main ():int (begin
+(func main ():int
     (puts (if2 true "true" "false"))
-    0:int))
+    0:int)

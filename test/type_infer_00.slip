@@ -5,6 +5,6 @@
 (func harmonic (n : int):int
     n) 
 
-(func main ():int (begin
+(func main ():int
     (puti (harmonic 4:int))
-    0))
+    0)

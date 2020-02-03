@@ -35,7 +35,7 @@ namespace Slip::Parse {
             return m_begin < m_end;
         }
 
-        bool used() const { return m_begin == m_end; }
+        bool empty() const { return m_begin == m_end; }
 
         size_t size() const { return m_end - m_begin; }
 
@@ -61,15 +61,27 @@ namespace Slip::Parse {
 }  // namespace Slip::Parse
 
 using namespace Slip;
+struct Ellipsis1 {};
 
 static Result matchLex( Parse::Args& args ) {
-    RETURN_RES_IF( Result::ERR, !args.used() );
+    RETURN_RES_IF( Result::ERR, !args.empty() );
+    return Result::OK;
+}
+
+static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellipsis1 ellipsis ) {
+    RETURN_RES_IF( Result::ERR, args.empty() );
+    auto sl = args.cur()->m_loc;
+    sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
+    do {
+        list->emplace_back( args.cur() );
+    } while( args.advance() );
     return Result::OK;
 }
 
 /// Match and consume the entire argument list exactly
 template <typename HEAD, typename... REST>
-static Result matchLex( Parse::Args& args, HEAD** head, REST**... rest ) {
+static Result matchLex( Parse::Args& args, HEAD** head, REST... rest ) {
+    RETURN_RES_IF( Result::ERR, args.empty() );
     auto h = dynamic_cast<HEAD*>( args.cur() );
     RETURN_RES_IF( Result::ERR, !h );
     args.advance();
@@ -80,6 +92,7 @@ static Result matchLex( Parse::Args& args, HEAD** head, REST**... rest ) {
 template <typename... REST>
 static Result matchLex( Lex::List* list, REST... rest ) {
     Parse::Args args{list->items()};
+    RETURN_RES_IF( Result::ERR, args.empty() );
     args.advance();
     return matchLex( args, rest... );
 }
@@ -199,10 +212,11 @@ struct Parse::Define {
 struct Parse::Func {
     static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
+        RETURN_RES_IF( Result::ERR, args->size() < 3 );
         Lex::Symbol* lname;
         Lex::List* largs;
-        Lex::Atom* lbody;
-        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody ) );
+        std::vector<Lex::Atom*> lbody;
+        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody, Ellipsis1{} ) );
         auto func = new Ast::FunctionDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
         state->bind( func->m_name, func );
         auto inner = new Ast::Environment( state );
@@ -224,7 +238,17 @@ struct Parse::Func {
             inner->bind( a->m_name, a );
         }
         Ast::Node* body;
-        RETURN_IF_FAILED( parse1( inner, lbody, &body ) );
+        if( lbody.size() == 1 ) {
+            RETURN_IF_FAILED( parse1( inner, lbody[0], &body ) );
+        } else {
+            auto bd = new Ast::Sequence();
+            for( auto&& l : lbody ) {
+                Ast::Node* b;
+                RETURN_IF_FAILED( parse1( inner, l, &b ) );
+                bd->m_items.emplace_back( b );
+            }
+            body = bd;
+        }
         func->m_body = body;
         *out = func;
         return Result::OK;

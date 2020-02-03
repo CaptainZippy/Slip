@@ -2,8 +2,8 @@
 (func next (n:int):int
     (add n 1))
 
-(func main ():int (begin
+(func main ():int
     ;(let ((x 4))  (puti (next x)))
     ;(define x 4)
     ;(puti (next x))
-    0:int))
+    0:int)

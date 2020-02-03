@@ -1,10 +1,10 @@
 
-(func str_add (a:string b:string):string (begin
+(func str_add (a:string b:string):string
     (var s:string "")
     (strcat! s a)
     (strcat! s b)
-    s))
+    s)
 
-(func main ():int (begin
+(func main ():int
     (puts (str_add "hello" "world"))
-    0))
+    0)
