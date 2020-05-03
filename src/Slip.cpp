@@ -35,7 +35,7 @@ namespace Slip::Args {
             o.m_action = move( action );
         }
 
-        void parse( array_view<const char*> args ) {
+        Result parse( array_view<const char*> args ) {
             auto positionals = make_array_view( m_positional );
             for( string_view key_val : args ) {
                 if( key_val[0] == '-' ) {
@@ -54,17 +54,14 @@ namespace Slip::Args {
                             break;
                         }
                     }
-                    if( !found ) {
-                        THROW( string_format( "Unknown argument %s", key_val.data() ) );
-                    }
+                    RETURN_RES_IF( Result::ERR, !found, "Unknown argument %s", key_val.data() );
                 } else {  // positional
-                    if( positionals.empty() ) {
-                        THROW( string_format( "Extra positional argument" ) );
-                    }
+                    RETURN_RES_IF( Result::ERR, positionals.empty(), "Extra positional argument" );
                     positionals.front().m_action( key_val );
                     positionals = positionals.ltrim( 1 );
                 }
             }
+            return Result::OK;
         }
 
         void help() {
@@ -86,12 +83,15 @@ namespace Slip::Args {
     };
 }  // namespace Slip::Args
 
-static void compile( const char* fname ) {
+static Slip::Result compile( const char* fname ) {
     using namespace Slip;
 
     auto smanager = Io::makeSourceManager();
-    auto lex = Lex::parse_file( *smanager, fname );
-    auto ast = Parse::module( *lex );
+    unique_ptr_del<Lex::List> lex{nullptr, nullptr};
+    RETURN_IF_FAILED( Lex::parse_file( *smanager, fname, lex ) );
+
+    Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
+    RETURN_IF_FAILED( Parse::module( *lex, ast ) );
     if( Args::dumpParse ) Ast::print( ast.get() );
     Sema::type_check( *ast );
     if( Args::dumpInfer ) Ast::print( ast.get() );
@@ -107,9 +107,10 @@ static void compile( const char* fname ) {
     }
     Io::TextOutput out{string_concat( Args::outputDir, "/", path, ".cpp" ).c_str()};
     Backend::generate( *ast, out );
+    return Result::OK;
 }
 
-int main( int argc, const char* argv[] ) {
+Slip::Result slip_main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
     parser.add( "--dump-parse"sv, "Debug print each module after parsing"sv, []( string_view v ) { Args::dumpParse = true; } );
@@ -119,16 +120,12 @@ int main( int argc, const char* argv[] ) {
     parser.add( "--nop[=ignored]", "Ignore this argument", []( string_view v ) { /*ignore arg*/ } );
     parser.add( "--output-dir=dir", "Output to specified directory", []( string_view v ) { Args::outputDir = v; } );
     parser.add( "input...", "Input files to compile", []( string_view v ) { Args::inputs.emplace_back( v ); } );
-    try {
-        parser.parse( make_array_view( argv + 1, argc - 1 ) );
-        for( auto input : Args::inputs ) {
-            compile( input.c_str() );
-        }
-        return 0;
-    } catch( const Exception& se ) {
-        printf( "%s\n", se.what() );
-        return 1;
-    } catch( const std::exception& ) {
-        return 2;
+
+    RETURN_IF_FAILED( parser.parse( make_array_view( argv + 1, argc - 1 ) ) );
+    for( auto input : Args::inputs ) {
+        RETURN_IF_FAILED( compile( input.c_str() ) );
     }
+    return Result::OK;
 }
+
+int main( int argc, const char* argv[] ) { return slip_main( argc, argv ).isOk() ? 0 : 1; }

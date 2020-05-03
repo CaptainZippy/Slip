@@ -182,6 +182,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.clang-format" />
+    <None Include="..\.gitignore" />
     <None Include="..\bench\ack.slip" />
     <None Include="..\bench\ary.slip" />
     <None Include="..\bench\fibo.slip" />

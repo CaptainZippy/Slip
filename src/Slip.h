@@ -1,10 +1,6 @@
 #pragma once
 
 namespace Slip {
-    using namespace std;
-
-    template <typename T>
-    using unique_ptr_del = std::unique_ptr<T, void ( * )( T* )>;
 
     namespace Io {
         struct TextOutput;
@@ -23,8 +19,8 @@ namespace Slip {
         struct Symbol;
 
         /// Lex an input
-        unique_ptr_del<List> parse_input( Io::TextInput& input );
-        unique_ptr_del<List> parse_file( Io::SourceManager& sm, const char* fname );
+        Result parse_input( Io::TextInput& input, unique_ptr_del<List>& lex );
+        Result parse_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<List>& lex );
     }  // namespace Lex
 
     namespace Ast {
@@ -39,7 +35,7 @@ namespace Slip {
         struct Evaluator;
 
         /// Parse lexed input
-        unique_ptr_del<Ast::Module> module( Lex::List& Lex );
+        Result module( Lex::List& Lex, unique_ptr_del<Ast::Module>& mod );
     }  // namespace Parse
 
     namespace Sema {

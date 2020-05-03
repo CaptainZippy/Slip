@@ -12,6 +12,7 @@
 #else
     #define __debugbreak() asm("int $3")
 #endif
+#include <type_traits>
 #include <string_view>
 #include <vector>
 #include <deque>

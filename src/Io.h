@@ -53,7 +53,7 @@ namespace Slip::Io {
 
     struct SourceManager {
         virtual ~SourceManager() = default;
-        virtual TextInput load( const char* fname ) = 0;
+        virtual Result load( const char* fname, Io::TextInput& text ) = 0;
     };
 
     struct SourceNameAndContents {
@@ -87,6 +87,12 @@ namespace Slip::Io {
     struct TextInput {
         TextInput() = default;
         TextInput( const char* s, const char* e, SourceNameAndContents* n ) : cur( s ), start( s ), end( e ), info( n ) {}
+        void reset( const char* s, const char* e, SourceNameAndContents* n ) {
+            cur = s;
+            start = s;
+            end = e;
+            info = n;
+        }
 
         explicit operator bool() const { return cur != end; }
         void eatwhite() {

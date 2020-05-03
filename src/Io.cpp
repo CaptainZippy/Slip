@@ -7,7 +7,7 @@ namespace Slip::Io {
     struct SourceManagerImpl : SourceManager {
         map<string, SourceNameAndContents*> m_files;
 
-        TextInput load( const char* fname ) override;
+        Result load( const char* fname, Io::TextInput& text ) override;
     };
 }  // namespace Slip::Io
 
@@ -34,26 +34,26 @@ int Io::SourceLocation::col() const {
     return 0;
 }
 
-Io::TextInput Io::SourceManagerImpl::load( const char* fname ) {
+Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
     while( 1 ) {
         auto it = m_files.find( fname );
         if( it != m_files.end() ) {
             auto& txt = it->second->m_contents;
-            return TextInput( &txt[0], &txt[0] + txt.size(), it->second );
-        } else if( FILE* fin = fopen( fname, "r" ) ) {
-            string txt;
-            while( 1 ) {
-                char buf[4096];
-                size_t n = fread( buf, 1, sizeof( buf ), fin );
-                if( n == 0 )
-                    break;
-                else
-                    txt.append( buf, buf + n );
-            }
-            m_files[fname] = new SourceNameAndContents{fname, txt};
-        } else {
-            THROW( string_format( "Unable to open %s", fname ) );
+            text.reset( &txt[0], &txt[0] + txt.size(), it->second );
+            return Result::OK;
         }
+        FILE* fin = fopen( fname, "r" );
+        RETURN_RES_IF( Result::ERR, !fin, "Unable to open %s for read", fname );
+        string txt;
+        while( 1 ) {
+            char buf[4096];
+            size_t n = fread( buf, 1, sizeof( buf ), fin );
+            if( n == 0 )
+                break;
+            else
+                txt.append( buf, buf + n );
+        }
+        m_files[fname] = new SourceNameAndContents{fname, txt};
     }
 }
 

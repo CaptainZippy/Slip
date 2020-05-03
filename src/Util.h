@@ -1,16 +1,7 @@
 #pragma once
 
-#include "Slip.h"
-
 namespace Slip {
-
-    struct Exception {
-        Exception() = default;
-        Exception( std::string w ) : m_what( std::move( w ) ) {}
-        virtual ~Exception();
-        const char* what() const { return m_what.c_str(); }
-        std::string m_what;
-    };
+    using namespace std;
 
     inline void error( const char* msg ) { __debugbreak(); }
 
@@ -19,10 +10,12 @@ namespace Slip {
 #define cast( T, a ) dynamic_cast<T*>( a )
 
     struct Result {
-        enum Code { OK = 0, ERR = 1 };
-        Result( Code c ) : code( c ) {}
+        enum OkCode { OK = 0 };
+        enum ErrCode { ERR = 1 };
+        Result( OkCode c ) : code( c ) {}
+        Result( int c ) : code( c ) {}
         bool isOk() const { return code == OK; }
-        Code code;
+        int code;
         static void failed( const char* what, const char* file, int line, const char* fmt, ... );
     };
 #define R_OK Result::OK
@@ -33,14 +26,6 @@ namespace Slip {
             Result::failed( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
             return res;                                                  \
         }                                                                \
-    } while( 0 )
-
-#define THROW_IF_FAILED( COND, ... )               \
-    do {                                           \
-        Result res = ( COND );                     \
-        if( !res.isOk() ) {                        \
-            throw Slip::Exception{"" __VA_ARGS__}; \
-        }                                          \
     } while( 0 )
 
 #define RETURN_RES_IF( RES, COND, ... )                                  \
@@ -56,8 +41,6 @@ namespace Slip {
         Result::failed( "Failed", __FILE__, __LINE__, "" __VA_ARGS__ ); \
         return RES;                                                     \
     } while( 0 )
-
-#define THROW( ... ) throw Slip::Exception( __VA_ARGS__ )
 
     template <typename T>
     struct array_view {
@@ -250,6 +233,9 @@ namespace Slip {
         string_view strs[] = {string_view( args )...};
         return string_concat( make_array_view( strs ) );
     }
+
+    template <typename T>
+    using unique_ptr_del = std::unique_ptr<T, void ( * )( T* )>;
 
     template <class _Ty, class... _Types, enable_if_t<!is_array<_Ty>::value, int> = 0>
     inline unique_ptr_del<_Ty> make_unique_del( _Types&&... _Args ) {

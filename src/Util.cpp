@@ -1,7 +1,5 @@
 #include "pch/Pch.h"
 
-Slip::Exception::~Exception() = default;
-
 namespace Slip {
 
     void Result::failed( const char* what, const char* file, int line, const char* fmt, ... ) {

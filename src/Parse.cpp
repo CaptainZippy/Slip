@@ -476,7 +476,7 @@ static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* ty
     env->bind( n, f );
 }
 
-Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
+Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "define"sv, &Define::parse );
     addBuiltin( env, "func"sv, &Func::parse );
@@ -524,8 +524,9 @@ Slip::unique_ptr_del<Ast::Module> Parse::module( Lex::List& lex ) {
     auto module = make_unique_del<Ast::Module>();
     for( auto c : lex.items() ) {
         Ast::Node* n;
-        THROW_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );
+        RETURN_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );
         module->m_items.push_back( n );
     }
-    return module;
+    mod = std::move(module);
+    return Result::OK;
 }

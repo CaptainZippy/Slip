@@ -108,6 +108,9 @@
     <None Include="..\bench\meson.build">
       <Filter>bench</Filter>
     </None>
+    <None Include="..\.gitignore">
+      <Filter>other</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">
