@@ -1,6 +1,6 @@
 
 
-(func main ():int (begin
+(func main ():int
     (cond
         (false 10:int)
         (true 0:int)
