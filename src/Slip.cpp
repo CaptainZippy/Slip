@@ -128,4 +128,9 @@ Slip::Result slip_main( int argc, const char* argv[] ) {
     return Result::OK;
 }
 
-int main( int argc, const char* argv[] ) { return slip_main( argc, argv ).isOk() ? 0 : 1; }
+int main( int argc, const char* argv[] ) {
+    if( slip_main( argc, argv ).isOk() ) {
+        return 0;
+    }
+    return 1;
+}

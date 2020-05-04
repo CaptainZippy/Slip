@@ -201,6 +201,7 @@ namespace Slip::Ast {
         Environment( Environment* parent ) : parent_( parent ) {}
 
         Result lookup( string_view sym, Node** out ) const {
+            *out = nullptr;
             auto s = istring::make( sym );
 
             for( auto cur = this; cur != nullptr; cur = cur->parent_ ) {
