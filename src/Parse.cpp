@@ -57,6 +57,7 @@ namespace Slip::Parse {
     struct Var;
     struct Set;
     struct Macro;
+    struct ArrayView;
 
 }  // namespace Slip::Parse
 
@@ -433,21 +434,44 @@ struct Parse::Macro {
     }
 };
 
+struct Parse::ArrayView {
+
+    struct Cache {
+        Result instantiate( Ast::Type* t, Ast::Type** out ) {
+            *out = nullptr;
+            auto name = string_format( "array_view__%s__", t->name().c_str() );
+            if( auto it = types_.find( name ); it != types_.end() ) {
+                *out = it->second;
+                return Result::OK;
+            }
+            auto r = new Ast::Type( name );
+            types_.emplace( name, r );
+            *out = r;
+            return Result::OK;
+        }
+        std::map<std::string, Ast::Type*> types_;
+    };
+
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Lex::Symbol* lparam;
+        RETURN_IF_FAILED( matchLex( args, &lparam ) );
+        Ast::Node* param = env->lookup( lparam->text() );
+        auto type = dynamic_cast<Ast::Type*>( param );
+        assert( type );
+        auto cache = static_cast<Cache*>( context );
+        Ast::Type* r;
+        RETURN_IF_FAILED( cache->instantiate( type, &r ) );
+        *out = r;
+        return Result::OK;
+    }
+};
+
 template <typename... Args>
 static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
     auto r = new Ast::Type( name );
     r->m_callable = {args...};
     return r;
-}
-
-static Result _makeArrayViewType( array_view<Ast::Node*> args, Ast::Node** out ) {
-    assert( args.size() == 1 );
-    auto type = dynamic_cast<Ast::Type*>( args[0] );
-    assert( type );
-    auto name = string_format( "array_view<%s>", type->name().c_str() );
-    auto r = new Ast::Type( name );
-    *out = r;
-    return Result::OK;
 }
 
 static Result _makeArrayStaticType( array_view<Ast::Node*> args, Ast::Node** out ) {
@@ -460,8 +484,8 @@ static Result _makeArrayStaticType( array_view<Ast::Node*> args, Ast::Node** out
     return Result::OK;
 }
 
-static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func ) {
-    env->bind( name, new Ast::Builtin( name, func ) );
+static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func, void* ctx = nullptr ) {
+    env->bind( name, new Ast::Builtin( name, func, ctx ) );
 }
 
 static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
@@ -488,6 +512,8 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "var"sv, &Var::parse );
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
+    addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache() );
+
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );
     env->bind( "double"sv, &Ast::s_typeDouble );
@@ -527,6 +553,6 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
         RETURN_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );
         module->m_items.push_back( n );
     }
-    mod = std::move(module);
+    mod = std::move( module );
     return Result::OK;
 }

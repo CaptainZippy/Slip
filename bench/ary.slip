@@ -1,30 +1,34 @@
 ; TODO Buffers
 
-(define fill_vec! (vec:(array_view int) fill:int)
-    (for i (range (vec_size vec))
-        (vec_set! vec i fill))))
+(func fill_vec (vec:(array_view int) fill:int): void
+    (puti 0))
+   ; (for i (range (vec_size vec))
+   ;     (vec_set! vec i fill))))
 
 ; add_to_vec(yv,xv)
 ;   for i,x in enumerate(xv):
 ;      yv[i] += x
 
-(define add_to_vec! (y:(array_view int) x:(array_view int))
-    (for i (range (vec_size y))
-        (vec_set! y i (add_i (vec_idx y i) (vec_idx x i))))))
+(func add_to_vec (y:(array_view int) x:(array_view int)): void
+    (puti 0))
+    ;(for i (range (vec_size y))
+    ;    (vec_set! y i (add_i (vec_idx y i) (vec_idx x i))))))
 
-(define ary (n:int):(tuple int int)
-  (let x (range 1 (add_i n 1)))
+(func ary (n:int): int ;(tuple int int)
+    0)
+  ;(let x (range 1 (add_i n 1)))
   ;(let x $ range 1 $ add_i n 1))
-  (let y (vec_new n))
+  ;(let y (vec_new n))
   ;(let y $ vec_new n)
-  (fill_vec! y 0)
-  (for i (range n) (add_to_vec! y x))
-  (tuple.make (vec_idx y 0) (vec_idx y (sub_i n 1)))))
-  ;(tuple.make (y 0) (y (- n 1)))
-  (tuple.make y[0] y[n-1])
-  (tuple.make [y 0] [y $ - n 1])
+  ;(fill_vec! y 0)
+  ;(for i (range n) (add_to_vec! y x)))
 
-(func main (args:(array string_view)):int
-    (let n 100)
-    (print (ary n))
+  ;(tuple.make (vec_idx y 0) (vec_idx y (sub_i n 1)))))
+  ;(tuple.make (y 0) (y (- n 1)))
+  ;(tuple.make y[0] y[n-1])
+  ;(tuple.make [y 0] [y $ - n 1])
+
+(func main (args:(array_view string)):int
+    (var n 100:int)
+    (puti (ary n))
     0)
