@@ -2,6 +2,6 @@
 
 (func main ():int
     (cond
-        (true 10:int)
-        (false 11:int))
-    0)
+        (false 10:int)
+        (true 0:int)
+        (false 121:int)))
