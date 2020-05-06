@@ -122,7 +122,8 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                 break;
             }
             default: {  // symbol
-                if( isalpha( in.peek() ) || in.peek() == '_' || in.peek() == '@' ) {
+                int c = in.peek();
+                if( isalpha( c ) || c == '_' || c == '@' || c == '#' ) {
                     auto start = in.tell();
                     in.next();
                     while( in.available() ) {

@@ -157,6 +157,7 @@
   <ItemGroup>
     <ClCompile Include="Ast.cpp" />
     <ClCompile Include="Backend.cpp" />
+    <ClCompile Include="Eval.cpp" />
     <ClCompile Include="Io.cpp" />
     <ClCompile Include="Parse.cpp" />
     <ClCompile Include="pch/Pch.cpp">
@@ -196,6 +197,7 @@
     <None Include="..\test\array_type_02.slip" />
     <None Include="..\test\macro_expr_01.slip" />
     <None Include="..\test\macro_expr_02.slip" />
+    <None Include="..\test\now_expr_01.slip" />
     <None Include="Ast.inc" />
     <None Include="..\test\array_type_01.slip" />
     <None Include="..\test\cond_expr_01.slip" />

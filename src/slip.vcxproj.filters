@@ -13,6 +13,7 @@
     <ClCompile Include="Sema.cpp" />
     <ClCompile Include="Io.cpp" />
     <ClCompile Include="Slip.cpp" />
+    <ClCompile Include="Eval.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Reflect.h" />
@@ -110,6 +111,9 @@
     </None>
     <None Include="..\.gitignore">
       <Filter>other</Filter>
+    </None>
+    <None Include="..\test\now_expr_01.slip">
+      <Filter>test</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

@@ -40,11 +40,16 @@ namespace Slip {
 
     namespace Sema {
         /// Check types
-        void type_check( Ast::Module& mod );
+        Result type_check( Ast::Node* node );
     }  // namespace Sema
+
+    namespace Eval {
+        Result evaluate( Ast::Environment* env, Ast::Node* node, Ast::Node** out );
+    }
 
     namespace Backend {
         /// Generate output
         void generate( Ast::Module& mod, Io::TextOutput& out );
     }  // namespace Backend
+
 }  // namespace Slip

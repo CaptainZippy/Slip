@@ -7,6 +7,7 @@
 #include "pch/Pch.h"
 
 #include "Io.h"
+#include "Ast.h"
 #include "Slip.h"
 
 namespace Slip::Args {
@@ -93,7 +94,7 @@ static Slip::Result compile( const char* fname ) {
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
     RETURN_IF_FAILED( Parse::module( *lex, ast ) );
     if( Args::dumpParse ) Ast::print( ast.get() );
-    Sema::type_check( *ast );
+    Sema::type_check( ast.get() );
     if( Args::dumpInfer ) Ast::print( ast.get() );
 
     string_view path{fname};

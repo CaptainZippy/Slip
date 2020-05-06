@@ -187,7 +187,7 @@ namespace Slip::Ast {
         AST_DECL();
         using ParseFunc = Result ( * )( Ast::Environment* env, Lex::List* list, void* context, Ast::Node** out );
 
-        Builtin( string_view name, ParseFunc func, void* ctx=nullptr ) : Named( name ), m_func( func ), m_context(ctx) {}
+        Builtin( string_view name, ParseFunc func, void* ctx = nullptr ) : Named( name ), m_func( func ), m_context( ctx ) {}
 
         Result parse( Ast::Environment* env, Lex::List* list, Ast::Node** out ) { return ( *m_func )( env, list, m_context, out ); }
 
@@ -333,7 +333,7 @@ namespace Slip::Ast {
         switch( n->tag() ) {
 #define AST_NODE( X )           \
     case Detail::TagOf<X>::Tag: \
-        return handler( static_cast<X*>( n ), std::forward<Args...>( args... ) );
+        return handler( static_cast<X*>( n ), std::forward<Args>( args )... );
             default:
 #include "Ast.inc"
 #undef AST_NODE

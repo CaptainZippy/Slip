@@ -57,6 +57,7 @@ namespace Slip::Parse {
     struct Var;
     struct Set;
     struct Macro;
+    struct Now;
     struct ArrayView;
 
 }  // namespace Slip::Parse
@@ -434,8 +435,20 @@ struct Parse::Macro {
     }
 };
 
-struct Parse::ArrayView {
+struct Parse::Now {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Lex::List rest{args->m_loc};
+        for( auto p : args->items().ltrim( 1 ) ) {
+            rest.append( p );
+        }
+        Ast::Node* expr;
+        RETURN_IF_FAILED(parse1( env, &rest, &expr ));
+        return Eval::evaluate( env, expr, out );
+    }
+};
 
+struct Parse::ArrayView {
     struct Cache {
         Result instantiate( Ast::Type* t, Ast::Type** out ) {
             *out = nullptr;
@@ -512,6 +525,7 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "var"sv, &Var::parse );
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
+    addBuiltin( env, "#"sv, &Now::parse );
     addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache() );
 
     env->bind( "int"sv, &Ast::s_typeInt );

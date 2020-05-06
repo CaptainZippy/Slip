@@ -233,11 +233,10 @@ namespace Slip::Sema {
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         vector<Convertible> m_convertible;
-        Ast::Module* m_module{nullptr};
 
-        Result build( Ast::Module* mod ) {
-            m_module = mod;
-            return dispatch( mod ) ? Result::OK : Result::ERR;
+        Result build( Ast::Node* node ) {
+            RETURN_RES_IF( Result::ERR, dispatch( node ) == nullptr );
+            return Result::OK;
         }
 
         Result solve() {
@@ -532,12 +531,13 @@ namespace Slip::Sema {
 #endif
 }  // namespace Slip::Sema
 
-void Slip::Sema::type_check( Slip::Ast::Module& mod ) {
+Slip::Result Slip::Sema::type_check( Slip::Ast::Node* node) {
     ConstraintBuilder builder;
     // RETURN_IF_FAILED(
-    builder.build( &mod );
+    builder.build( node );
 
     builder.solve();
+    return Result::OK;
 #if 0
     ConstraintSolver solver;
     ////RETURN_IF_FAILED
