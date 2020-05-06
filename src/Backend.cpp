@@ -167,11 +167,15 @@ namespace {
         }
 
         string operator()( Ast::VariableDecl* n ) {
+            string init;
+            if( n->m_initializer ) {
+                init = dispatch( n->m_initializer );
+            }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
             addName( n, istring::make(name) );
             out.begin( string_concat( n->m_type->name(), " "sv, name ) );
             if( n->m_initializer ) {
-                out.write( string_concat( " = "sv, dispatch( n->m_initializer ) ) );
+                out.write( string_concat( " = "sv, init ) );
             }
             out.end( ";"sv );
             return name;
