@@ -9,7 +9,7 @@
             "command": "ninja",
             "args": [],
             "options": {
-                "cwd": "${workspaceFolder}/../_"
+                "cwd": "${workspaceFolder}/build/meson"
             },
             "group": {
                 "kind": "build",

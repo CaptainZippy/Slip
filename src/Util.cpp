@@ -3,16 +3,16 @@
 namespace Slip {
 
     void Result::failed( const char* what, const char* file, int line, const char* fmt, ... ) {
-        printf( "%s:%i:", file, line );
+        fprintf( stderr, "%s:%i:1: error: ", file, line );
         if( fmt && fmt[0] ) {
             va_list ap;
             va_start( ap, fmt );
-            vprintf( fmt, ap );
+            vfprintf( stderr, fmt, ap );
             va_end( ap );
         } else {
-            printf( "Failed" );
+            fprintf( stderr, "Failed" );
         }
-        printf( " - '%s'\n", what );
+        fprintf( stderr, " - '%s'\n", what );
     }
 
     std::string string_format( const char* fmt, ... ) {
@@ -31,6 +31,7 @@ namespace Slip {
             va_list al;
             va_copy( al, arglist );
             int n = vsnprintf( &str[0], str.size(), fmt, al ) + 1;  // incl nul
+
             va_end( al );
 
             if( n < 0 ) {

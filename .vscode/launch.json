@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/../_/slipc",
+            "program": "${workspaceFolder}/build/meson/slipcc",
             "args": ["bench/fibo.slip"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
