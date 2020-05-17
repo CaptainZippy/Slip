@@ -382,7 +382,7 @@ struct Parse::Var {
         RETURN_RES_IF( Result::ERR, args->size() > 3 );
         Lex::Symbol* sym;
         Ast::Node* expr{nullptr};
-        if( args->size() == 1 ) {
+        if( args->size() == 2 ) {
             RETURN_IF_FAILED( matchLex( args, &sym ) );
         } else {
             Lex::Atom* init;

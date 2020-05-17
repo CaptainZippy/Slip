@@ -3,6 +3,8 @@
 namespace Slip {
     using namespace std;
 
+    typedef unsigned char byte;
+
     inline void error( const char* msg ) { __debugbreak(); }
 
 #define assert( A ) \
@@ -206,6 +208,7 @@ namespace Slip {
     // Interned string
     struct istring {
         static istring make( const char* s );
+        static istring make( const char* s, size_t l );
         static istring make( std::string_view s );
 
         inline istring() : m_str( &s_empty[sizeof( size_t )] ) {}

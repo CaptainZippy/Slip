@@ -58,6 +58,8 @@ namespace Slip {
 
     istring istring::make( const char* s ) { return make( string_view( s ) ); }
 
+    istring istring::make( const char* s, size_t l ) { return make( string_view( s, l ) ); }
+
     istring istring::make( string_view s ) {
         struct Item {
             ssize_t size{-1};

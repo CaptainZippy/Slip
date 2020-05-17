@@ -1,0 +1,5 @@
+
+(func main ():int
+    (var foo:(array_view string))
+    (puti (size foo))
+    0)
