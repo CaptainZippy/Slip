@@ -5,6 +5,7 @@ project('slip', 'cpp',
 slip_srcs = [
     'src/Ast.cpp',
     'src/Backend.cpp',
+    'src/Eval.cpp',
     'src/Io.cpp',
     'src/Lex.cpp',
     'src/Parse.cpp',

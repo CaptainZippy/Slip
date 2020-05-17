@@ -122,7 +122,7 @@ Result Eval::evaluate( Ast::Environment* env, Ast::Node* node, Ast::Node** out )
     switch( ev.stack_.at( 0 ).kind_ ) {
         case Evaluator::Stack::Kind::Int: {
             static char foo[111];
-            int n = snprintf( foo, sizeof( foo ), "%lli", ev.stack_.at( 0 ).val_ );
+            int n = snprintf( foo, sizeof( foo ), "%zu", ev.stack_.at( 0 ).val_ );
             auto v = istring::make( foo, n );
             *out = new Ast::Number( v, WITH( _.m_type = &Ast::s_typeInt ) );
             return Result::OK;
