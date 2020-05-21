@@ -23,9 +23,7 @@ namespace {
             assert( it.second );  // assert we inserted a new
         }
 
-        string dispatch( Ast::Node* n ) {
-            return Ast::dispatch<string>( n, *this );
-        }
+        string dispatch( Ast::Node* n ) { return Ast::dispatch<string>( n, *this ); }
 
         string operator()( Ast::Node* n ) {
             assert( 0 );
@@ -172,7 +170,7 @@ namespace {
                 init = dispatch( n->m_initializer );
             }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
-            addName( n, istring::make(name) );
+            addName( n, istring::make( name ) );
             out.begin( string_concat( n->m_type->name(), " "sv, name ) );
             if( n->m_initializer ) {
                 out.write( string_concat( " = "sv, init ) );
@@ -182,7 +180,7 @@ namespace {
         }
 
         string operator()( Ast::Assignment* n ) {
-            auto it = dispatched.find( n->m_lhs);
+            auto it = dispatched.find( n->m_lhs );
             assert( it != dispatched.end() );
             out.write( string_concat( it->second, " = "sv, dispatch( n->m_rhs ), ";\n"sv ) );
             return it->second.std_str();
@@ -209,6 +207,11 @@ namespace {
             }
             out.write( ");\n" );
             return retId;
+        }
+
+        string operator()( Ast::NamedFunctionCall* n ) {
+            assert( n->m_resolved );
+            return dispatch( n->m_resolved );
         }
 
         string operator()( Ast::Module* n ) {

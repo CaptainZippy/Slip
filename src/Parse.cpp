@@ -143,7 +143,7 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         return Result::OK;
     } else if( auto sym = dynamic_cast<Lex::Symbol*>( atom ) ) {
         Ast::Node* node;
-        RETURN_IF_FAILED( env->lookup( sym->text(), &node ) );
+        RETURN_IF_FAILED( env->lookup( sym->text(), &node ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
 
         // TODO: detect symbol is decl or const.
         if( auto ty = dynamic_cast<Ast::Type*>( node ) ) {
@@ -159,25 +159,36 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         RETURN_RES_IF( Result::ERR, list->size() == 0 );
         auto items = list->items();
         auto first = items[0];
-        Ast::Node* p = nullptr;
-        if( auto sym = dynamic_cast<Lex::Symbol*>( first ) ) {
-            RETURN_IF_FAILED( env->lookup( sym->text(), &p ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
-        } else {
-            RETURN_RES_IF_REACHED( Result::ERR );
+        auto sym = dynamic_cast<Lex::Symbol*>( first );
+        RETURN_RES_IF( Result::ERR, !sym, "Symbol expected in first list position" );
+
+        // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
+        Ast::Node* p;
+        const void* iter = nullptr;
+        auto isym = istring::make( sym->text() );
+        std::vector<Ast::Node*> candidates;
+        while( env->lookup_iter( isym, &p, iter ) ) {
+            if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
+                RETURN_RES_IF( Result::ERR, !candidates.empty(), "Builtins can't be overloaded" );
+                RETURN_RES_IF( Result::ERR, env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                return b->parse( env, list, out );
+            } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
+                RETURN_RES_IF( Result::ERR, !candidates.empty(), "Builtins can't be overloaded" );
+                RETURN_RES_IF( Result::ERR, env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                return macroExpand( m, env, list, out );
+            } else {
+                candidates.emplace_back( p );
+            }
         }
 
-        if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
-            return b->parse( env, list, out );
-        } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
-            return macroExpand( m, env, list, out );
-        }
+        // eval args
         vector<Ast::Node*> fa;
         for( auto a : list->items().ltrim( 1 ) ) {
             Ast::Node* n;
             RETURN_IF_FAILED( parse1( env, a, &n ) );
             fa.push_back( n );
         }
-        *out = new Ast::FunctionCall( new Ast::Reference( p ), move( fa ), WITH( _.m_loc = list->m_loc ) );
+        *out = new Ast::NamedFunctionCall( isym, std::move( candidates ), std::move( fa ), WITH( _.m_loc = list->m_loc ) );
         return Result::OK;
     } else if( auto num = dynamic_cast<Lex::Number*>( atom ) ) {
         Ast::Node* te;
@@ -406,7 +417,7 @@ struct Parse::Set {
         Lex::Atom* expr;
         RETURN_IF_FAILED( matchLex( args, &sym, &expr ) );
         Ast::Node* value = nullptr;
-        RETURN_IF_FAILED( state->lookup( sym->text(), &value ) );
+        RETURN_IF_FAILED( state->lookup( sym->text(), &value ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
         Ast::Node* rhs;
         RETURN_IF_FAILED( parse1( state, expr, &rhs ) );
         *out = new Ast::Assignment( value, rhs, WITH( _.m_loc = sym->m_loc ) );
@@ -443,10 +454,17 @@ struct Parse::Now {
             rest.append( p );
         }
         Ast::Node* expr;
-        RETURN_IF_FAILED(parse1( env, &rest, &expr ));
+        RETURN_IF_FAILED( parse1( env, &rest, &expr ) );
         return Eval::evaluate( env, expr, out );
     }
 };
+
+template <typename... Args>
+static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
+    auto r = new Ast::Type( name );
+    r->m_callable = {args...};
+    return r;
+}
 
 struct Parse::ArrayView {
     struct Cache {
@@ -458,6 +476,9 @@ struct Parse::ArrayView {
                 return Result::OK;
             }
             auto r = new Ast::Type( name );
+            auto ftype = _makeFuncType( "(name)->int", r, &Ast::s_typeInt );
+            auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
+            r->m_methods.emplace_back( fdecl );
             types_.emplace( name, r );
             *out = r;
             return Result::OK;
@@ -469,7 +490,7 @@ struct Parse::ArrayView {
         *out = nullptr;
         Lex::Symbol* lparam;
         RETURN_IF_FAILED( matchLex( args, &lparam ) );
-        Ast::Node* param = env->lookup( lparam->text() );
+        Ast::Node* param = env->lookup( lparam->text() );  // TODO
         auto type = dynamic_cast<Ast::Type*>( param );
         assert( type );
         auto cache = static_cast<Cache*>( context );
@@ -479,13 +500,6 @@ struct Parse::ArrayView {
         return Result::OK;
     }
 };
-
-template <typename... Args>
-static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
-    auto r = new Ast::Type( name );
-    r->m_callable = {args...};
-    return r;
-}
 
 static Result _makeArrayStaticType( array_view<Ast::Node*> args, Ast::Node** out ) {
     assert( args.size() == 1 );

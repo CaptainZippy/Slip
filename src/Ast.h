@@ -100,6 +100,7 @@ namespace Slip::Ast {
         Type( istring sym );
         // non-empty for callable types.
         std::vector<Ast::Type*> m_callable;  //[0]=return [1:]=args
+        std::vector<Ast::FunctionDecl*> m_methods;
     };
 
     struct Decl : Node {
@@ -200,19 +201,31 @@ namespace Slip::Ast {
 
         Environment( Environment* parent ) : parent_( parent ) {}
 
+        bool lookup_iter( istring sym, Node** out, const void*& iter ) const {
+            *out = nullptr;
+            // iter is null first time, or the env of the previous find.
+            auto cur = iter ? static_cast<const Environment*>( iter )->parent_ : this;
+            for( ; cur != nullptr; cur = cur->parent_ ) {
+                auto x = cur->syms_.find( sym );
+                if( x != cur->syms_.end() ) {
+                    *out = x->second;
+                    iter = cur;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         Result lookup( string_view sym, Node** out ) const {
             *out = nullptr;
             auto s = istring::make( sym );
-
-            for( auto cur = this; cur != nullptr; cur = cur->parent_ ) {
-                auto x = cur->syms_.find( s );
-                if( x != cur->syms_.end() ) {
-                    *out = x->second;
-                    return Result::OK;
-                }
+            const void* iter = nullptr;
+            if( lookup_iter( s, out, iter ) == false ) {
+                return Result::ERR;
             }
-            RETURN_RES_IF( Result::ERR, true, "symbol not found '%s'", s.c_str() );
+            return Result::OK;
         }
+
         Node* lookup( istring sym ) const {
             Node* ret;
             auto res = lookup( sym, &ret );
@@ -260,6 +273,21 @@ namespace Slip::Ast {
         MacroExpansion( MacroDecl* macro, vector<Node*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
             with( *this );
         }
+    };
+
+    // We may not be able to tell which overload is chosen until after type inference.
+    struct NamedFunctionCall : Named {
+        AST_DECL();
+
+        template <typename With>
+        NamedFunctionCall( istring name, std::vector<Node*>&& candidates, std::vector<Node*>&& args, With&& with )
+            : Named( name ), m_candidates( candidates ), m_args( args ) {
+            with( *this );
+        }
+
+        std::vector<Node*> m_candidates;
+        std::vector<Node*> m_args;
+        Node* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
     };
 
     struct VariableDecl : Named {
