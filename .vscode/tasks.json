@@ -7,10 +7,7 @@
             "label": "build",
             "type": "shell",
             "command": "ninja",
-            "args": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build/meson"
-            },
+            "args": ["-C", "${workspaceFolder}/build/meson"],
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -18,9 +15,10 @@
             "presentation": {
                 "reveal": "always"
             },
-            "problemMatcher": [
-                "$gcc"
-            ]
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": ["relative", "${workspaceFolder}/build/meson"]
+            }
         }
     ]
 }

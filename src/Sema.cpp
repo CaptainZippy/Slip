@@ -112,7 +112,7 @@ namespace Slip::Sema {
                     auto ti = dispatch( c );
                     fi.emplace_back( ti->func );
                 }
-            
+
 
                 auto isCompatible = []( array_view<TypeInfo*> proto, array_view<TypeInfo*> args ) {
                     if( proto.size() != args.size() ) {
@@ -440,7 +440,7 @@ namespace Slip::Sema {
                 target = nullptr;
             }
 
-            // 
+            //
             vector<TypeInfo*> todo = builder.m_targets;
             do {
                 vector<TypeInfo*> again;
