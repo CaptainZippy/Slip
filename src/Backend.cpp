@@ -50,7 +50,7 @@ namespace {
             return "??";
 #endif
         }
-        string operator()( Ast::Argument* n ) {
+        string operator()( Ast::Parameter* n ) {
             addName( n, n->name() );
             return n->m_name.std_str();
         }
@@ -142,19 +142,19 @@ namespace {
 
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
-            for( auto a : n->m_args ) {
-                assert( a->m_type );
-                assert( a->m_name.c_str() );
+            for( auto p : n->m_params ) {
+                assert( p->m_type );
+                assert( p->m_name.c_str() );
                 symbol.append( "__" );
-                symbol.append( a->m_type->name() );  // todo valid symbol, spaces etc
+                symbol.append( p->m_type->name() );  // todo valid symbol, spaces etc
             }
             addName( n, istring::make( symbol ) );
             out.begin( string_concat( "\n", n->m_type->m_callable[0]->name(), " ", symbol, "(" ) );
             const char* sep = "";
-            for( auto a : n->m_args ) {
-                assert( a->m_type );
-                assert( a->m_name.c_str() );
-                out.write( string_concat( sep, a->m_type->name(), " ", a->m_name ) );
+            for( auto p : n->m_params ) {
+                assert( p->m_type );
+                assert( p->m_name.c_str() );
+                out.write( string_concat( sep, p->m_type->name(), " ", p->m_name ) );
                 sep = ", ";
             }
             out.write( ") {\n" );

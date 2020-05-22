@@ -106,9 +106,9 @@ struct MacroContext {
     array_view<Lex::Atom*> args;
     Ast::Environment* expansionEnv;
     Lex::Atom* find( string_view sv ) {
-        for( int i = 0; i < macro->m_args.size(); ++i ) {
-            auto a = macro->m_args[i];
-            if( a->name() == sv ) {
+        for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
+            auto p = macro->m_params[i];
+            if( p->name() == sv ) {
                 return args[i];
             }
         }
@@ -128,7 +128,7 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* list, void* contex
 
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
-    RETURN_RES_IF( Result::ERR, args.size() != macro->m_args.size() );
+    RETURN_RES_IF( Result::ERR, args.size() != macro->m_params.size() );
     Ast::Environment inner{macro->m_env};
     MacroContext context{macro, args, env};
     Ast::Builtin expander{"expand"sv, &macroExpand1, &context};
@@ -243,12 +243,12 @@ struct Parse::Func {
             RETURN_RES_IF( Result::ERR, sym == nullptr );
             Ast::Node* te;
             RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
-            auto arg = new Ast::Argument( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
-            func->m_args.push_back( arg );
+            auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
+            func->m_params.push_back( param );
         }
         // TODO check unique names
-        for( auto a : func->m_args ) {
-            inner->bind( a->m_name, a );
+        for( auto p : func->m_params ) {
+            inner->bind( p->m_name, p );
         }
         Ast::Node* body;
         if( lbody.size() == 1 ) {
@@ -436,8 +436,8 @@ struct Parse::Macro {
         for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
             RETURN_RES_IF( Result::ERR, sym == nullptr );
-            auto arg = new Ast::Argument( sym->text(), WITH( _.m_loc = sym->m_loc ) );
-            macro->m_args.push_back( arg );
+            auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc ) );
+            macro->m_params.push_back( param );
         }
         env->bind( macro->m_name, macro );
         macro->m_body = lbody;
@@ -518,11 +518,11 @@ static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::P
 static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
     auto n = istring::make( name );
     auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
-    char p[2] = {'a', '0'};
+    char pname[2] = {'a', '0'};
     for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
-        auto a = new Ast::Argument( p, WITH( _.m_type = at ) );
-        f->m_args.emplace_back( a );
-        p[0] += 1;
+        auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
+        f->m_params.emplace_back( p );
+        pname[0] += 1;
     }
     env->bind( n, f );
 }

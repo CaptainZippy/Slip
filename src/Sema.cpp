@@ -37,7 +37,7 @@ namespace Slip::Sema {
     };
 
     struct VisitInfo {
-        VisitInfo() = default;
+        VisitInfo() = delete;
         VisitInfo( Ast::Node* n, TypeInfo* t ) : node( n ), info( t ) {}
         Ast::Node* node{nullptr};
         TypeInfo* info{nullptr};
@@ -73,7 +73,7 @@ namespace Slip::Sema {
             vi.info = fi->get_func()->ret;
         }
 
-        void operator()( Ast::Argument* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( n->m_declTypeExpr ); }
+        void operator()( Ast::Parameter* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( n->m_declTypeExpr ); }
 
         void operator()( Ast::MacroDecl* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( &Ast::s_typeVoid ); }
 
@@ -98,8 +98,8 @@ namespace Slip::Sema {
             FuncInfo* resolved = nullptr;
             if( auto ty = ai[0]->type ) {
                 for( auto& m : ty->m_methods ) {
-                    if( m.m_name == n->m_name ) {
-                        if( m.m_name == n->m_name ) {
+                    if( m->m_name == n->m_name ) {
+                        if( m->m_name == n->m_name ) {
                         }
                     }
                 }
@@ -147,11 +147,11 @@ namespace Slip::Sema {
             } else {
                 vi.info = new TypeInfo{};
                 auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
-                std::vector<TypeInfo*> args;
-                for( auto&& a : n->m_args ) {
-                    args.emplace_back( dispatch( a ) );
+                std::vector<TypeInfo*> params;
+                for( auto&& p : n->m_params ) {
+                    params.emplace_back( dispatch( p ) );
                 }
-                _isFunction( vi.info, ret, std::move( args ) );
+                _isFunction( vi.info, ret, std::move( params ) );
                 if( auto bt = n->m_body ? dispatch( n->m_body ) : nullptr ) {
                     _isConvertible( ret, bt );
                 }

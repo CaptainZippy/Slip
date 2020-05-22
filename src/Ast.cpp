@@ -68,7 +68,7 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( FunctionDecl )
     REFLECT_PARENT( Named )
-    REFLECT_FIELD2( m_args, Flags::Child )
+    REFLECT_FIELD2( m_params, Flags::Child )
     // REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
     REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
@@ -83,7 +83,7 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( MacroDecl )
     REFLECT_PARENT( Named )
-    REFLECT_FIELD2( m_args, Flags::Child )
+    REFLECT_FIELD2( m_params, Flags::Child )
     //REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
 
@@ -116,7 +116,7 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 
-    REFLECT_BEGIN( Argument )
+    REFLECT_BEGIN( Parameter )
     REFLECT_PARENT( Named )
     REFLECT_END()
 
@@ -247,23 +247,23 @@ void Ast::print( Node* node, Io::TextOutput& out ) {
     out.nl();
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Argument* a, Argument* b, Node* ret ) {
+Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret ) {
     auto f = new FunctionDecl( name );
     f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
     f->m_body->m_declTypeExpr = ret;
-    f->m_args.push_back( a );
-    f->m_args.push_back( b );
+    f->m_params.push_back( a );
+    f->m_params.push_back( b );
     return f;
 }
 
 Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Intrinsic intrin, Node* ret,
-                                                     std::initializer_list<Argument*> args ) {
+                                                     std::initializer_list<Parameter*> params ) {
     auto f = new FunctionDecl( name );
     f->m_intrinsic = intrin;
     f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
     f->m_body->m_declTypeExpr = ret;
-    f->m_args = args;
+    f->m_params = params;
     return f;
 }

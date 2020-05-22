@@ -152,10 +152,10 @@ namespace Slip::Ast {
         }
     };
 
-    struct Argument : Named {
+    struct Parameter : Named {
         AST_DECL();
         template <typename With>
-        Argument( string_view s, With&& with ) : Named( s ) {
+        Parameter( string_view s, With&& with ) : Named( s ) {
             with( *this );
         }
     };
@@ -165,7 +165,7 @@ namespace Slip::Ast {
         // using Intrinsic = Result (*)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
         using Intrinsic = Result ( * )( array_view<Node*> args, Ast::Node** out );
 
-        vector<Argument*> m_args;
+        vector<Parameter*> m_params;
         Ast::Node* m_declReturnTypeExpr{nullptr};
         Node* m_body{nullptr};
         Intrinsic m_intrinsic{nullptr};
@@ -177,11 +177,11 @@ namespace Slip::Ast {
             with( *this );
         }
 
-        /// Create a named function of two arguments.
-        static FunctionDecl* makeBinaryOp( string_view name, Argument* a, Argument* b, Node* ret );
+        /// Create a named function of two parameters.
+        static FunctionDecl* makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret );
 
         /// Create a named intrinsic function.
-        static FunctionDecl* makeIntrinsic( string_view name, Intrinsic intrin, Node* ret, initializer_list<Argument*> args );
+        static FunctionDecl* makeIntrinsic( string_view name, Intrinsic intrin, Node* ret, initializer_list<Parameter*> params );
     };
 
     struct Builtin : Named {
@@ -253,7 +253,7 @@ namespace Slip::Ast {
     struct MacroDecl : Named {
         AST_DECL();
 
-        vector<Argument*> m_args;
+        vector<Parameter*> m_params;
         Environment* m_env;
         Lex::Atom* m_body{nullptr};
 
