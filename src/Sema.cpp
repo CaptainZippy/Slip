@@ -12,7 +12,7 @@ namespace Slip::Sema {
 
     struct FuncInfo {
         TypeInfo* ret{nullptr};
-        vector<TypeInfo*> args;
+        vector<TypeInfo*> params;
     };
 
     struct TypeInfo {
@@ -127,7 +127,7 @@ namespace Slip::Sema {
                 };
                 std::vector<unsigned> yes;
                 for( unsigned i = 0; i < n->m_candidates.size(); ++i ) {
-                    if( isCompatible( fi[i]->args, ai ) ) {
+                    if( isCompatible( fi[i]->params, ai ) ) {
                         yes.emplace_back( i );
                     }
                 }
@@ -331,7 +331,7 @@ namespace Slip::Sema {
                     ti->func = f;
                     f->ret = _internKnownType( call[0] );
                     for( auto&& a : array_view( call ).ltrim( 1 ) ) {
-                        f->args.emplace_back( _internKnownType( a ) );
+                        f->params.emplace_back( _internKnownType( a ) );
                     }
                 }
             }
@@ -370,7 +370,7 @@ namespace Slip::Sema {
             std::vector<Ast::Type*> args;
             FuncInfo* f = ti->func;
             args.emplace_back( f->ret->get_type() );
-            for( auto&& a : f->args ) {
+            for( auto&& a : f->params ) {
                 args.emplace_back( a->get_type() );
             }
             for( auto&& ft : m_functionTypes ) {
@@ -383,7 +383,7 @@ namespace Slip::Sema {
             string name;
             name.append( "(" );
             const char* sep = "";
-            for( auto a : f->args ) {
+            for( auto a : f->params ) {
                 name.append( sep );
                 sep = ", ";
                 name.append( a->get_type()->m_name );
@@ -419,9 +419,9 @@ namespace Slip::Sema {
         void _isApplicable( TypeInfo* ti, array_view<TypeInfo*> args ) {
             auto f = ti->get_func();
             assert( f );
-            assert( f->args.size() == args.size() );
+            assert( f->params.size() == args.size() );
             for( unsigned i = 0; i < args.size(); ++i ) {
-                _isConvertible( f->args[i], args[i] );
+                _isConvertible( f->params[i], args[i] );
             }
         }
     };
