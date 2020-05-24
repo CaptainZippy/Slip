@@ -376,6 +376,8 @@ namespace Slip::Sema {
                 auto type = dynamic_cast<Ast::Type*>( ret );
                 assert( type );
                 return _internKnownType( type );
+            } else if ( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
+                Result::failed("unresolved call", 0,0, named->name().c_str());
             }
             assert( false );
             return nullptr;

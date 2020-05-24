@@ -15,13 +15,14 @@
     ;    (vec_set! y i (add_i (vec_idx y i) (vec_idx x i))))))
 
 (func ary (n:int): int ;(tuple int int)
-    0)
-  ;(let x (range 1 (add_i n 1)))
+  (var x:(array_heap int)) ; (range 1 (add_i n 1)))
+  (puti (size x))
   ;(let x $ range 1 $ add_i n 1))
   ;(let y (vec_new n))
   ;(let y $ vec_new n)
   ;(fill_vec! y 0)
   ;(for i (range n) (add_to_vec! y x)))
+    0)
 
   ;(tuple.make (vec_idx y 0) (vec_idx y (sub_i n 1)))))
   ;(tuple.make (y 0) (y (- n 1)))
@@ -29,6 +30,7 @@
   ;(tuple.make [y 0] [y $ - n 1])
 
 (func main (args:(array_view string)):int
-    (var n 100:int)
+    (var n (if (lt? (size args) 2) 100 (atoi (at args 1))))
+    (puti n)
     (puti (ary n))
     0)

@@ -1,10 +1,10 @@
 
 slip_bench = [
     'ack',
-    #'ary',
+    'ary',
     'fibo',
     'harmonic',
-    #'hello',
+    'hello',
     #'moments',
     #'nestedloop',
     #'nsieve',

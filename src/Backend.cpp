@@ -167,7 +167,7 @@ namespace {
         }
 
         string operator()( Ast::VariableDecl* n ) {
-            string init{"{"};
+            string init{""};
             const char* sep{""};
             for( auto&& i : n->m_initializer ) {
                 init.append( sep );
@@ -176,7 +176,7 @@ namespace {
             }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
             addName( n, istring::make( name ) );
-            out.begin( string_concat( n->m_type->name(), " "sv, name ) );
+            out.begin( string_concat( n->m_type->name(), " "sv, name, "{" ) );
             if( n->m_initializer.empty() == false ) {
                 out.write( init );
             }
@@ -248,6 +248,7 @@ namespace {
             out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
             out.write( "typedef array_view<int> array_view__int__;\n" );
             out.write( "typedef array_view<string> array_view__string__;\n" );
+            out.write( "typedef std::vector<int> array_heap__int__;\n" );
             out.write( "typedef int array_const__int__[];\n" );
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );

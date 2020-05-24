@@ -1,10 +1,10 @@
-; TODO Arrays
+; todo iterate
 
-(func main (argv:(array string)):int (begin
+(func main (argv:(array_view string)):int
     (puts "hello ")
-    (puts (if (size argv)
-        (at argv 1)
+    (puts (if (lt? (size argv) 2)
         "world\n"
+        (at argv 1)
         ))
-    0))
+    0)
 
