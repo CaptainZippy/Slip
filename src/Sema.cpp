@@ -95,50 +95,45 @@ namespace Slip::Sema {
                 ai.emplace_back( dispatch( a ) );
             }
 
-            FuncInfo* resolved = nullptr;
-            if( auto ty = ai[0]->type ) {
-                for( auto& m : ty->m_methods ) {
-                    if( m->m_name == n->m_name ) {
-                        if( m->m_name == n->m_name ) {
-                        }
+            std::vector<Ast::Node*> candidates = n->m_candidates;
+            if( auto ty = ai[0]->type ) { //TODO move
+                for( auto&& f : ty->m_methods ) {
+                    if( f->m_name == n->m_name ) {
+                        candidates.emplace_back( f );
                     }
                 }
             }
 
-            if( resolved == nullptr ) {
-                std::vector<FuncInfo*> fi;
+            std::vector<FuncInfo*> fi;
+            std::vector<TypeInfo*> ci;
 
-                for( auto&& c : n->m_candidates ) {
-                    auto ti = dispatch( c );
-                    fi.emplace_back( ti->func );
+            for( auto&& c : candidates ) {
+                auto ti = dispatch( c );
+                ci.emplace_back( ti );
+                fi.emplace_back( ti->func );
+            }
+
+            auto isCompatible = []( array_view<TypeInfo*> proto, array_view<TypeInfo*> args ) {
+                if( proto.size() != args.size() ) {
+                    return false;
                 }
-
-
-                auto isCompatible = []( array_view<TypeInfo*> proto, array_view<TypeInfo*> args ) {
-                    if( proto.size() != args.size() ) {
+                for( unsigned i = 0; i < args.size(); ++i ) {
+                    if( proto[i]->type && args[i]->type && proto[i]->type != args[i]->type ) {  // TODO non-exact
                         return false;
                     }
-                    for( unsigned i = 0; i < args.size(); ++i ) {
-                        if( proto[i]->type && proto[i]->type != args[i]->type ) {  // TODO non-exact
-                            return false;
-                        }
-                    }
-                    return true;
-                };
-                std::vector<unsigned> yes;
-                for( unsigned i = 0; i < n->m_candidates.size(); ++i ) {
-                    if( isCompatible( fi[i]->params, ai ) ) {
-                        yes.emplace_back( i );
-                    }
+                }
+                return true;
+            };
+            std::vector<unsigned> yes;
+            for( unsigned i = 0; i < candidates.size(); ++i ) {
+                if( isCompatible( fi[i]->params, ai ) ) {
+                    yes.emplace_back( i );
                 }
             }
-#if 0
             assert( yes.size() == 1 );
-            vi.info = ci[yes[0]];
-            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( n->m_candidates[yes[0]] ), std::move( n->m_args ),
+            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
-            dispatch( n->m_resolved );
-#endif
+            vi.info = dispatch( n->m_resolved );
         }
 
         void operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {

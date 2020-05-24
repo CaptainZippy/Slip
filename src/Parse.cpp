@@ -476,7 +476,7 @@ struct Parse::ArrayView {
                 return Result::OK;
             }
             auto r = new Ast::Type( name );
-            auto ftype = _makeFuncType( "(name)->int", r, &Ast::s_typeInt );
+            auto ftype = _makeFuncType( "(name)->int", &Ast::s_typeInt, r );
             auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
             r->m_methods.emplace_back( fdecl );
             types_.emplace( name, r );
@@ -518,7 +518,7 @@ static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::P
 static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
     auto n = istring::make( name );
     auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
-    char pname[2] = {'a', '0'};
+    char pname[2] = {'a', 0};
     for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
         auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
         f->m_params.emplace_back( p );
