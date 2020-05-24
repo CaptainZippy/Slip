@@ -240,6 +240,7 @@ namespace {
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
+            out.write( "inline int atoi(const string& s) { return ::atoi(s.m_s.data()); }\n" );
             out.write( "inline double divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double addd(double a, double b) { return a+b; }\n" );
             out.write( "inline int puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
@@ -250,7 +251,7 @@ namespace {
             out.write( "typedef int array_const__int__[];\n" );
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
-            out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.size(); }\n" );
+            out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );

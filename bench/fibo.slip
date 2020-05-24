@@ -7,7 +7,9 @@
             (fib (sub n 1))
             (fib (sub n 2)))))
 
-(func main ():int
-    (puti (fib 12))
+(func main (args:(array_view string)):int
+    (var n (if (lt? (size args) 2) 13 (atoi (at args 1))))
+    (puti n)
+    (puti (fib n))
     0)
 
