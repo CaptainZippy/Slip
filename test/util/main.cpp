@@ -1,4 +1,5 @@
 
+#if 0
 namespace XX {
     int main();
 }
@@ -6,3 +7,4 @@ namespace XX {
 int main() {
     return XX::main();
 }
+#endif

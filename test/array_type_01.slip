@@ -1,4 +1,5 @@
 
-(func main ():int
- ;   (var a:(array_view string))
+(func main (args:(array_view string)):int
+    (puts "Hello ")
+    (puts (at args 0))
     0)

@@ -79,7 +79,7 @@ void Slip::Io::TextOutput::write( std::string_view s ) {
             // m_sep = isalnum(c);
             break;
         }
-        _write( s.substr( off, nl + 1 ) );
+        _write( s.substr( off, nl - off + 1 ) );
         m_state = State::Start;
         off = nl + 1;
     } while( 1 );

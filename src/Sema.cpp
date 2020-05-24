@@ -96,7 +96,7 @@ namespace Slip::Sema {
             }
 
             std::vector<Ast::Node*> candidates = n->m_candidates;
-            if( auto ty = ai[0]->type ) { //TODO move
+            if( auto ty = ai[0]->type ) {  // TODO move
                 for( auto&& f : ty->m_methods ) {
                     if( f->m_name == n->m_name ) {
                         candidates.emplace_back( f );
@@ -154,16 +154,37 @@ namespace Slip::Sema {
         }
 
         void operator()( Ast::VariableDecl* n, VisitInfo& vi ) {
+            TypeInfo* varTypeInfo{nullptr};
             if( n->m_type ) {  // known?
-                vi.info = _internKnownType( n->m_type );
-            } else if( n->m_initializer ) {
-                auto ti = dispatch( n->m_initializer );
-                vi.info = ti;
+                varTypeInfo = _internKnownType( n->m_type );
             } else if( auto te = n->m_declTypeExpr ) {
-                vi.info = _evalTypeExpr( te );
+                varTypeInfo = _evalTypeExpr( te );
+            } else if( n->m_initializer.size() == 1 ) {
+                vi.info = dispatch( n->m_initializer[0] );
+                return;
             } else {
                 assert( false );
                 vi.info = new TypeInfo{};
+            }
+
+            assert( varTypeInfo );
+            vi.info = varTypeInfo;
+            auto varType = vi.info->get_type();
+            if( auto et = varType->m_array ) {
+                auto tt = _internKnownType( et );
+                for( auto&& i : n->m_initializer ) {
+                    auto d = dispatch( i );
+                    _isConvertible( tt, d );
+                }
+            } else if( varType->m_fields.size() ) {
+                for( auto&& i : n->m_initializer ) {
+                    dispatch( i );
+                    // TODO convertible
+                }
+            } else {
+                assert( n->m_initializer.size() == 1 );
+                auto ti = dispatch( n->m_initializer[0] );
+                _isConvertible( varTypeInfo, ti );
             }
         }
 
@@ -539,7 +560,7 @@ namespace Slip::Sema {
 #endif
 }  // namespace Slip::Sema
 
-Slip::Result Slip::Sema::type_check( Slip::Ast::Node* node) {
+Slip::Result Slip::Sema::type_check( Slip::Ast::Node* node ) {
     ConstraintBuilder builder;
     // RETURN_IF_FAILED(
     builder.build( node );

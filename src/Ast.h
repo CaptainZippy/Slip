@@ -100,7 +100,12 @@ namespace Slip::Ast {
         Type( istring sym );
         // non-empty for callable types.
         std::vector<Ast::Type*> m_callable;  //[0]=return [1:]=args
+        // TODO remove?
         std::vector<Ast::FunctionDecl*> m_methods;
+        // non-empty for record type
+        std::vector<Ast::Parameter> m_fields;
+        // non-empty for array type
+        Ast::Type* m_array{nullptr};
     };
 
     struct Decl : Node {
@@ -296,7 +301,7 @@ namespace Slip::Ast {
         VariableDecl( istring name, With&& with ) : Named( name ) {
             with( *this );
         }
-        Node* m_initializer{nullptr};
+        std::vector<Node*> m_initializer;
     };
 
     struct Assignment : Node {

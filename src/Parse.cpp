@@ -59,6 +59,7 @@ namespace Slip::Parse {
     struct Macro;
     struct Now;
     struct ArrayView;
+    struct ArrayConst;
 
 }  // namespace Slip::Parse
 
@@ -389,21 +390,23 @@ struct Parse::Begin {
 struct Parse::Var {
     static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        RETURN_RES_IF( Result::ERR, args->size() < 2 );
-        RETURN_RES_IF( Result::ERR, args->size() > 3 );
+
         Lex::Symbol* sym;
-        Ast::Node* expr{nullptr};
-        if( args->size() == 2 ) {
-            RETURN_IF_FAILED( matchLex( args, &sym ) );
-        } else {
-            Lex::Atom* init;
-            RETURN_IF_FAILED( matchLex( args, &sym, &init ) );
-            RETURN_IF_FAILED( parse1( state, init, &expr ) );
+        std::vector<Lex::Atom*> inits;
+        RETURN_IF_FAILED( matchLex( args, &sym, &inits, Ellipsis1{} ) );
+
+        Ast::Node* varType;
+        RETURN_IF_FAILED( parse1( state, sym->m_decltype, &varType ) );
+
+        std::vector<Ast::Node*> vals;
+        for( auto&& i : inits ) {
+            Ast::Node* n;
+            RETURN_IF_FAILED( parse1( state, i, &n ) );
+            vals.emplace_back( n );
         }
-        Ast::Node* te;
-        RETURN_IF_FAILED( parse1( state, sym->m_decltype, &te ) );
-        auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = te, _.m_loc = sym->m_loc ) );
-        ret->m_initializer = expr;
+
+        auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = varType, _.m_loc = sym->m_loc ) );
+        ret->m_initializer.swap( vals );
         state->bind( sym->text(), ret );
         *out = ret;
         return Result::OK;
@@ -476,9 +479,64 @@ struct Parse::ArrayView {
                 return Result::OK;
             }
             auto r = new Ast::Type( name );
-            auto ftype = _makeFuncType( "(name)->int", &Ast::s_typeInt, r );
+            r->m_array = t;
+
+            auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
             auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
+            fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
             r->m_methods.emplace_back( fdecl );
+
+            auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
+            auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            r->m_methods.emplace_back( atdecl );
+
+            types_.emplace( name, r );
+            *out = r;
+            return Result::OK;
+        }
+        std::map<std::string, Ast::Type*> types_;
+    };
+
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Lex::Symbol* lparam;
+        RETURN_IF_FAILED( matchLex( args, &lparam ) );
+        Ast::Node* param = env->lookup( lparam->text() );  // TODO
+        auto type = dynamic_cast<Ast::Type*>( param );
+        assert( type );
+        auto cache = static_cast<Cache*>( context );
+        Ast::Type* r;
+        RETURN_IF_FAILED( cache->instantiate( type, &r ) );
+        *out = r;
+        return Result::OK;
+    }
+};
+
+struct Parse::ArrayConst {
+    struct Cache {
+        Result instantiate( Ast::Type* t, Ast::Type** out ) {
+            *out = nullptr;
+            auto name = string_format( "array_const__%s__", t->name().c_str() );
+            if( auto it = types_.find( name ); it != types_.end() ) {
+                *out = it->second;
+                return Result::OK;
+            }
+            auto r = new Ast::Type( name );
+            r->m_array = t;
+
+            auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
+            auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
+            fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            r->m_methods.emplace_back( fdecl );
+
+            auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
+            auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            r->m_methods.emplace_back( atdecl );
+
             types_.emplace( name, r );
             *out = r;
             return Result::OK;
@@ -541,6 +599,7 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "macro"sv, &Macro::parse );
     addBuiltin( env, "#"sv, &Now::parse );
     addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache() );
+    addBuiltin( env, "array_const"sv, &ArrayConst::parse, new Parse::ArrayConst::Cache() );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );

@@ -142,11 +142,13 @@ namespace {
 
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
-            for( auto p : n->m_params ) {
-                assert( p->m_type );
-                assert( p->m_name.c_str() );
-                symbol.append( "__" );
-                symbol.append( p->m_type->name() );  // todo valid symbol, spaces etc
+            if( symbol != "main" ) {
+                for( auto p : n->m_params ) {
+                    assert( p->m_type );
+                    assert( p->m_name.c_str() );
+                    symbol.append( "__" );
+                    symbol.append( p->m_type->name() );  // todo valid symbol, spaces etc
+                }
             }
             addName( n, istring::make( symbol ) );
             out.begin( string_concat( "\n", n->m_type->m_callable[0]->name(), " ", symbol, "(" ) );
@@ -165,17 +167,20 @@ namespace {
         }
 
         string operator()( Ast::VariableDecl* n ) {
-            string init;
-            if( n->m_initializer ) {
-                init = dispatch( n->m_initializer );
+            string init{"{"};
+            const char* sep{""};
+            for( auto&& i : n->m_initializer ) {
+                init.append( sep );
+                init.append( dispatch( i ) );
+                sep = ", ";
             }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
             addName( n, istring::make( name ) );
             out.begin( string_concat( n->m_type->name(), " "sv, name ) );
-            if( n->m_initializer ) {
-                out.write( string_concat( " = "sv, init ) );
+            if( n->m_initializer.empty() == false ) {
+                out.write( init );
             }
-            out.end( ";"sv );
+            out.end( "};"sv );
             return name;
         }
 
@@ -217,13 +222,19 @@ namespace {
         string operator()( Ast::Module* n ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );
+            out.write( "#include<vector>\n" );
+            out.write( "#include<cstring>\n" );
             out.begin( "namespace XX {" );
             out.write(
                 "struct string { std::string m_s; "
                 "string() = default; "
+                "string(const char* s) : m_s(s,s?std::strlen(s):0) {} "
                 "string(const char* s, size_t l) : m_s(s,l) {} "
                 "};\n" );
-            out.write( "template<typename T> struct array_view { T* m_data; size_t m_count; };\n" );
+            out.write(
+                "template<typename T> struct array_view { "
+                "T* m_data; size_t m_count; "
+                "T operator[](int i) { return m_data[i]; } };\n" );
             out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
@@ -234,13 +245,51 @@ namespace {
             out.write( "inline int puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
             out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
+            out.write( "typedef array_view<int> array_view__int__;\n" );
+            out.write( "typedef array_view<string> array_view__string__;\n" );
+            out.write( "typedef int array_const__int__[];\n" );
+            out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
+            out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
+            out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.size(); }\n" );
+            out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
+
+            istring mainStr = istring::make( "main" );
+            int mainKind = -1;
             for( auto n : n->m_items ) {
                 dispatch( n );
+                if( auto fd = dynamic_cast<Ast::FunctionDecl*>( n ) ) {
+                    if( fd->name() == mainStr ) {
+                        mainKind = fd->m_params.size() ? 1 : 0;
+                    }
+                }
             }
-            out.end( "}" );
+            out.end( "}\n" );
+
+            switch( mainKind ) {
+                case 0:
+                    out.write(
+                        "int main(int argc, const char** argv) {\n"
+                        "   return XX::main();\n"
+                        "}" );
+                    break;
+                case 1:
+                    out.write(
+                        "int main(int argc, const char** argv) {\n"
+                        "   std::vector<XX::string> args;\n"
+                        "   for( int i = 0; i < argc; ++i ) {\n"
+                        "       args.emplace_back(argv[i]);\n"
+                        "   }\n"
+                        "   XX::array_view<XX::string> view{args.data(), args.size()};\n"
+                        "   return XX::main(view);\n"
+                        "}" );
+                    break;
+                default:
+                    break;
+            }
+
             return "";
         }
     };

@@ -2,7 +2,7 @@
 
 slip_tests = [
     'array_type_01',
-#   'array_type_02',
+    'array_type_02',
     'cond_expr_01',
 #   'function_overload_01',
     'intrinsic_01',
