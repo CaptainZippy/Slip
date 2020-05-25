@@ -96,7 +96,8 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( NamedFunctionCall )
     REFLECT_PARENT( Named )
-    REFLECT_FIELD2( m_candidates, Flags::Child )
+    REFLECT_FIELD2( m_resolved, Flags::Hidden )
+    REFLECT_FIELD2( m_candidates, Flags::Hidden )
     REFLECT_FIELD2( m_args, Flags::Child )
     REFLECT_END()
 
@@ -192,7 +193,8 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
                 out.write( string_format( "\n%s " /*0x%p*/, top.type->name, top.addr ) );
                 for( auto c : reversed( chain ) ) {
                     for( auto f : c->fields ) {
-                        if( ( f.flags & Ast::Flags::Child ) == 0 ) {
+                        if( f.flags == Ast::Flags::Hidden ) {
+                        } else if( ( f.flags & Ast::Flags::Child ) == 0 ) {
                             out.write( string_concat( " ", f.name, "={" ) );
                             print( top[f], out, true );
                             out.write( "}" );

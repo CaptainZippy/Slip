@@ -14,6 +14,7 @@ namespace Slip::Ast {
     int tag() const override
 
     namespace Flags {
+        const unsigned Hidden = 0;   // Default is "ref"
         const unsigned Child = 1;   // Default is "ref"
         const unsigned Abbrev = 2;  // Default is "ref"
     };                              // namespace Flags
@@ -245,8 +246,10 @@ namespace Slip::Ast {
         }
 
         Result bind( istring sym, Node* value ) {
-            auto p = syms_.emplace( sym, value );
-            RETURN_RES_IF( Result::ERR, !p.second );
+            auto p = syms_.try_emplace( sym, value );
+            auto& loc = p.first->second->m_loc;
+            RETURN_RES_IF( Result::ERR, !p.second, "'%s' is already defined\n"
+                "%s:%i:%i: Previously defined here", sym.c_str(), loc.filename(), loc.line(), loc.col());
             return Result::OK;
         }
         auto bind( string_view sym, Node* value ) { return bind( istring::make( sym ), value ); }
@@ -290,9 +293,9 @@ namespace Slip::Ast {
             with( *this );
         }
 
+        Node* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
         std::vector<Node*> m_candidates;
         std::vector<Node*> m_args;
-        Node* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
     };
 
     struct VariableDecl : Named {

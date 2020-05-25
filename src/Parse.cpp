@@ -64,10 +64,7 @@ namespace Slip::Parse {
 }  // namespace Slip::Parse
 
 using namespace Slip;
-enum class Ellipsis {
-    ZeroOrMore,
-    OneOrMore
-};
+enum class Ellipsis { ZeroOrMore, OneOrMore };
 
 static Result matchLex( Parse::Args& args ) {
     RETURN_RES_IF( Result::ERR, !args.empty() );
@@ -75,8 +72,8 @@ static Result matchLex( Parse::Args& args ) {
 }
 
 static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellipsis ellipsis ) {
-    RETURN_RES_IF( Result::ERR, ellipsis==Ellipsis::OneOrMore && args.empty() );
-    if( args.empty()) {
+    RETURN_RES_IF( Result::ERR, ellipsis == Ellipsis::OneOrMore && args.empty() );
+    if( args.empty() ) {
         return Result::OK;
     }
     auto sl = args.cur()->m_loc;
@@ -413,7 +410,7 @@ struct Parse::Var {
 
         auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = varType, _.m_loc = sym->m_loc ) );
         ret->m_initializer.swap( vals );
-        state->bind( sym->text(), ret );
+        RETURN_IF_FAILED( state->bind( sym->text(), ret ) );
         *out = ret;
         return Result::OK;
     }
@@ -478,7 +475,7 @@ static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
 struct Parse::ArrayView {
     struct Cache {
         string _generic_root;
-        Cache(string&& root) : _generic_root(root) {}
+        Cache( string&& root ) : _generic_root( root ) {}
 
         Result instantiate( Ast::Type* t, Ast::Type** out ) {
             *out = nullptr;
@@ -562,9 +559,9 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
     addBuiltin( env, "#"sv, &Now::parse );
-    addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache("array_view") );
-    addBuiltin( env, "array_const"sv, &ArrayView::parse, new Parse::ArrayView::Cache("array_const") );
-    addBuiltin( env, "array_heap"sv, &ArrayView::parse, new Parse::ArrayView::Cache("array_heap") );
+    addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_view" ) );
+    addBuiltin( env, "array_const"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_const" ) );
+    addBuiltin( env, "array_heap"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_heap" ) );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );
