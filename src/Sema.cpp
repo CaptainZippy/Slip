@@ -44,20 +44,30 @@ namespace Slip::Sema {
     };
 
     struct ConstraintBuilder {
-        void operator()( Ast::Node* n, VisitInfo& vi ) { assert( vi.info ); }
+        Result operator()( Ast::Node* n, VisitInfo& vi ) {
+            RETURN_RES_IF( Result::ERR, vi.info == nullptr );
+            return Result::OK;
+        }
 
-        void operator()( Ast::Module* n, VisitInfo& vi ) {
+        Result operator()( Ast::Module* n, VisitInfo& vi ) {
             vi.info = _internKnownType( &Ast::s_typeVoid );  // Todo: proper type
             for( auto i : n->m_items ) {
                 dispatch( i );
             }
+            return Result::OK;
         }
 
-        void operator()( Ast::Number* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( n->m_declTypeExpr ); }
+        Result operator()( Ast::Number* n, VisitInfo& vi ) {
+            vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            return Result::OK;
+        }
 
-        void operator()( Ast::String* n, VisitInfo& vi ) { vi.info = _internKnownType( &Ast::s_typeString ); }
+        Result operator()( Ast::String* n, VisitInfo& vi ) {
+            vi.info = _internKnownType( &Ast::s_typeString );
+            return Result::OK;
+        }
 
-        void operator()( Ast::FunctionCall* n, VisitInfo& vi ) {
+        Result operator()( Ast::FunctionCall* n, VisitInfo& vi ) {
             auto fi = dispatch( n->m_func );
             std::vector<TypeInfo*> ai;
             for( auto&& a : n->m_args ) {
@@ -66,20 +76,30 @@ namespace Slip::Sema {
             if( !fi->func ) {  // TODO extract method
                 auto& loc = n->m_loc;
                 auto text = loc.text();
-                RETURN_RES_IF(, !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(), text.size(),
-                              text.begin() );
+                RETURN_RES_IF( Result::ERR, !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(),
+                               text.size(), text.begin() );
             }
             _isApplicable( fi, ai );
             vi.info = fi->get_func()->ret;
+            return Result::OK;
         }
 
-        void operator()( Ast::Parameter* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( n->m_declTypeExpr ); }
+        Result operator()( Ast::Parameter* n, VisitInfo& vi ) {
+            vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            return Result::OK;
+        }
 
-        void operator()( Ast::MacroDecl* n, VisitInfo& vi ) { vi.info = _evalTypeExpr( &Ast::s_typeVoid ); }
+        Result operator()( Ast::MacroDecl* n, VisitInfo& vi ) {
+            vi.info = _evalTypeExpr( &Ast::s_typeVoid );
+            return Result::OK;
+        }
 
-        void operator()( Ast::MacroExpansion* n, VisitInfo& vi ) { vi.info = dispatch( n->m_expansion ); }
+        Result operator()( Ast::MacroExpansion* n, VisitInfo& vi ) {
+            vi.info = dispatch( n->m_expansion );
+            return Result::OK;
+        }
 
-        void operator()( Ast::Sequence* n, VisitInfo& vi ) {
+        Result operator()( Ast::Sequence* n, VisitInfo& vi ) {
             if( n->m_items.empty() ) {
                 vi.info = _internKnownType( &Ast::s_typeVoid );
             } else {
@@ -87,9 +107,10 @@ namespace Slip::Sema {
                     vi.info = dispatch( i );
                 }
             }
+            return Result::OK;
         }
 
-        void operator()( Ast::NamedFunctionCall* n, VisitInfo& vi ) {
+        Result operator()( Ast::NamedFunctionCall* n, VisitInfo& vi ) {
             std::vector<TypeInfo*> ai;
             for( auto&& a : n->m_args ) {
                 ai.emplace_back( dispatch( a ) );
@@ -130,13 +151,14 @@ namespace Slip::Sema {
                     yes.emplace_back( i );
                 }
             }
-            assert( yes.size() == 1 );
+            RETURN_RES_IF( Result::ERR, yes.size() != 1, "Overload resolution failed for '%s'", n->name().c_str() );
             n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             vi.info = dispatch( n->m_resolved );
+            return Result::OK;
         }
 
-        void operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
+        Result operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
             if( n->m_type ) {  // intrinsic?
                 vi.info = _internKnownType( n->m_type );
             } else {
@@ -151,9 +173,10 @@ namespace Slip::Sema {
                     _isConvertible( ret, bt );
                 }
             }
+            return Result::OK;
         }
 
-        void operator()( Ast::VariableDecl* n, VisitInfo& vi ) {
+        Result operator()( Ast::VariableDecl* n, VisitInfo& vi ) {
             TypeInfo* varTypeInfo{nullptr};
             if( n->m_type ) {  // known?
                 varTypeInfo = _internKnownType( n->m_type );
@@ -161,7 +184,7 @@ namespace Slip::Sema {
                 varTypeInfo = _evalTypeExpr( te );
             } else if( n->m_initializer.size() == 1 ) {
                 vi.info = dispatch( n->m_initializer[0] );
-                return;
+                return Result::OK;
             } else {
                 assert( false );
                 vi.info = new TypeInfo{};
@@ -186,18 +209,23 @@ namespace Slip::Sema {
                 auto ti = dispatch( n->m_initializer[0] );
                 _isConvertible( varTypeInfo, ti );
             }
+            return Result::OK;
         }
 
-        void operator()( Ast::Assignment* n, VisitInfo& vi ) {
+        Result operator()( Ast::Assignment* n, VisitInfo& vi ) {
             auto tr = dispatch( n->m_rhs );
             auto tl = dispatch( n->m_lhs );
             _isConvertible( tl, tr );
             vi.info = tl;
+            return Result::OK;
         }
 
-        void operator()( Ast::Reference* n, VisitInfo& vi ) { vi.info = dispatch( n->m_target ); }
+        Result operator()( Ast::Reference* n, VisitInfo& vi ) {
+            vi.info = dispatch( n->m_target );
+            return Result::OK;
+        }
 
-        void operator()( Ast::Scope* n, VisitInfo& vi ) {
+        Result operator()( Ast::Scope* n, VisitInfo& vi ) {
             assert( false );
             // if (n->m_child) {
             //    //isa(n->m_child, n);
@@ -206,9 +234,10 @@ namespace Slip::Sema {
             // else {
             //    isa(n, &Ast::s_typeVoid);
             //}
+            return Result::OK;
         }
 
-        void operator()( Ast::Definition* n, VisitInfo& vi ) {
+        Result operator()( Ast::Definition* n, VisitInfo& vi ) {
             assert( false );
             // isa(n, &Ast::s_typeVoid); //fixme
             //            if (n->m_type) {
@@ -218,9 +247,10 @@ namespace Slip::Sema {
             //                isa(n, n->m_value);
             //            }
             // dispatch(n->m_value);
+            return Result::OK;
         }
 
-        void operator()( Ast::If* n, VisitInfo& vi ) {
+        Result operator()( Ast::If* n, VisitInfo& vi ) {
             // condition is a boolean
             auto ci = dispatch( n->m_cond );
             _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
@@ -230,16 +260,18 @@ namespace Slip::Sema {
             vi.info = new TypeInfo{};
             _isConvertible( vi.info, ti );
             _isConvertible( vi.info, fi );
+            return Result::OK;
         }
 
-        void operator()( Ast::While* n, VisitInfo& vi ) {
+        Result operator()( Ast::While* n, VisitInfo& vi ) {
             // condition is a boolean
             auto ci = dispatch( n->m_cond );
             _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
             vi.info = dispatch( n->m_body );
+            return Result::OK;
         }
 
-        void operator()( Ast::Cond* n, VisitInfo& vi ) {
+        Result operator()( Ast::Cond* n, VisitInfo& vi ) {
             assert( !n->m_cases.empty() );
             vi.info = new TypeInfo{};
             for( auto&& c : n->m_cases ) {
@@ -250,6 +282,7 @@ namespace Slip::Sema {
                 auto st = dispatch( c.second );
                 _isConvertible( vi.info, st );
             }
+            return Result::OK;
         }
 
        public:
@@ -312,7 +345,7 @@ namespace Slip::Sema {
             if( i >= m_visited.size() || m_visited[i].node != top ) {
                 top->m_userData = m_visited.size();
                 auto& vi = m_visited.emplace_back( top, (TypeInfo*)nullptr );
-                Ast::dispatch<void>( top, *this, vi );
+                Ast::dispatch<Result>( top, *this, vi );
             }
             return m_visited[i].info;
         }
@@ -376,8 +409,8 @@ namespace Slip::Sema {
                 auto type = dynamic_cast<Ast::Type*>( ret );
                 assert( type );
                 return _internKnownType( type );
-            } else if ( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
-                Result::failed("unresolved call", 0,0, named->name().c_str());
+            } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
+                Result::failed( "unresolved call", 0, 0, named->name().c_str() );
             }
             assert( false );
             return nullptr;
