@@ -80,17 +80,24 @@ namespace {
         }
 #endif
         string operator()( Ast::If* n ) {
-            auto ret = newVarId();
-            out.write( string_format( "%s %s;", n->m_type->name().c_str(), ret.c_str() ) );
+            bool hasVar = n->m_type != &Ast::s_typeVoid;
+            auto ret = hasVar ? newVarId() : "";
+            if(hasVar) {
+                out.write( string_format( "%s %s;", n->m_type->name().c_str(), ret.c_str() ) );
+            }
             out.begin( " {\n" );
             auto cond = dispatch( n->m_cond );
             out.begin( string_format( "if(%s) {\n", cond.c_str() ) );
             string t = dispatch( n->m_true );
-            out.write( string_concat( ret, " = ", t, ";\n" ) );
+            if(hasVar) {
+                out.write( string_concat( ret, " = ", t, ";\n" ) );
+            }
             out.end( "}\n" );
             out.begin( "else {\n" );
             string f = dispatch( n->m_false );
-            out.write( string_concat( ret, " = ", f, ";\n" ) );
+            if(hasVar) {
+                out.write( string_concat( ret, " = ", f, ";\n" ) );
+            }
             out.end( "}" );
             out.end( "}\n" );
             return ret;
@@ -254,6 +261,7 @@ namespace {
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
             out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
+            out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );

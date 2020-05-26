@@ -2,5 +2,7 @@
 (func main ():int (begin
     (var args:(array_const int) 101 102 103)
     (puti (size args))
-    (puti (at args 0:int))
+    (if (lt? (size args) 2)
+        (puts "none")
+        (puti (at args 0)))
     0))

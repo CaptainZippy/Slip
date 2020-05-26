@@ -498,6 +498,14 @@ struct Parse::ArrayView {
             atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
             r->m_methods.emplace_back( atdecl );
 
+            if( _generic_root == "array_heap" ) {
+                auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
+                auto redecl = new Ast::FunctionDecl( "resize", WITH( _.m_type = retype ) );
+                redecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+                redecl->m_params.emplace_back( new Ast::Parameter( "size", WITH( _.m_type = &Ast::s_typeInt ) ) );
+                r->m_methods.emplace_back( redecl );
+            }
+
             types_.emplace( name, r );
             *out = r;
             return Result::OK;

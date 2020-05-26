@@ -17,6 +17,7 @@
 (func ary (n:int): int ;(tuple int int)
   (var x:(array_heap int)) ; (range 1 (add_i n 1)))
   (puti (size x))
+  (resize x n)
   ;(let x $ range 1 $ add_i n 1))
   ;(let y (vec_new n))
   ;(let y $ vec_new n)
