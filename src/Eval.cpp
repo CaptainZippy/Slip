@@ -106,6 +106,12 @@ namespace {
             }
             return stack_.call( (int)n->m_args.size() );
         }
+
+        Result operator()( Ast::NamedFunctionCall* n, Ast::Environment* env ) {
+            RETURN_RES_IF( Result::ERR, n->m_resolved==nullptr );
+            RETURN_IF_FAILED( dispatch( n->m_resolved, env ) );
+            return Result::OK;
+        }
     };
 }  // namespace
 

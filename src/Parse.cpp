@@ -76,8 +76,8 @@ static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellips
     if( args.empty() ) {
         return Result::OK;
     }
-    auto sl = args.cur()->m_loc;
-    sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
+    //auto sl = args.cur()->m_loc;
+    //sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
     do {
         list->emplace_back( args.cur() );
     } while( args.advance() );
@@ -168,9 +168,9 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
 
         // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
         Ast::Node* p;
-        const void* iter = nullptr;
         auto isym = istring::make( sym->text() );
         std::vector<Ast::Node*> candidates;
+        Ast::Environment::LookupIter iter;
         while( env->lookup_iter( isym, &p, iter ) ) {
             if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
                 RETURN_RES_IF( Result::ERR, !candidates.empty(), "Builtins can't be overloaded" );
@@ -528,16 +528,6 @@ struct Parse::ArrayView {
     }
 };
 
-static Result _makeArrayStaticType( array_view<Ast::Node*> args, Ast::Node** out ) {
-    assert( args.size() == 1 );
-    auto type = dynamic_cast<Ast::Type*>( args[0] );
-    assert( type );
-    auto name = string_format( "array_static<%s>", type->name().c_str() );
-    auto r = new Ast::Type( name );
-    *out = r;
-    return Result::OK;
-}
-
 static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func, void* ctx = nullptr ) {
     env->bind( name, new Ast::Builtin( name, func, ctx ) );
 }
@@ -590,8 +580,8 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
-    auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
-    auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
+    //auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
+    //auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
 
     addIntrinsic( env, "eq?", b_ii );
     addIntrinsic( env, "lt?", b_ii );

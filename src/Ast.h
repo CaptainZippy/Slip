@@ -206,26 +206,34 @@ namespace Slip::Ast {
         AST_DECL();
 
         Environment( Environment* parent ) : parent_( parent ) {}
-
-        bool lookup_iter( istring sym, Node** out, const void*& iter ) const {
+        struct LookupIter {
+            const Environment* env{nullptr};
+            std::multimap<istring,Node*>::const_iterator it;
+        };
+        bool lookup_iter( istring sym, Node** out, LookupIter& iter ) const {
             *out = nullptr;
             // iter is null first time, or the env of the previous find.
-            auto cur = iter ? static_cast<const Environment*>( iter )->parent_ : this;
-            for( ; cur != nullptr; cur = cur->parent_ ) {
-                auto x = cur->syms_.find( sym );
-                if( x != cur->syms_.end() ) {
-                    *out = x->second;
-                    iter = cur;
-                    return true;
+            if( iter.env == nullptr) {
+                iter.env = this;
+                iter.it = iter.env->syms_.lower_bound(sym);
+            }
+            while( iter.it == iter.env->syms_.end() || iter.it->first != sym ) {
+                if( auto p = iter.env->parent_ ) {
+                    iter.env = p;
+                    iter.it = iter.env->syms_.lower_bound(sym);
+                } else {
+                    return false;
                 }
             }
-            return false;
+            *out = iter.it->second;
+            ++iter.it;
+            return true;
         }
 
         Result lookup( string_view sym, Node** out ) const {
             *out = nullptr;
             auto s = istring::make( sym );
-            const void* iter = nullptr;
+            LookupIter iter;
             if( lookup_iter( s, out, iter ) == false ) {
                 return Result::ERR;
             }
@@ -246,16 +254,25 @@ namespace Slip::Ast {
         }
 
         Result bind( istring sym, Node* value ) {
-            auto p = syms_.try_emplace( sym, value );
-            auto& loc = p.first->second->m_loc;
-            RETURN_RES_IF( Result::ERR, !p.second, "'%s' is already defined\n"
-                "%s:%i:%i: Previously defined here", sym.c_str(), loc.filename(), loc.line(), loc.col());
+            auto it = syms_.lower_bound(sym);
+            if( it == syms_.end() || it->first != sym ) { // new element
+                syms_.emplace( sym, value );
+                return Result::OK;
+            }
+            // Duplicate. Only function overloads are allowed.
+            auto fdVal = dynamic_cast<Ast::FunctionDecl*>(value);
+            auto fdCur = dynamic_cast<Ast::FunctionDecl*>(it->second);
+            auto& loc = it->second->m_loc;
+            RETURN_RES_IF( Result::ERR, fdVal==nullptr || fdCur==nullptr,
+                 "Only functions can be overloaded. '%s' is already defined\n"
+                 "%s:%i:%i: Previously defined here", sym.c_str(), loc.filename(), loc.line(), loc.col());
+            syms_.emplace_hint( it, sym, value );
             return Result::OK;
         }
         auto bind( string_view sym, Node* value ) { return bind( istring::make( sym ), value ); }
 
         Environment* parent_;
-        std::map<istring, Node*> syms_;
+        std::multimap<istring, Node*> syms_;
     };
 
     struct MacroDecl : Named {

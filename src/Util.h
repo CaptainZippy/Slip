@@ -228,6 +228,7 @@ namespace Slip {
     inline bool operator<( istring a, istring b ) { return a.view() < b.view(); }
 
     inline bool operator==( istring a, istring b ) { return a.c_str() == b.c_str(); }
+    inline bool operator!=( istring a, istring b ) { return a.c_str() != b.c_str(); }
 
     std::string string_concat( array_view<std::string_view> strs );
 

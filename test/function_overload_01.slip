@@ -1,16 +1,19 @@
 
 
-(func test (s:float)
-    (puts "func_float"))
+(func test (s:double)
+    (puts "func_double")
+    (putd s))
 
 (func test (s:int)
-    (puts "func_int"))
+    (puts "func_int")
+    (puti s))
 
 (func test (s:string)
-    (puts "func_string"))
+    (puts "func_string")
+    (puts s))
 
 (func main ():int (begin
     (test "hello":string)
     (test 10:int)
-    (test 10:float)
+    (test 3.14:double)
     0))

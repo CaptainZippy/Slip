@@ -6,6 +6,12 @@
         "initializer_list": "cpp",
         "*.tcc": "cpp",
         "string_view": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "vector": "cpp"
     }
 }
