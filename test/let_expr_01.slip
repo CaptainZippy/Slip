@@ -6,4 +6,4 @@
     ;(let ((x 4))  (puti (next x)))
     ;(define x 4)
     ;(puti (next x))
-    0:int)
+    0)

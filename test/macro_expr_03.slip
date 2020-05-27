@@ -13,4 +13,4 @@
 (func main ():int (begin
     (var a 101:int)
     (foo (puti a))
-    0:int))
+    0))

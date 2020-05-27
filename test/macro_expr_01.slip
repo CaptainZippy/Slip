@@ -8,4 +8,5 @@
 
 (func main ():int
     (puts (if2 true "true" "false"))
-    0:int)
+    (puts (if2 false "true" "false"))
+    0)

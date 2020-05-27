@@ -8,4 +8,4 @@
 (func main ():int
     (var a 101:int)
     (twice (puti a))
-    0:int)
+    0)
