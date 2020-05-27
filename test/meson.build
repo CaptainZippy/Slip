@@ -7,6 +7,7 @@ slip_tests = [
     'function_overload_01',
     'intrinsic_01',
     'let_expr_01',
+    'loop_expr_01',
     'macro_expr_01',
     'macro_expr_02',
     'macro_expr_03',

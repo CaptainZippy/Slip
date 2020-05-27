@@ -1,0 +1,7 @@
+
+(func main():int
+    (var x 9)
+    (while (lt? x 15)
+        (puti x)
+        (set! x (add x 1)))
+    0)

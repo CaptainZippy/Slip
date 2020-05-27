@@ -340,14 +340,22 @@ struct Parse::If {
 struct Parse::While {
     static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Atom* lcond;
-        Lex::Atom* lbody;
-        RETURN_IF_FAILED( matchLex( args, &lcond, &lbody ) );
-
+        std::vector<Lex::Atom*> lbody;
+        RETURN_IF_FAILED( matchLex( args, &lcond, &lbody, Ellipsis::OneOrMore ) );
         Ast::Node* ncond;
-        Ast::Node* nbody;
         RETURN_IF_FAILED( parse1( state, lcond, &ncond ) );
-        RETURN_IF_FAILED( parse1( state, lbody, &nbody ) );
-
+        Ast::Node* nbody;
+        if( lbody.size() == 1 ) {
+            RETURN_IF_FAILED( parse1( state, lbody[0], &nbody ) );
+        } else {
+            auto bd = new Ast::Sequence();
+            for( auto&& l : lbody ) {
+                Ast::Node* b;
+                RETURN_IF_FAILED( parse1( state, l, &b ) );
+                bd->m_items.emplace_back( b );
+            }
+            nbody = bd;
+        }
         *out = new Ast::While( ncond, nbody, WITH( _.m_loc = lcond->m_loc ) );
         return Result::OK;
     }
