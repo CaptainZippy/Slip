@@ -4,4 +4,10 @@
     (while (lt? x 15)
         (puti x)
         (set! x (add x 1)))
+    (puti (block outer
+        (while (lt? x 33)
+            (puti x)
+            (break outer 45)
+            (set! x (add x 2)))
+        99))
     0)

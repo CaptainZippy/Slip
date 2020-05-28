@@ -22,6 +22,17 @@ namespace Slip::Ast {
     REFLECT_PARENT( Node )
     REFLECT_END()
 
+    REFLECT_BEGIN( Block )
+    REFLECT_PARENT( Named )
+    REFLECT_FIELD2( m_contents, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( Break )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_target, Flags::Abbrev )
+    REFLECT_FIELD2( m_value, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( Number )
     REFLECT_PARENT( Node )
     REFLECT_FIELD2( m_num, Flags::Abbrev )

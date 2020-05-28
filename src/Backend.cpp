@@ -68,6 +68,28 @@ namespace {
             }
             return dispatch( n->m_items.back() );
         }
+
+        string operator()( Ast::Block* n ) {
+            std::string var;
+            if(n->m_type != &Ast::s_typeVoid ) {
+                var = string_format( "v_%s", n->name().c_str() );
+                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), var.c_str() ) );
+            }
+            out.begin( "{\n" );
+            string s = dispatch( n->m_contents );
+            if( var.size() ) {
+                out.end(string_format("\n%s = %s;\n}\n", var.c_str(), s.c_str()));
+            }
+            out.write(string_format("\nL%s:\n", n->name().c_str()));
+            return var;
+        }
+
+        string operator()( Ast::Break* n ) {
+            string s = dispatch( n->m_value );
+            out.write(string_format("v_%s = %s;\n", n->m_target->m_name.c_str(), s.c_str()));
+            out.write(string_format("goto L%s;\n", n->m_target->m_name.c_str()));
+            return s;
+        }
 #if 0
         string operator()(Ast::Scope* n) {
             auto id = newVarId();
@@ -83,7 +105,7 @@ namespace {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if(hasVar) {
-                out.write( string_format( "%s %s;", n->m_type->name().c_str(), ret.c_str() ) );
+                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
             }
             out.begin( " {\n" );
             auto cond = dispatch( n->m_cond );
@@ -104,12 +126,15 @@ namespace {
         }
 
         string operator()( Ast::While* n ) {
-            out.begin( "while(true) {" );
+            auto ret = newVarId();
+            out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
+            out.begin( "while(true) {\n" );
             auto cond = dispatch( n->m_cond );
             out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
             string b = dispatch( n->m_body );
+            out.write( string_concat( ret, " = ", b, ";\n" ) );
             out.end( "}\n" );
-            return "";
+            return ret;
         }
 
         string operator()( Ast::Cond* n ) {

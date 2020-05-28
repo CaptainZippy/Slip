@@ -202,6 +202,19 @@ namespace Slip::Ast {
         void* m_context;
     };
 
+    struct Block : Named {
+        AST_DECL();
+        Block(istring name, Ast::Node* contents) : Named(name), m_contents(contents) {}
+        Ast::Node* m_contents;
+    };
+
+    struct Break : Node {
+        AST_DECL();
+        Break(Ast::Block* target, Ast::Node* value) : m_target(target), m_value(value) {}
+        Ast::Block* m_target;
+        Ast::Node* m_value;
+    };
+
     struct Environment : Node {
         AST_DECL();
 

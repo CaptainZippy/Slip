@@ -1,6 +1,8 @@
 AST_NODE(Node)
 AST_NODE(Named)
 AST_NODE(Type)
+AST_NODE(Block)
+AST_NODE(Break)
 AST_NODE(Decl)
 AST_NODE(Module)
 AST_NODE(FunctionCall)

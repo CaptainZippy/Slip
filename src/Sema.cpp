@@ -114,6 +114,24 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::Block* n, VisitInfo& vi ) {
+            vi.info = new TypeInfo();
+            TypeInfo* ci;
+            RETURN_IF_FAILED( dispatch( n->m_contents, &ci ) );
+            _isConvertible(vi.info, ci);
+            return Result::OK;
+        }
+
+        Result operator()( Ast::Break* n, VisitInfo& vi ) {
+            TypeInfo* blockinfo;
+            RETURN_IF_FAILED( dispatch( n->m_target, &blockinfo ) );//TODO verify already done
+            TypeInfo* valinfo;
+            RETURN_IF_FAILED( dispatch( n->m_value, &valinfo ) );
+            _isConvertible(blockinfo, valinfo);
+            vi.info = _internKnownType(&Ast::s_typeVoid);
+            return Result::OK;
+        }
+
         Result operator()( Ast::NamedFunctionCall* n, VisitInfo& vi ) {
             std::vector<TypeInfo*> ai;
             for( auto&& a : n->m_args ) {

@@ -54,6 +54,8 @@ namespace Slip::Parse {
     struct While;
     struct Cond;
     struct Begin;
+    struct Block;
+    struct Break;
     struct Var;
     struct Set;
     struct Macro;
@@ -398,6 +400,44 @@ struct Parse::Begin {
     }
 };
 
+struct Parse::Block {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Lex::Symbol* name;
+        std::vector<Lex::Atom*> contents;
+        RETURN_IF_FAILED( matchLex( args, &name, &contents, Ellipsis::ZeroOrMore ) );
+        auto seq = new Ast::Sequence;
+        auto ret = new Ast::Block(istring::make(name->text()), seq);
+        auto inner = new Ast::Environment(state);
+        inner->bind(name->text(), ret);
+        for( auto c : contents ) {
+            Ast::Node* n;
+            RETURN_IF_FAILED( parse1( inner, c, &n ) );
+            seq->m_items.push_back( n );
+        }
+        *out = ret;
+        return Result::OK;
+    }
+};
+
+struct Parse::Break {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Lex::Symbol* llabel;
+        Lex::Atom* lval;
+        RETURN_IF_FAILED( matchLex( args, &llabel, &lval ) );
+        Ast::Node* nlabel;
+        RETURN_IF_FAILED( parse1( state, llabel, &nlabel ) );
+        auto blockr = dynamic_cast<Ast::Reference*>(nlabel);//TODO tidy
+        auto blocka = dynamic_cast<Ast::Block*>(blockr->m_target);
+        RETURN_RES_IF(Result::ERR, blocka == nullptr);
+        Ast::Node* nval;
+        RETURN_IF_FAILED( parse1( state, lval, &nval ) );
+        *out = new Ast::Break(blocka, nval);
+        return Result::OK;
+    }
+};
+
 struct Parse::Var {
     static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
@@ -561,6 +601,8 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "cond"sv, &Cond::parse );
     addBuiltin( env, "let"sv, &Let::parse );
     addBuiltin( env, "begin"sv, &Begin::parse );
+    addBuiltin( env, "block"sv, &Block::parse );
+    addBuiltin( env, "break"sv, &Break::parse );
     addBuiltin( env, "var"sv, &Var::parse );
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
