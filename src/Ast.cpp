@@ -154,6 +154,44 @@ size_t Ast::Node::s_serial;
 
 Ast::Node* Ast::Node::resolve() { return this; }
 
+Result Ast::Environment::bind( istring sym, Node* value ) {
+    auto it = syms_.lower_bound(sym);
+    if( it == syms_.end() || it->first != sym ) { // new element
+        syms_.emplace( sym, value );
+        return Result::OK;
+    }
+    // Duplicate. Only function overloads are allowed.
+    auto fdVal = dynamic_cast<Ast::FunctionDecl*>(value);
+    auto fdCur = dynamic_cast<Ast::FunctionDecl*>(it->second);
+    auto& loc = it->second->m_loc;
+    RETURN_RES_IF( Result::ERR, fdVal==nullptr || fdCur==nullptr,
+            "Only functions can be overloaded. '%s' is already defined\n"
+            "%s:%i:%i: Previously defined here", sym.c_str(), loc.filename(), loc.line(), loc.col());
+    syms_.emplace_hint( it, sym, value );
+    return Result::OK;
+}
+
+Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret ) {
+    auto f = new FunctionDecl( name );
+    f->m_declReturnTypeExpr = ret;
+    f->m_body = new Node();
+    f->m_body->m_declTypeExpr = ret;
+    f->m_params.push_back( a );
+    f->m_params.push_back( b );
+    return f;
+}
+
+Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Intrinsic intrin, Node* ret,
+                                                     std::initializer_list<Parameter*> params ) {
+    auto f = new FunctionDecl( name );
+    f->m_intrinsic = intrin;
+    f->m_declReturnTypeExpr = ret;
+    f->m_body = new Node();
+    f->m_body->m_declTypeExpr = ret;
+    f->m_params = params;
+    return f;
+}
+
 Ast::Node* Ast::Reference::resolve() { return m_target; }
 
 Ast::Type Ast::s_typeType( "Type"sv );
@@ -258,25 +296,4 @@ void Ast::print( Node* node, Io::TextOutput& out ) {
     Reflect::Var top{node};
     ::print( top, out, true );
     out.nl();
-}
-
-Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret ) {
-    auto f = new FunctionDecl( name );
-    f->m_declReturnTypeExpr = ret;
-    f->m_body = new Node();
-    f->m_body->m_declTypeExpr = ret;
-    f->m_params.push_back( a );
-    f->m_params.push_back( b );
-    return f;
-}
-
-Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Intrinsic intrin, Node* ret,
-                                                     std::initializer_list<Parameter*> params ) {
-    auto f = new FunctionDecl( name );
-    f->m_intrinsic = intrin;
-    f->m_declReturnTypeExpr = ret;
-    f->m_body = new Node();
-    f->m_body->m_declTypeExpr = ret;
-    f->m_params = params;
-    return f;
 }

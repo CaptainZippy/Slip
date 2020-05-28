@@ -1,29 +1,15 @@
 
 # TODO
 
-# array
-# args to main
-# func overloads
+* check for unused values (mostly so backend doesn't have unused variable warnings)
+* neatly handle "void" in backend
+
+
 # generics
 # ranges/iterators
 
 # debug logging
 # source locations
 # tail recursion
-# 
+#
 
-# PRELUDE
-
-inline bool lt(int a, int b) { return a<b; }
-inline bool eq(int a, int b) { return a==b; }
-inline int add(int a, int b) { return a+b; }
-inline int sub(int a, int b) { return a-b; }
-struct string { const char* s; int n; };
-template<typename T> struct array { const T* d; int n; };
-template<typename T> int array_size(array<T> a) { return a.n; }
-template<typename T> T array_at(array<T> a, int i) { return a.d[i]; }
-typedef array<string> array_string;
-extern int prns(string s);
-extern int prni(int i);
-int strlen(const char*);
-string operator "" _str(const char *s, long unsigned N) { return string{s,int(N)}; }
