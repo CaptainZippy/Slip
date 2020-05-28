@@ -2,7 +2,6 @@
 
 #include "Ast.h"
 #include "Io.h"
-#include "Sema.h"
 
 namespace Slip::Sema {
 

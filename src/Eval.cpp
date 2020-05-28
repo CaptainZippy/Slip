@@ -2,7 +2,6 @@
 
 #include "Ast.h"
 #include "Lex.h"
-#include "Parse.h"
 #include "Slip.h"
 
 using namespace Slip;
