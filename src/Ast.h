@@ -307,6 +307,7 @@ namespace Slip::Ast {
         array_view<Node*> items() { return m_items; }
         vector<Node*> m_items;
     };
+
     struct String : Node {
         AST_DECL();
         template <typename With>

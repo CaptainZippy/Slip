@@ -60,12 +60,17 @@ namespace {
             out.write( string_format( "%s %s = %s", n->m_type->name().c_str(), n->m_name, val.c_str() ) );
             return n->m_name.std_str();
         }
+
         string operator()( Ast::Sequence* n ) {
             for( auto a : n->items().rtrim( 1 ) ) {
                 dispatch( a );
                 out.nl();
             }
             return dispatch( n->m_items.back() );
+        }
+
+        string operator()( Ast::Scope* n ) {
+            return dispatch( n->m_child );
         }
 
         string operator()( Ast::Block* n ) {
@@ -286,6 +291,8 @@ namespace {
             out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
+            out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
+            out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );

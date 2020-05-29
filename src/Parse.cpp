@@ -57,6 +57,7 @@ namespace Slip::Parse {
     struct Break;
     struct Var;
     struct Set;
+    struct Scope;
     struct Macro;
     struct Now;
     struct ArrayView;
@@ -399,6 +400,21 @@ struct Parse::Begin {
     }
 };
 
+struct Parse::Scope {
+    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        auto ret = new Ast::Sequence;
+        auto env = new Ast::Environment(state);
+        for( auto arg : args->items().ltrim( 1 ) ) {
+            Ast::Node* n;
+            RETURN_IF_FAILED( parse1( env, arg, &n ) );
+            ret->m_items.push_back( n );
+        }
+        *out = new Ast::Scope(ret);
+        return Result::OK;
+    }
+};
+
 struct Parse::Block {
     static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
@@ -545,6 +561,13 @@ struct Parse::ArrayView {
             atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
             r->m_methods.emplace_back( atdecl );
 
+            auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt, t );
+            auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
+            r->m_methods.emplace_back( putdecl );
+
             if( _generic_root == "array_heap" ) {
                 auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
                 auto redecl = new Ast::FunctionDecl( "resize", WITH( _.m_type = retype ) );
@@ -604,6 +627,7 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     addBuiltin( env, "break"sv, &Break::parse );
     addBuiltin( env, "var"sv, &Var::parse );
     addBuiltin( env, "set!"sv, &Set::parse );
+    addBuiltin( env, "scope"sv, &Scope::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
     addBuiltin( env, "#"sv, &Now::parse );
     addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_view" ) );

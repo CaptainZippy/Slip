@@ -11,4 +11,4 @@ SpaceBeforeParens: Never
 DerivePointerAlignment: false
 PointerBindsToType : true
 BreakConstructorInitializersBeforeComma: true
-IncludeBlockStyle: Preserve
+IncludeBlocks: Preserve

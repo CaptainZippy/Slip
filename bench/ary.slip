@@ -1,37 +1,44 @@
-; TODO Buffers
+; TODO for loop scope
+; TODO range()
+; TODO tuple return
 
-(func fill_vec (vec:(array_view int) fill:int): void
-    (puti 0))
-   ; (for i (range (vec_size vec))
-   ;     (vec_set! vec i fill))))
 
-; add_to_vec(yv,xv)
-;   for i,x in enumerate(xv):
-;      yv[i] += x
+(macro for (init cond update body)
+    (begin
+        (expand init)
+        (while (expand cond)
+            (expand body)
+            (expand update))))
 
-(func add_to_vec (y:(array_view int) x:(array_view int)): void
-    (puti 0))
-    ;(for i (range (vec_size y))
-    ;    (vec_set! y i (add_i (vec_idx y i) (vec_idx x i))))))
-
-(func ary (n:int): int ;(tuple int int)
-  (var x:(array_heap int)) ; (range 1 (add_i n 1)))
-  (puti (size x))
+(func ary (n:int): void ;(tuple int int)
+  (var x:(array_heap int))
   (resize x n)
-  ;(let x $ range 1 $ add_i n 1))
-  ;(let y (vec_new n))
-  ;(let y $ vec_new n)
-  ;(fill_vec! y 0)
-  ;(for i (range n) (add_to_vec! y x)))
-    0)
+  (scope (for (var i 0) (lt? i n) (set! i (add i 1))
+    (put! x i (add i 1))))
+  (var y:(array_heap int))
+  (resize y n)
+  (scope (for (var i 0) (lt? i n) (set! i (add i 1))
+    (put! y i 0)))
+  (scope
+    (for (var k 0) (lt? k 1000) (set! k (add k 1)) (begin
+        (for (var i (sub n 1)) (lt? (sub 0 1) i) (set! i (sub i 1))
+            (put! y i (add (at y i) (at x i)))))))
+  (puti (at y 0))
+  (puti (at y (sub n 1)))
+  )
 
-  ;(tuple.make (vec_idx y 0) (vec_idx y (sub_i n 1)))))
-  ;(tuple.make (y 0) (y (- n 1)))
-  ;(tuple.make y[0] y[n-1])
-  ;(tuple.make [y 0] [y $ - n 1])
+;(func ary (n:int): void ;(tuple int int)
+;  (var x:(array_heap int) (range 1 (add n 1)))
+;  (var y:(array_heap int) (zeros n))
+;  (foreach var k (range 0 1000)
+;        (foreach var i (range (sub n 1) -1 -1))
+;            (put! y i (add (at y i) (at x i)))))))
+;  (puti (at y 0))
+;  (puti (at y (sub n 1)))
+;  )
 
 (func main (args:(array_view string)):int
     (var n (if (lt? (size args) 2) 100 (atoi (at args 1))))
     (puti n)
-    (puti (ary n))
+    (ary n)
     0)

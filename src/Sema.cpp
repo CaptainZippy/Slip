@@ -259,14 +259,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::Scope* n, VisitInfo& vi ) {
-            assert( false );
-            // if (n->m_child) {
-            //    //isa(n->m_child, n);
-            //    dispatch(n->m_child);
-            //}
-            // else {
-            //    isa(n, &Ast::s_typeVoid);
-            //}
+            RETURN_IF_FAILED( dispatch( n->m_child, &vi.info ) );
             return Result::OK;
         }
 
