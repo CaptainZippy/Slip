@@ -135,11 +135,12 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* list, void* contex
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
     RETURN_RES_IF( Result::ERR, args.size() != macro->m_params.size() );
-    Ast::Environment inner{macro->m_env};
-    MacroContext context{macro, args, env};
+    Ast::Environment expansionEnv{env};
+    MacroContext context{macro, args, &expansionEnv};
     Ast::Builtin expander{"expand"sv, &macroExpand1, &context};
-    inner.bind( "expand"sv, &expander );
-    RETURN_IF_FAILED( parse1( &inner, macro->m_body, out ) );
+    Ast::Environment macroEnv{macro->m_env};
+    macroEnv.bind( "expand"sv, &expander );
+    RETURN_IF_FAILED( parse1( &macroEnv, macro->m_body, out ) );
     return Result::OK;
 }
 

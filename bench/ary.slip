@@ -4,7 +4,7 @@
 
 
 (macro for (init cond update body)
-    (begin
+    (scope
         (expand init)
         (while (expand cond)
             (expand body)
@@ -13,16 +13,15 @@
 (func ary (n:int): void ;(tuple int int)
   (var x:(array_heap int))
   (resize x n)
-  (scope (for (var i 0) (lt? i n) (set! i (add i 1))
-    (put! x i (add i 1))))
+  (for (var i 0) (lt? i n) (set! i (add i 1))
+    (put! x i (add i 1)))
   (var y:(array_heap int))
   (resize y n)
-  (scope (for (var i 0) (lt? i n) (set! i (add i 1))
-    (put! y i 0)))
-  (scope
-    (for (var k 0) (lt? k 1000) (set! k (add k 1)) (begin
-        (for (var i (sub n 1)) (lt? (sub 0 1) i) (set! i (sub i 1))
-            (put! y i (add (at y i) (at x i)))))))
+  (for (var i 0) (lt? i n) (set! i (add i 1))
+    (put! y i 0))
+  (for (var k 0) (lt? k 1000) (set! k (add k 1))
+    (for (var i (sub n 1)) (lt? (sub 0 1) i) (set! i (sub i 1))
+      (put! y i (add (at y i) (at x i)))))
   (puti (at y 0))
   (puti (at y (sub n 1)))
   )
