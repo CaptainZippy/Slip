@@ -1,6 +1,6 @@
 ; Basic macro test
 
-(macro if2 (c a b)
+(macro if2 (c a b) env
     (cond
         ((expand c) (expand a))
         (true       (expand b))

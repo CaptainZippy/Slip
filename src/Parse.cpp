@@ -107,40 +107,50 @@ static Result matchLex( Lex::List* list, REST... rest ) {
 
 static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out );
 
-struct MacroContext {
-    Ast::MacroDecl* macro;
-    array_view<Lex::Atom*> args;
-    Ast::Environment* expansionEnv;
-    Lex::Atom* find( string_view sv ) {
-        for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
-            auto p = macro->m_params[i];
-            if( p->name() == sv ) {
-                return args[i];
-            }
-        }
-        return nullptr;
+static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    RETURN_RES_IF( Result::ERR, args->size() < 2 || args->size() > 3);
+    Lex::Symbol* larg;
+    Lex::Symbol* lenv = nullptr;
+    switch( args->size()) {
+        case 2:
+            RETURN_IF_FAILED( matchLex( args, &larg ) );
+            break;
+        case 3:
+            RETURN_IF_FAILED( matchLex( args, &larg, &lenv ) );
+            break;
     }
-};
 
-static Result macroExpand1( Ast::Environment* env, Lex::List* list, void* context, Ast::Node** out ) {
-    RETURN_RES_IF( Result::ERR, list->size() != 2 );
-    auto sym = dynamic_cast<Lex::Symbol*>( list->at( 1 ) );
-    RETURN_RES_IF( Result::ERR, sym == nullptr );
-    auto info = static_cast<MacroContext*>( context );
-    auto repl = info->find( sym->text() );
-    RETURN_IF_FAILED( parse1( info->expansionEnv, repl, out ) );
+    Ast::Node* repl;
+    RETURN_IF_FAILED( env->lookup(larg->text(), &repl) );
+    auto text = dynamic_cast<Ast::Syntax*>( repl );
+    RETURN_RES_IF( Result::ERR, text==nullptr);
+
+    Ast::Environment* xenv;
+    if( lenv ) {
+        Ast::Node* val;
+        RETURN_IF_FAILED( env->lookup(lenv->text(), &val) );
+        xenv = dynamic_cast<Ast::Environment*>(val);
+        RETURN_RES_IF( Result::ERR, xenv==nullptr);
+    }
+    else {
+        xenv = env;
+    }
+
+    RETURN_IF_FAILED( parse1( xenv, text->m_atom, out ) );
     return Result::OK;
 }
 
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
     RETURN_RES_IF( Result::ERR, args.size() != macro->m_params.size() );
-    Ast::Environment expansionEnv{env};
-    MacroContext context{macro, args, &expansionEnv};
-    Ast::Builtin expander{"expand"sv, &macroExpand1, &context};
-    Ast::Environment macroEnv{macro->m_env};
-    macroEnv.bind( "expand"sv, &expander );
-    RETURN_IF_FAILED( parse1( &macroEnv, macro->m_body, out ) );
+    auto localEnv = new Ast::Environment(macro->m_staticEnv);
+    for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
+        localEnv->bind( macro->m_params[i]->name(), new Ast::Syntax(args[i]) );
+    }
+    localEnv->bind( macro->m_dynEnvSym, env );
+    static Ast::Builtin expander{"expand"sv, &macroExpand1, nullptr};
+    localEnv->bind( "expand"sv, &expander );
+    RETURN_IF_FAILED( parse1( localEnv, macro->m_body, out ) );
     return Result::OK;
 }
 
@@ -500,9 +510,10 @@ struct Parse::Macro {
         *out = nullptr;
         Lex::Symbol* lname;
         Lex::List* largs;
+        Lex::Symbol* lenv;
         Lex::Atom* lbody;
-        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody ) );
-        auto macro = new Ast::MacroDecl( lname->text(), env, WITH( _.m_loc = lname->m_loc ) );
+        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lenv, &lbody ) );
+        auto macro = new Ast::MacroDecl( lname->text(), lenv->text(), env, WITH( _.m_loc = lname->m_loc ) );
         for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
             RETURN_RES_IF( Result::ERR, sym == nullptr );

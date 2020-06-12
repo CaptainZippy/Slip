@@ -1,14 +1,16 @@
 ; Macro in a macro
 
-(macro bar (body) (begin
-    (var a "bar":string)
-    (expand body)
-    (expand body)))
+(macro bar (body up) env (begin
+   ; (var a "bar":string)
+   ; (expand body up)
+    (expand body up)))
 
-(macro foo (body) (begin
-    (var a "foo":string)
+(macro foo (body) env (begin
+    (var a 222:int)
+    (expand body env)
     (expand body)
-    (bar (expand body))))
+    (bar body env)
+    ))
 
 (func main ():int (begin
     (var a 101:int)

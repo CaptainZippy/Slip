@@ -186,7 +186,6 @@ namespace Slip::Ast {
 
     struct FunctionDecl : Named {
         AST_DECL();
-        // using Intrinsic = Result (*)(Parse::Evaluator* eval, array_view<Node*> args, Ast::Node** out);
         using Intrinsic = Result ( * )( array_view<Node*> args, Ast::Node** out );
 
         vector<Parameter*> m_params;
@@ -224,11 +223,15 @@ namespace Slip::Ast {
         AST_DECL();
 
         vector<Parameter*> m_params;
-        Environment* m_env;
+        istring m_dynEnvSym;
+        Environment* m_staticEnv;
         Lex::Atom* m_body{nullptr};
 
         template <typename With>
-        MacroDecl( string_view name, Environment* env, With&& with ) : Named( name ), m_env( env ) {
+        MacroDecl( string_view name, string_view dynEnvSym, Environment* staticEnv, With&& with )
+         : Named( name )
+         , m_dynEnvSym(istring::make(dynEnvSym))
+         , m_staticEnv( staticEnv ) {
             with( *this );
         }
     };
@@ -319,6 +322,18 @@ namespace Slip::Ast {
         static string toString( const void* p ) {
             auto n = static_cast<const String*>( p );
             return n->m_str;
+        }
+    };
+
+    struct Syntax : Node {
+        AST_DECL();
+        Lex::Atom* m_atom;
+
+        Syntax( Lex::Atom* atom ) : m_atom( atom ) {}
+
+        template <typename With>
+        Syntax( Lex::Atom* atom, With&& with ) : m_atom( atom ) {
+            with( *this );
         }
     };
 

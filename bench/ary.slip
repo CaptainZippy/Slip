@@ -3,12 +3,12 @@
 ; TODO tuple return
 
 
-(macro for (init cond update body)
-    (scope
-        (expand init)
-        (while (expand cond)
-            (expand body)
-            (expand update))))
+(macro for (init cond update body) env (begin
+    (var inner (make_env env))
+    (expand init inner)
+    (while (expand cond inner)
+        (expand body inner)
+        (expand update inner))))
 
 (func ary (n:int): void ;(tuple int int)
   (var x:(array_heap int))
