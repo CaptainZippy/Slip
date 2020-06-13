@@ -12,8 +12,8 @@
     (puts "func_string")
     (puts s))
 
-(func main ():int (begin
+(func main ():int
     (test "hello":string)
     (test 10:int)
     (test 3.14:double)
-    0))
+    0)

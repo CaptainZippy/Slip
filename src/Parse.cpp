@@ -149,7 +149,17 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::Li
     localEnv->bind( macro->m_dynEnvSym, env );
     static Ast::Builtin expander{"expand"sv, &macroExpand1, nullptr};
     localEnv->bind( "expand"sv, &expander );
-    RETURN_IF_FAILED( parse1( localEnv, macro->m_body, out ) );
+    std::vector<Ast::Node*> body;
+    for( auto&& b : macro->m_body ) {
+        Ast::Node* p;
+        RETURN_IF_FAILED( parse1( localEnv, b, &p ) );
+        body.push_back( p );
+    }
+    if( body.size() == 1 ) {
+        *out = body[0];
+    } else {
+        *out = new Ast::Sequence( std::move( body ) );
+    }
     return Result::OK;
 }
 
@@ -510,8 +520,8 @@ struct Parse::Macro {
         Lex::Symbol* lname;
         Lex::List* largs;
         Lex::Symbol* lenv;
-        Lex::Atom* lbody;
-        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lenv, &lbody ) );
+        std::vector<Lex::Atom*> lbody;
+        RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lenv, &lbody, Ellipsis::OneOrMore ) );
         auto macro = new Ast::MacroDecl( lname->text(), lenv->text(), env, WITH( _.m_loc = lname->m_loc ) );
         for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
@@ -520,7 +530,7 @@ struct Parse::Macro {
             macro->m_params.push_back( param );
         }
         env->bind( macro->m_name, macro );
-        macro->m_body = lbody;
+        macro->m_body = std::move( lbody );
         *out = macro;
         return Result::OK;
     }

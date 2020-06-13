@@ -225,7 +225,7 @@ namespace Slip::Ast {
         vector<Parameter*> m_params;
         istring m_dynEnvSym;
         Environment* m_staticEnv;
-        Lex::Atom* m_body{nullptr};
+        std::vector<Lex::Atom*> m_body;
 
         template <typename With>
         MacroDecl( string_view name, string_view dynEnvSym, Environment* staticEnv, With&& with )
@@ -305,6 +305,8 @@ namespace Slip::Ast {
 
     struct Sequence : Node {
         AST_DECL();
+        Sequence() = default;
+        Sequence( std::vector<Node*>&& items ) : m_items( items ) {}
         array_view<Node*> items() { return m_items; }
         vector<Node*> m_items;
     };

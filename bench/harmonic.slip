@@ -1,15 +1,14 @@
 ; TODO iterators
 
-(func harmonic (n : int) : double (begin
+(func harmonic (n : int) : double
     ; (sum (map (func i (div_f 1.0 (float i))) (range 1 n))
     (var i 0:int)
     (var d 0:double)
     (while (lt? i n) (begin
         (set! i (add i 1))
         (set! d (addd d (divd 1.0 (dfromi i))))))
-    d))
+    d)
 
 (func main ():int
-    (begin
-        (putd (harmonic 4))
-        0))
+    (putd (harmonic 4))
+    0)

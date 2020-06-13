@@ -1,9 +1,9 @@
 ; Variable 'a' in macro shouldn't clash with 'a' at expansion.
 
-(macro twice (body) env (begin
+(macro twice (body) env
     (var a 2:int)
     (expand body)
-    (expand body env)))
+    (expand body env))
 
 (func main ():int
     (var a 101:int)
