@@ -224,15 +224,15 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
 }
 
 struct Parse::Define {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Symbol* lname;
         Lex::Atom* lval;
         RETURN_IF_FAILED( matchLex( args, &lname, &lval ) );
         Ast::Node* nval;
-        RETURN_IF_FAILED( parse1( state, lval, &nval ) );
+        RETURN_IF_FAILED( parse1( env, lval, &nval ) );
 
         auto ret = new Ast::Definition( lname->text(), nval, WITH( _.m_loc = lname->m_loc ) );
-        state->bind( lname->text(), ret );
+        env->bind( lname->text(), ret );
 
         *out = ret;
         return Result::OK;
@@ -240,7 +240,7 @@ struct Parse::Define {
 };
 
 struct Parse::Func {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_RES_IF( Result::ERR, args->size() < 3 );
         Lex::Symbol* lname;
@@ -248,8 +248,8 @@ struct Parse::Func {
         std::vector<Lex::Atom*> lbody;
         RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
         auto func = new Ast::FunctionDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
-        state->bind( func->m_name, func );
-        auto inner = new Ast::Environment( state );
+        env->bind( func->m_name, func );
+        auto inner = new Ast::Environment( env );
         if( auto a = largs->m_decltype ) {
             Ast::Node* te;
             RETURN_IF_FAILED( parse1( inner, a, &te ) );
@@ -286,17 +286,17 @@ struct Parse::Func {
 };
 
 struct Parse::Let {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Symbol* lname;
         Lex::Atom* lbody;
         if( matchLex( args, &lname, &lbody ).isOk() ) {  // short form (let foo 0)
 
             Ast::Node* aval;
-            RETURN_IF_FAILED( parse1( state, lbody, &aval ) );
+            RETURN_IF_FAILED( parse1( env, lbody, &aval ) );
             Ast::Node* te;
-            RETURN_IF_FAILED( parse1( state, lname->m_decltype, &te ) );
+            RETURN_IF_FAILED( parse1( env, lname->m_decltype, &te ) );
             auto def = new Ast::Definition( lname->text(), aval, WITH( _.m_loc = lbody->m_loc, _.m_declTypeExpr = te ) );
-            RETURN_IF_FAILED( state->bind( lname->text(), def ) );
+            RETURN_IF_FAILED( env->bind( lname->text(), def ) );
             *out = def;
             return Result::OK;
         }
@@ -304,7 +304,7 @@ struct Parse::Let {
         Lex::List* llets;  // long form (let ((a 0) (b 1)) (+ a b))
         RETURN_IF_FAILED( matchLex( args, &llets, &lbody ) );
 
-        auto inner = new Ast::Environment( state );
+        auto inner = new Ast::Environment( env );
         auto seq = new Ast::Sequence();
         for( auto litem : llets->items() ) {
             Lex::List* lpair = dynamic_cast<Lex::List*>( litem );
@@ -332,7 +332,7 @@ struct Parse::Let {
 };
 
 struct Parse::If {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Atom* lcond;
         Lex::Atom* ltrue;
         Lex::Atom* lfalse;
@@ -341,9 +341,9 @@ struct Parse::If {
         Ast::Node* ncond;
         Ast::Node* ntrue;
         Ast::Node* nfalse;
-        RETURN_IF_FAILED( parse1( state, lcond, &ncond ) );
-        RETURN_IF_FAILED( parse1( state, ltrue, &ntrue ) );
-        RETURN_IF_FAILED( parse1( state, lfalse, &nfalse ) );
+        RETURN_IF_FAILED( parse1( env, lcond, &ncond ) );
+        RETURN_IF_FAILED( parse1( env, ltrue, &ntrue ) );
+        RETURN_IF_FAILED( parse1( env, lfalse, &nfalse ) );
 
         *out = new Ast::If( ncond, ntrue, nfalse, WITH( _.m_loc = lcond->m_loc ) );
         return Result::OK;
@@ -351,20 +351,20 @@ struct Parse::If {
 };
 
 struct Parse::While {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         Lex::Atom* lcond;
         std::vector<Lex::Atom*> lbody;
         RETURN_IF_FAILED( matchLex( args, &lcond, &lbody, Ellipsis::OneOrMore ) );
         Ast::Node* ncond;
-        RETURN_IF_FAILED( parse1( state, lcond, &ncond ) );
+        RETURN_IF_FAILED( parse1( env, lcond, &ncond ) );
         Ast::Node* nbody;
         if( lbody.size() == 1 ) {
-            RETURN_IF_FAILED( parse1( state, lbody[0], &nbody ) );
+            RETURN_IF_FAILED( parse1( env, lbody[0], &nbody ) );
         } else {
             auto bd = new Ast::Sequence();
             for( auto&& l : lbody ) {
                 Ast::Node* b;
-                RETURN_IF_FAILED( parse1( state, l, &b ) );
+                RETURN_IF_FAILED( parse1( env, l, &b ) );
                 bd->m_items.emplace_back( b );
             }
             nbody = bd;
@@ -375,7 +375,7 @@ struct Parse::While {
 };
 
 struct Parse::Cond {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_RES_IF( Result::ERR, args->size() < 2 );
         vector<pair<Ast::Node*, Ast::Node*>> cases;
@@ -385,9 +385,9 @@ struct Parse::Cond {
             RETURN_RES_IF( Result::ERR, pair->size() != 2 );
 
             Ast::Node* cond;
-            RETURN_IF_FAILED( parse1( state, pair->at( 0 ), &cond ) );
+            RETURN_IF_FAILED( parse1( env, pair->at( 0 ), &cond ) );
             Ast::Node* iftrue;
-            RETURN_IF_FAILED( parse1( state, pair->at( 1 ), &iftrue ) );
+            RETURN_IF_FAILED( parse1( env, pair->at( 1 ), &iftrue ) );
             cases.emplace_back( cond, iftrue );
         }
         auto cond = new Ast::Cond( WITH( /*TODO loc*/ ) );
@@ -398,12 +398,12 @@ struct Parse::Cond {
 };
 
 struct Parse::Begin {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
         for( auto arg : args->items().ltrim( 1 ) ) {
             Ast::Node* n;
-            RETURN_IF_FAILED( parse1( state, arg, &n ) );
+            RETURN_IF_FAILED( parse1( env, arg, &n ) );
             ret->m_items.push_back( n );
         }
         *out = ret;
@@ -412,13 +412,13 @@ struct Parse::Begin {
 };
 
 struct Parse::Scope {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
-        auto env = new Ast::Environment(state);
+        auto inner = new Ast::Environment(env);
         for( auto arg : args->items().ltrim( 1 ) ) {
             Ast::Node* n;
-            RETURN_IF_FAILED( parse1( env, arg, &n ) );
+            RETURN_IF_FAILED( parse1( inner, arg, &n ) );
             ret->m_items.push_back( n );
         }
         *out = new Ast::Scope(ret);
@@ -427,14 +427,14 @@ struct Parse::Scope {
 };
 
 struct Parse::Block {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* name;
         std::vector<Lex::Atom*> contents;
         RETURN_IF_FAILED( matchLex( args, &name, &contents, Ellipsis::ZeroOrMore ) );
         auto seq = new Ast::Sequence;
         auto ret = new Ast::Block(istring::make(name->text()), seq);
-        auto inner = new Ast::Environment(state);
+        auto inner = new Ast::Environment(env);
         inner->bind(name->text(), ret);
         for( auto c : contents ) {
             Ast::Node* n;
@@ -447,25 +447,25 @@ struct Parse::Block {
 };
 
 struct Parse::Break {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* llabel;
         Lex::Atom* lval;
         RETURN_IF_FAILED( matchLex( args, &llabel, &lval ) );
         Ast::Node* nlabel;
-        RETURN_IF_FAILED( parse1( state, llabel, &nlabel ) );
+        RETURN_IF_FAILED( parse1( env, llabel, &nlabel ) );
         auto blockr = dynamic_cast<Ast::Reference*>(nlabel);//TODO tidy
         auto blocka = dynamic_cast<Ast::Block*>(blockr->m_target);
         RETURN_RES_IF(Result::ERR, blocka == nullptr);
         Ast::Node* nval;
-        RETURN_IF_FAILED( parse1( state, lval, &nval ) );
+        RETURN_IF_FAILED( parse1( env, lval, &nval ) );
         *out = new Ast::Break(blocka, nval);
         return Result::OK;
     }
 };
 
 struct Parse::Var {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
 
         Lex::Symbol* sym;
@@ -473,33 +473,33 @@ struct Parse::Var {
         RETURN_IF_FAILED( matchLex( args, &sym, &inits, Ellipsis::ZeroOrMore ) );
 
         Ast::Node* varType;
-        RETURN_IF_FAILED( parse1( state, sym->m_decltype, &varType ) );
+        RETURN_IF_FAILED( parse1( env, sym->m_decltype, &varType ) );
 
         std::vector<Ast::Node*> vals;
         for( auto&& i : inits ) {
             Ast::Node* n;
-            RETURN_IF_FAILED( parse1( state, i, &n ) );
+            RETURN_IF_FAILED( parse1( env, i, &n ) );
             vals.emplace_back( n );
         }
 
         auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = varType, _.m_loc = sym->m_loc ) );
         ret->m_initializer.swap( vals );
-        RETURN_IF_FAILED( state->bind( sym->text(), ret ) );
+        RETURN_IF_FAILED( env->bind( sym->text(), ret ) );
         *out = ret;
         return Result::OK;
     }
 };
 
 struct Parse::Set {
-    static Result parse( Ast::Environment* state, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         Lex::Symbol* sym;
         Lex::Atom* expr;
         RETURN_IF_FAILED( matchLex( args, &sym, &expr ) );
         Ast::Node* value = nullptr;
-        RETURN_IF_FAILED( state->lookup( sym->text(), &value ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
+        RETURN_IF_FAILED( env->lookup( sym->text(), &value ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
         Ast::Node* rhs;
-        RETURN_IF_FAILED( parse1( state, expr, &rhs ) );
+        RETURN_IF_FAILED( parse1( env, expr, &rhs ) );
         *out = new Ast::Assignment( value, rhs, WITH( _.m_loc = sym->m_loc ) );
         return Result::OK;
     }
