@@ -78,8 +78,8 @@ static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellips
     if( args.empty() ) {
         return Result::OK;
     }
-    //auto sl = args.cur()->m_loc;
-    //sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
+    // auto sl = args.cur()->m_loc;
+    // sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
     do {
         list->emplace_back( args.cur() );
     } while( args.advance() );
@@ -108,10 +108,10 @@ static Result matchLex( Lex::List* list, REST... rest ) {
 static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out );
 
 static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-    RETURN_RES_IF( Result::ERR, args->size() < 2 || args->size() > 3);
+    RETURN_RES_IF( Result::ERR, args->size() < 2 || args->size() > 3 );
     Lex::Symbol* larg;
     Lex::Symbol* lenv = nullptr;
-    switch( args->size()) {
+    switch( args->size() ) {
         case 2:
             RETURN_IF_FAILED( matchLex( args, &larg ) );
             break;
@@ -121,18 +121,17 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
     }
 
     Ast::Node* repl;
-    RETURN_IF_FAILED( env->lookup(larg->text(), &repl) );
+    RETURN_IF_FAILED( env->lookup( larg->text(), &repl ) );
     auto text = dynamic_cast<Ast::Syntax*>( repl );
-    RETURN_RES_IF( Result::ERR, text==nullptr);
+    RETURN_RES_IF( Result::ERR, text == nullptr );
 
     Ast::Environment* xenv;
     if( lenv ) {
         Ast::Node* val;
-        RETURN_IF_FAILED( env->lookup(lenv->text(), &val) );
-        xenv = dynamic_cast<Ast::Environment*>(val);
-        RETURN_RES_IF( Result::ERR, xenv==nullptr);
-    }
-    else {
+        RETURN_IF_FAILED( env->lookup( lenv->text(), &val ) );
+        xenv = dynamic_cast<Ast::Environment*>( val );
+        RETURN_RES_IF( Result::ERR, xenv == nullptr );
+    } else {
         xenv = env;
     }
 
@@ -143,9 +142,9 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
     RETURN_RES_IF( Result::ERR, args.size() != macro->m_params.size() );
-    auto localEnv = new Ast::Environment(macro->m_staticEnv);
+    auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
-        localEnv->bind( macro->m_params[i]->name(), new Ast::Syntax(args[i]) );
+        localEnv->bind( macro->m_params[i]->name(), new Ast::Syntax( args[i] ) );
     }
     localEnv->bind( macro->m_dynEnvSym, env );
     static Ast::Builtin expander{"expand"sv, &macroExpand1, nullptr};
@@ -415,13 +414,13 @@ struct Parse::Scope {
     static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
-        auto inner = new Ast::Environment(env);
+        auto inner = new Ast::Environment( env );
         for( auto arg : args->items().ltrim( 1 ) ) {
             Ast::Node* n;
             RETURN_IF_FAILED( parse1( inner, arg, &n ) );
             ret->m_items.push_back( n );
         }
-        *out = new Ast::Scope(ret);
+        *out = new Ast::Scope( ret );
         return Result::OK;
     }
 };
@@ -433,9 +432,9 @@ struct Parse::Block {
         std::vector<Lex::Atom*> contents;
         RETURN_IF_FAILED( matchLex( args, &name, &contents, Ellipsis::ZeroOrMore ) );
         auto seq = new Ast::Sequence;
-        auto ret = new Ast::Block(istring::make(name->text()), seq);
-        auto inner = new Ast::Environment(env);
-        inner->bind(name->text(), ret);
+        auto ret = new Ast::Block( istring::make( name->text() ), seq );
+        auto inner = new Ast::Environment( env );
+        inner->bind( name->text(), ret );
         for( auto c : contents ) {
             Ast::Node* n;
             RETURN_IF_FAILED( parse1( inner, c, &n ) );
@@ -454,12 +453,12 @@ struct Parse::Break {
         RETURN_IF_FAILED( matchLex( args, &llabel, &lval ) );
         Ast::Node* nlabel;
         RETURN_IF_FAILED( parse1( env, llabel, &nlabel ) );
-        auto blockr = dynamic_cast<Ast::Reference*>(nlabel);//TODO tidy
-        auto blocka = dynamic_cast<Ast::Block*>(blockr->m_target);
-        RETURN_RES_IF(Result::ERR, blocka == nullptr);
+        auto blockr = dynamic_cast<Ast::Reference*>( nlabel );  // TODO tidy
+        auto blocka = dynamic_cast<Ast::Block*>( blockr->m_target );
+        RETURN_RES_IF( Result::ERR, blocka == nullptr );
         Ast::Node* nval;
         RETURN_IF_FAILED( parse1( env, lval, &nval ) );
-        *out = new Ast::Break(blocka, nval);
+        *out = new Ast::Break( blocka, nval );
         return Result::OK;
     }
 };
@@ -573,7 +572,8 @@ struct Parse::ArrayView {
             atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
             r->m_methods.emplace_back( atdecl );
 
-            auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt, t );
+            auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
+                                          &Ast::s_typeInt, t );
             auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype ) );
             putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
             putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
@@ -665,8 +665,8 @@ Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& m
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
-    //auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
-    //auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
+    // auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
+    // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
 
     addIntrinsic( env, "eq?", b_ii );
     addIntrinsic( env, "lt?", b_ii );

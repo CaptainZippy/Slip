@@ -95,7 +95,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN( MacroDecl )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_params, Flags::Child )
-    //REFLECT_FIELD2( m_body, Flags::Child )
+    // REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( MacroExpansion )
@@ -159,18 +159,19 @@ size_t Ast::Node::s_serial;
 Ast::Node* Ast::Node::resolve() { return this; }
 
 Result Ast::Environment::bind( istring sym, Node* value ) {
-    auto it = syms_.lower_bound(sym);
-    if( it == syms_.end() || it->first != sym ) { // new element
+    auto it = syms_.lower_bound( sym );
+    if( it == syms_.end() || it->first != sym ) {  // new element
         syms_.emplace( sym, value );
         return Result::OK;
     }
     // Duplicate. Only function overloads are allowed.
-    auto fdVal = dynamic_cast<Ast::FunctionDecl*>(value);
-    auto fdCur = dynamic_cast<Ast::FunctionDecl*>(it->second);
+    auto fdVal = dynamic_cast<Ast::FunctionDecl*>( value );
+    auto fdCur = dynamic_cast<Ast::FunctionDecl*>( it->second );
     auto& loc = it->second->m_loc;
-    RETURN_RES_IF( Result::ERR, fdVal==nullptr || fdCur==nullptr,
-            "Only functions can be overloaded. '%s' is already defined\n"
-            "%s:%i:%i: Previously defined here", sym.c_str(), loc.filename(), loc.line(), loc.col());
+    RETURN_RES_IF( Result::ERR, fdVal == nullptr || fdCur == nullptr,
+                   "Only functions can be overloaded. '%s' is already defined\n"
+                   "%s:%i:%i: Previously defined here",
+                   sym.c_str(), loc.filename(), loc.line(), loc.col() );
     syms_.emplace_hint( it, sym, value );
     return Result::OK;
 }

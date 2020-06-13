@@ -69,29 +69,27 @@ namespace {
             return dispatch( n->m_items.back() );
         }
 
-        string operator()( Ast::Scope* n ) {
-            return dispatch( n->m_child );
-        }
+        string operator()( Ast::Scope* n ) { return dispatch( n->m_child ); }
 
         string operator()( Ast::Block* n ) {
             std::string var;
-            if(n->m_type != &Ast::s_typeVoid ) {
+            if( n->m_type != &Ast::s_typeVoid ) {
                 var = string_format( "v_%s", n->name().c_str() );
                 out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), var.c_str() ) );
             }
             out.begin( "{\n" );
             string s = dispatch( n->m_contents );
             if( var.size() ) {
-                out.end(string_format("\n%s = %s;\n}\n", var.c_str(), s.c_str()));
+                out.end( string_format( "\n%s = %s;\n}\n", var.c_str(), s.c_str() ) );
             }
-            out.write(string_format("\nL%s:\n", n->name().c_str()));
+            out.write( string_format( "\nL%s:\n", n->name().c_str() ) );
             return var;
         }
 
         string operator()( Ast::Break* n ) {
             string s = dispatch( n->m_value );
-            out.write(string_format("v_%s = %s;\n", n->m_target->m_name.c_str(), s.c_str()));
-            out.write(string_format("goto L%s;\n", n->m_target->m_name.c_str()));
+            out.write( string_format( "v_%s = %s;\n", n->m_target->m_name.c_str(), s.c_str() ) );
+            out.write( string_format( "goto L%s;\n", n->m_target->m_name.c_str() ) );
             return s;
         }
 #if 0
@@ -108,20 +106,20 @@ namespace {
         string operator()( Ast::If* n ) {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
-            if(hasVar) {
+            if( hasVar ) {
                 out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
             }
             out.begin( " {\n" );
             auto cond = dispatch( n->m_cond );
             out.begin( string_format( "if(%s) {\n", cond.c_str() ) );
             string t = dispatch( n->m_true );
-            if(hasVar) {
+            if( hasVar ) {
                 out.write( string_concat( ret, " = ", t, ";\n" ) );
             }
             out.end( "}\n" );
             out.begin( "else {\n" );
             string f = dispatch( n->m_false );
-            if(hasVar) {
+            if( hasVar ) {
                 out.write( string_concat( ret, " = ", f, ";\n" ) );
             }
             out.end( "}" );

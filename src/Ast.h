@@ -229,9 +229,7 @@ namespace Slip::Ast {
 
         template <typename With>
         MacroDecl( string_view name, string_view dynEnvSym, Environment* staticEnv, With&& with )
-         : Named( name )
-         , m_dynEnvSym(istring::make(dynEnvSym))
-         , m_staticEnv( staticEnv ) {
+            : Named( name ), m_dynEnvSym( istring::make( dynEnvSym ) ), m_staticEnv( staticEnv ) {
             with( *this );
         }
     };
