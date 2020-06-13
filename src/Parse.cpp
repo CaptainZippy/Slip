@@ -69,12 +69,12 @@ using namespace Slip;
 enum class Ellipsis { ZeroOrMore, OneOrMore };
 
 static Result matchLex( Parse::Args& args ) {
-    RETURN_RES_IF( Result::ERR, !args.empty() );
+    RETURN_ERR_IF( !args.empty() );
     return Result::OK;
 }
 
 static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellipsis ellipsis ) {
-    RETURN_RES_IF( Result::ERR, ellipsis == Ellipsis::OneOrMore && args.empty() );
+    RETURN_ERR_IF( ellipsis == Ellipsis::OneOrMore && args.empty() );
     if( args.empty() ) {
         return Result::OK;
     }
@@ -89,9 +89,9 @@ static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellips
 /// Match and consume the entire argument list exactly
 template <typename HEAD, typename... REST>
 static Result matchLex( Parse::Args& args, HEAD** head, REST... rest ) {
-    RETURN_RES_IF( Result::ERR, args.empty() );
+    RETURN_ERR_IF( args.empty() );
     auto h = dynamic_cast<HEAD*>( args.cur() );
-    RETURN_RES_IF( Result::ERR, !h );
+    RETURN_ERR_IF( !h );
     args.advance();
     *head = h;
     return matchLex( args, rest... );
@@ -100,7 +100,7 @@ static Result matchLex( Parse::Args& args, HEAD** head, REST... rest ) {
 template <typename... REST>
 static Result matchLex( Lex::List* list, REST... rest ) {
     Parse::Args args{list->items()};
-    RETURN_RES_IF( Result::ERR, args.empty() );
+    RETURN_ERR_IF( args.empty() );
     args.advance();
     return matchLex( args, rest... );
 }
@@ -108,7 +108,7 @@ static Result matchLex( Lex::List* list, REST... rest ) {
 static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out );
 
 static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-    RETURN_RES_IF( Result::ERR, args->size() < 2 || args->size() > 3 );
+    RETURN_ERR_IF( args->size() < 2 || args->size() > 3 );
     Lex::Symbol* larg;
     Lex::Symbol* lenv = nullptr;
     switch( args->size() ) {
@@ -123,14 +123,14 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
     Ast::Node* repl;
     RETURN_IF_FAILED( env->lookup( larg->text(), &repl ) );
     auto text = dynamic_cast<Ast::Syntax*>( repl );
-    RETURN_RES_IF( Result::ERR, text == nullptr );
+    RETURN_ERR_IF( text == nullptr );
 
     Ast::Environment* xenv;
     if( lenv ) {
         Ast::Node* val;
         RETURN_IF_FAILED( env->lookup( lenv->text(), &val ) );
         xenv = dynamic_cast<Ast::Environment*>( val );
-        RETURN_RES_IF( Result::ERR, xenv == nullptr );
+        RETURN_ERR_IF( xenv == nullptr );
     } else {
         xenv = env;
     }
@@ -141,7 +141,7 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
 
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
-    RETURN_RES_IF( Result::ERR, args.size() != macro->m_params.size() );
+    RETURN_ERR_IF( args.size() != macro->m_params.size() );
     auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
         localEnv->bind( macro->m_params[i]->name(), new Ast::Syntax( args[i] ) );
@@ -181,12 +181,12 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         }
         return Result::OK;
     } else if( auto list = dynamic_cast<Lex::List*>( atom ) ) {
-        RETURN_RES_IF( Result::ERR, !list );
-        RETURN_RES_IF( Result::ERR, list->size() == 0 );
+        RETURN_ERR_IF( !list );
+        RETURN_ERR_IF( list->size() == 0 );
         auto items = list->items();
         auto first = items[0];
         auto sym = dynamic_cast<Lex::Symbol*>( first );
-        RETURN_RES_IF( Result::ERR, !sym, "Symbol expected in first list position" );
+        RETURN_ERR_IF( !sym, "Symbol expected in first list position" );
 
         // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
         Ast::Node* p;
@@ -195,12 +195,12 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         Ast::Environment::LookupIter iter;
         while( env->lookup_iter( isym, &p, iter ) ) {
             if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
-                RETURN_RES_IF( Result::ERR, !candidates.empty(), "Builtins can't be overloaded" );
-                RETURN_RES_IF( Result::ERR, env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                RETURN_ERR_IF( !candidates.empty(), "Builtins can't be overloaded" );
+                RETURN_ERR_IF( env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
                 return b->parse( env, list, out );
             } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
-                RETURN_RES_IF( Result::ERR, !candidates.empty(), "Builtins can't be overloaded" );
-                RETURN_RES_IF( Result::ERR, env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                RETURN_ERR_IF( !candidates.empty(), "Builtins can't be overloaded" );
+                RETURN_ERR_IF( env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
                 return macroExpand( m, env, list, out );
             } else {
                 candidates.emplace_back( p );
@@ -229,7 +229,7 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         *out = r;
         return Result::OK;
     }
-    RETURN_RES_IF( Result::ERR, true );
+    RETURN_ERR_IF( true );
 }
 
 struct Parse::Define {
@@ -251,7 +251,7 @@ struct Parse::Define {
 struct Parse::Func {
     static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        RETURN_RES_IF( Result::ERR, args->size() < 3 );
+        RETURN_ERR_IF( args->size() < 3 );
         Lex::Symbol* lname;
         Lex::List* largs;
         std::vector<Lex::Atom*> lbody;
@@ -266,7 +266,7 @@ struct Parse::Func {
         }
         for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
-            RETURN_RES_IF( Result::ERR, sym == nullptr );
+            RETURN_ERR_IF( sym == nullptr );
             Ast::Node* te;
             RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
             auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
@@ -317,7 +317,7 @@ struct Parse::Let {
         auto seq = new Ast::Sequence();
         for( auto litem : llets->items() ) {
             Lex::List* lpair = dynamic_cast<Lex::List*>( litem );
-            RETURN_RES_IF( Result::ERR, !lpair );
+            RETURN_ERR_IF( !lpair );
             Lex::Symbol* lsym;
             Lex::Atom* lval;
             Args tmpargs{lpair->items()};
@@ -386,12 +386,12 @@ struct Parse::While {
 struct Parse::Cond {
     static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        RETURN_RES_IF( Result::ERR, args->size() < 2 );
+        RETURN_ERR_IF( args->size() < 2 );
         vector<pair<Ast::Node*, Ast::Node*>> cases;
         for( auto&& arg : args->items().ltrim( 1 ) ) {
             auto pair = dynamic_cast<Lex::List*>( arg );
-            RETURN_RES_IF( Result::ERR, pair == nullptr );
-            RETURN_RES_IF( Result::ERR, pair->size() != 2 );
+            RETURN_ERR_IF( pair == nullptr );
+            RETURN_ERR_IF( pair->size() != 2 );
 
             Ast::Node* cond;
             RETURN_IF_FAILED( parse1( env, pair->at( 0 ), &cond ) );
@@ -465,7 +465,7 @@ struct Parse::Break {
         RETURN_IF_FAILED( parse1( env, llabel, &nlabel ) );
         auto blockr = dynamic_cast<Ast::Reference*>( nlabel );  // TODO tidy
         auto blocka = dynamic_cast<Ast::Block*>( blockr->m_target );
-        RETURN_RES_IF( Result::ERR, blocka == nullptr );
+        RETURN_ERR_IF( blocka == nullptr );
         Ast::Node* nval;
         RETURN_IF_FAILED( parse1( env, lval, &nval ) );
         *out = new Ast::Break( blocka, nval );
@@ -525,7 +525,7 @@ struct Parse::Macro {
         auto macro = new Ast::MacroDecl( lname->text(), lenv->text(), env, WITH( _.m_loc = lname->m_loc ) );
         for( auto item : largs->items() ) {
             auto sym = dynamic_cast<Lex::Symbol*>( item );
-            RETURN_RES_IF( Result::ERR, sym == nullptr );
+            RETURN_ERR_IF( sym == nullptr );
             auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc ) );
             macro->m_params.push_back( param );
         }

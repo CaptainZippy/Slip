@@ -55,9 +55,9 @@ namespace Slip::Args {
                             break;
                         }
                     }
-                    RETURN_RES_IF( Result::ERR, !found, "Unknown argument %s", key_val.data() );
+                    RETURN_ERR_IF( !found, "Unknown argument %s", key_val.data() );
                 } else {  // positional
-                    RETURN_RES_IF( Result::ERR, positionals.empty(), "Extra positional argument" );
+                    RETURN_ERR_IF( positionals.empty(), "Extra positional argument" );
                     positionals.front().m_action( key_val );
                     positionals = positionals.ltrim( 1 );
                 }

@@ -43,7 +43,7 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
             return Result::OK;
         }
         FILE* fin = fopen( fname, "r" );
-        RETURN_RES_IF( Result::ERR, !fin, "Unable to open %s for read", fname );
+        RETURN_ERR_IF( !fin, "Unable to open %s for read", fname );
         string txt;
         while( 1 ) {
             char buf[4096];

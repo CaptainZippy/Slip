@@ -30,11 +30,11 @@ namespace Slip {
         }                                                                \
     } while( 0 )
 
-#define RETURN_RES_IF( RES, COND, ... )                                  \
+#define RETURN_ERR_IF( COND, ... )                                       \
     do {                                                                 \
         if( ( COND ) ) {                                                 \
             Result::failed( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
-            return RES;                                                  \
+            return Result::ERR;                                          \
         }                                                                \
     } while( 0 )
 

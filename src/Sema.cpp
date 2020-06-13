@@ -44,7 +44,7 @@ namespace Slip::Sema {
 
     struct ConstraintBuilder {
         Result operator()( Ast::Node* n, VisitInfo& vi ) {
-            RETURN_RES_IF( Result::ERR, vi.info == nullptr );
+            RETURN_ERR_IF( vi.info == nullptr );
             return Result::OK;
         }
 
@@ -79,7 +79,7 @@ namespace Slip::Sema {
             if( !fi->func ) {  // TODO extract method
                 auto& loc = n->m_loc;
                 auto text = loc.text();
-                RETURN_RES_IF( Result::ERR, !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(),
+                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(),
                                text.size(), text.begin() );
             }
             _isApplicable( fi, ai );
@@ -175,7 +175,7 @@ namespace Slip::Sema {
                     yes.emplace_back( i );
                 }
             }
-            RETURN_RES_IF( Result::ERR, yes.size() != 1, "Overload resolution failed for '%s'", n->name().c_str() );
+            RETURN_ERR_IF( yes.size() != 1, "Overload resolution failed for '%s'", n->name().c_str() );
             n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
@@ -235,7 +235,7 @@ namespace Slip::Sema {
                     // TODO convertible
                 }
             } else {
-                RETURN_RES_IF( Result::ERR, n->m_initializer.size() != 1 );
+                RETURN_ERR_IF( n->m_initializer.size() != 1 );
                 TypeInfo* ti;
                 RETURN_IF_FAILED( dispatch( n->m_initializer[0], &ti ) );
                 _isConvertible( varTypeInfo, ti );
@@ -302,7 +302,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::Cond* n, VisitInfo& vi ) {
-            RETURN_RES_IF( Result::ERR, n->m_cases.empty() );
+            RETURN_ERR_IF( n->m_cases.empty() );
             vi.info = new TypeInfo{};
             for( auto&& c : n->m_cases ) {
                 // conditions are all booleans
