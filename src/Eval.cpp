@@ -1,7 +1,6 @@
 #include "pch/Pch.h"
 
 #include "Ast.h"
-#include "Lex.h"
 #include "Slip.h"
 
 using namespace Slip;

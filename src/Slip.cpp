@@ -88,8 +88,8 @@ static Slip::Result compile( const char* fname ) {
     using namespace Slip;
 
     auto smanager = Io::makeSourceManager();
-    unique_ptr_del<Lex::List> lex{nullptr, nullptr};
-    RETURN_IF_FAILED( Lex::parse_file( *smanager, fname, lex ) );
+    unique_ptr_del<Ast::LexList> lex{nullptr, nullptr};
+    RETURN_IF_FAILED( Ast::lex_file( *smanager, fname, lex ) );
 
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
     RETURN_IF_FAILED( Parse::module( *lex, ast ) );

@@ -1,7 +1,6 @@
 #include "pch/Pch.h"
 
 #include "Ast.h"
-#include "Lex.h"
 #include "Slip.h"
 
 #define WITH( ... ) [&]( auto& _ ) { __VA_ARGS__; }
@@ -44,7 +43,7 @@ namespace Slip::Parse {
         T* m_begin{nullptr};
         T* m_end{nullptr};
     };
-    typedef Iter<Lex::Atom*> Args;
+    typedef Iter<Ast::LexNode*> Args;
 
     struct Define;
     struct Func;
@@ -73,7 +72,7 @@ static Result matchLex( Parse::Args& args ) {
     return Result::OK;
 }
 
-static Result matchLex( Parse::Args& args, std::vector<Lex::Atom*>* list, Ellipsis ellipsis ) {
+static Result matchLex( Parse::Args& args, std::vector<Ast::LexNode*>* list, Ellipsis ellipsis ) {
     RETURN_ERR_IF( ellipsis == Ellipsis::OneOrMore && args.empty() );
     if( args.empty() ) {
         return Result::OK;
@@ -98,19 +97,19 @@ static Result matchLex( Parse::Args& args, HEAD** head, REST... rest ) {
 }
 
 template <typename... REST>
-static Result matchLex( Lex::List* list, REST... rest ) {
+static Result matchLex( Ast::LexList* list, REST... rest ) {
     Parse::Args args{list->items()};
     RETURN_ERR_IF( args.empty() );
     args.advance();
     return matchLex( args, rest... );
 }
 
-static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out );
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out );
 
-static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
     RETURN_ERR_IF( args->size() < 2 || args->size() > 3 );
-    Lex::Symbol* larg;
-    Lex::Symbol* lenv = nullptr;
+    Ast::LexIdent* larg;
+    Ast::LexIdent* lenv = nullptr;
     switch( args->size() ) {
         case 2:
             RETURN_IF_FAILED( matchLex( args, &larg ) );
@@ -122,7 +121,7 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
 
     Ast::Node* repl;
     RETURN_IF_FAILED( env->lookup( larg->text(), &repl ) );
-    auto text = dynamic_cast<Ast::Syntax*>( repl );
+    auto text = dynamic_cast<Ast::LexNode*>( repl );
     RETURN_ERR_IF( text == nullptr );
 
     Ast::Environment* xenv;
@@ -135,16 +134,16 @@ static Result macroExpand1( Ast::Environment* env, Lex::List* args, void* contex
         xenv = env;
     }
 
-    RETURN_IF_FAILED( parse1( xenv, text->m_atom, out ) );
+    RETURN_IF_FAILED( parse1( xenv, text, out ) );
     return Result::OK;
 }
 
-static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::List* list, Ast::Node** out ) {
+static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::LexList* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
     RETURN_ERR_IF( args.size() != macro->m_params.size() );
     auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
-        localEnv->bind( macro->m_params[i]->name(), new Ast::Syntax( args[i] ) );
+        localEnv->bind( macro->m_params[i]->name(), args[i] );
     }
     localEnv->bind( macro->m_dynEnvSym, env );
     static Ast::Builtin expander{"expand"sv, &macroExpand1, nullptr};
@@ -163,11 +162,11 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Lex::Li
     return Result::OK;
 }
 
-static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) {
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out ) {
     *out = nullptr;
     if( atom == nullptr ) {
         return Result::OK;
-    } else if( auto sym = dynamic_cast<Lex::Symbol*>( atom ) ) {
+    } else if( auto sym = dynamic_cast<Ast::LexIdent*>( atom ) ) {
         Ast::Node* node;
         RETURN_IF_FAILED( env->lookup( sym->text(), &node ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
 
@@ -180,12 +179,12 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
             *out = new Ast::Reference( node );
         }
         return Result::OK;
-    } else if( auto list = dynamic_cast<Lex::List*>( atom ) ) {
+    } else if( auto list = dynamic_cast<Ast::LexList*>( atom ) ) {
         RETURN_ERR_IF( !list );
         RETURN_ERR_IF( list->size() == 0 );
         auto items = list->items();
         auto first = items[0];
-        auto sym = dynamic_cast<Lex::Symbol*>( first );
+        auto sym = dynamic_cast<Ast::LexIdent*>( first );
         RETURN_ERR_IF( !sym, "Symbol expected in first list position" );
 
         // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
@@ -216,13 +215,13 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
         }
         *out = new Ast::NamedFunctionCall( isym, std::move( candidates ), std::move( fa ), WITH( _.m_loc = list->m_loc ) );
         return Result::OK;
-    } else if( auto num = dynamic_cast<Lex::Number*>( atom ) ) {
+    } else if( auto num = dynamic_cast<Ast::LexNumber*>( atom ) ) {
         Ast::Node* te;
         RETURN_IF_FAILED( parse1( env, num->m_decltype, &te ) );
         auto r = new Ast::Number( num->text(), WITH( _.m_loc = num->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
-    } else if( auto str = dynamic_cast<Lex::String*>( atom ) ) {
+    } else if( auto str = dynamic_cast<Ast::LexString*>( atom ) ) {
         Ast::Node* te;
         RETURN_IF_FAILED( parse1( env, str->m_decltype, &te ) );
         auto r = new Ast::String( str->text(), WITH( _.m_loc = str->m_loc, _.m_declTypeExpr = te ) );
@@ -233,9 +232,9 @@ static Result parse1( Ast::Environment* env, Lex::Atom* atom, Ast::Node** out ) 
 }
 
 struct Parse::Define {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-        Lex::Symbol* lname;
-        Lex::Atom* lval;
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+        Ast::LexIdent* lname;
+        Ast::LexNode* lval;
         RETURN_IF_FAILED( matchLex( args, &lname, &lval ) );
         Ast::Node* nval;
         RETURN_IF_FAILED( parse1( env, lval, &nval ) );
@@ -249,12 +248,12 @@ struct Parse::Define {
 };
 
 struct Parse::Func {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_ERR_IF( args->size() < 3 );
-        Lex::Symbol* lname;
-        Lex::List* largs;
-        std::vector<Lex::Atom*> lbody;
+        Ast::LexIdent* lname;
+        Ast::LexList* largs;
+        std::vector<Ast::LexNode*> lbody;
         RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
         auto func = new Ast::FunctionDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
         env->bind( func->m_name, func );
@@ -265,7 +264,7 @@ struct Parse::Func {
             func->m_declReturnTypeExpr = te;
         }
         for( auto item : largs->items() ) {
-            auto sym = dynamic_cast<Lex::Symbol*>( item );
+            auto sym = dynamic_cast<Ast::LexIdent*>( item );
             RETURN_ERR_IF( sym == nullptr );
             Ast::Node* te;
             RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
@@ -295,9 +294,9 @@ struct Parse::Func {
 };
 
 struct Parse::Let {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-        Lex::Symbol* lname;
-        Lex::Atom* lbody;
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+        Ast::LexIdent* lname;
+        Ast::LexNode* lbody;
         if( matchLex( args, &lname, &lbody ).isOk() ) {  // short form (let foo 0)
 
             Ast::Node* aval;
@@ -310,16 +309,16 @@ struct Parse::Let {
             return Result::OK;
         }
 
-        Lex::List* llets;  // long form (let ((a 0) (b 1)) (+ a b))
+        Ast::LexList* llets;  // long form (let ((a 0) (b 1)) (+ a b))
         RETURN_IF_FAILED( matchLex( args, &llets, &lbody ) );
 
         auto inner = new Ast::Environment( env );
         auto seq = new Ast::Sequence();
         for( auto litem : llets->items() ) {
-            Lex::List* lpair = dynamic_cast<Lex::List*>( litem );
+            Ast::LexList* lpair = dynamic_cast<Ast::LexList*>( litem );
             RETURN_ERR_IF( !lpair );
-            Lex::Symbol* lsym;
-            Lex::Atom* lval;
+            Ast::LexIdent* lsym;
+            Ast::LexNode* lval;
             Args tmpargs{lpair->items()};
             RETURN_IF_FAILED( matchLex( tmpargs, &lsym, &lval ) );
             Ast::Node* aval;
@@ -341,10 +340,10 @@ struct Parse::Let {
 };
 
 struct Parse::If {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-        Lex::Atom* lcond;
-        Lex::Atom* ltrue;
-        Lex::Atom* lfalse;
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+        Ast::LexNode* lcond;
+        Ast::LexNode* ltrue;
+        Ast::LexNode* lfalse;
         RETURN_IF_FAILED( matchLex( args, &lcond, &ltrue, &lfalse ) );
 
         Ast::Node* ncond;
@@ -360,9 +359,9 @@ struct Parse::If {
 };
 
 struct Parse::While {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
-        Lex::Atom* lcond;
-        std::vector<Lex::Atom*> lbody;
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+        Ast::LexNode* lcond;
+        std::vector<Ast::LexNode*> lbody;
         RETURN_IF_FAILED( matchLex( args, &lcond, &lbody, Ellipsis::OneOrMore ) );
         Ast::Node* ncond;
         RETURN_IF_FAILED( parse1( env, lcond, &ncond ) );
@@ -384,12 +383,12 @@ struct Parse::While {
 };
 
 struct Parse::Cond {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         RETURN_ERR_IF( args->size() < 2 );
         vector<pair<Ast::Node*, Ast::Node*>> cases;
         for( auto&& arg : args->items().ltrim( 1 ) ) {
-            auto pair = dynamic_cast<Lex::List*>( arg );
+            auto pair = dynamic_cast<Ast::LexList*>( arg );
             RETURN_ERR_IF( pair == nullptr );
             RETURN_ERR_IF( pair->size() != 2 );
 
@@ -407,7 +406,7 @@ struct Parse::Cond {
 };
 
 struct Parse::Begin {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
         for( auto arg : args->items().ltrim( 1 ) ) {
@@ -421,7 +420,7 @@ struct Parse::Begin {
 };
 
 struct Parse::Scope {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
         auto inner = new Ast::Environment( env );
@@ -436,10 +435,10 @@ struct Parse::Scope {
 };
 
 struct Parse::Block {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::Symbol* name;
-        std::vector<Lex::Atom*> contents;
+        Ast::LexIdent* name;
+        std::vector<Ast::LexNode*> contents;
         RETURN_IF_FAILED( matchLex( args, &name, &contents, Ellipsis::ZeroOrMore ) );
         auto seq = new Ast::Sequence;
         auto ret = new Ast::Block( istring::make( name->text() ), seq );
@@ -456,10 +455,10 @@ struct Parse::Block {
 };
 
 struct Parse::Break {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::Symbol* llabel;
-        Lex::Atom* lval;
+        Ast::LexIdent* llabel;
+        Ast::LexNode* lval;
         RETURN_IF_FAILED( matchLex( args, &llabel, &lval ) );
         Ast::Node* nlabel;
         RETURN_IF_FAILED( parse1( env, llabel, &nlabel ) );
@@ -474,11 +473,11 @@ struct Parse::Break {
 };
 
 struct Parse::Var {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
 
-        Lex::Symbol* sym;
-        std::vector<Lex::Atom*> inits;
+        Ast::LexIdent* sym;
+        std::vector<Ast::LexNode*> inits;
         RETURN_IF_FAILED( matchLex( args, &sym, &inits, Ellipsis::ZeroOrMore ) );
 
         Ast::Node* varType;
@@ -500,10 +499,10 @@ struct Parse::Var {
 };
 
 struct Parse::Set {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::Symbol* sym;
-        Lex::Atom* expr;
+        Ast::LexIdent* sym;
+        Ast::LexNode* expr;
         RETURN_IF_FAILED( matchLex( args, &sym, &expr ) );
         Ast::Node* value = nullptr;
         RETURN_IF_FAILED( env->lookup( sym->text(), &value ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
@@ -515,16 +514,16 @@ struct Parse::Set {
 };
 
 struct Parse::Macro {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::Symbol* lname;
-        Lex::List* largs;
-        Lex::Symbol* lenv;
-        std::vector<Lex::Atom*> lbody;
+        Ast::LexIdent* lname;
+        Ast::LexList* largs;
+        Ast::LexIdent* lenv;
+        std::vector<Ast::LexNode*> lbody;
         RETURN_IF_FAILED( matchLex( args, &lname, &largs, &lenv, &lbody, Ellipsis::OneOrMore ) );
         auto macro = new Ast::MacroDecl( lname->text(), lenv->text(), env, WITH( _.m_loc = lname->m_loc ) );
         for( auto item : largs->items() ) {
-            auto sym = dynamic_cast<Lex::Symbol*>( item );
+            auto sym = dynamic_cast<Ast::LexIdent*>( item );
             RETURN_ERR_IF( sym == nullptr );
             auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc ) );
             macro->m_params.push_back( param );
@@ -537,9 +536,9 @@ struct Parse::Macro {
 };
 
 struct Parse::Now {
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::List rest{args->m_loc};
+        Ast::LexList rest{args->m_loc};
         for( auto p : args->items().ltrim( 1 ) ) {
             rest.append( p );
         }
@@ -605,9 +604,9 @@ struct Parse::ArrayView {
         std::map<std::string, Ast::Type*> types_;
     };
 
-    static Result parse( Ast::Environment* env, Lex::List* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
-        Lex::Symbol* lparam;
+        Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( args, &lparam ) );
         Ast::Node* param = env->lookup( lparam->text() );  // TODO
         auto type = dynamic_cast<Ast::Type*>( param );
@@ -636,7 +635,7 @@ static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* ty
     env->bind( n, f );
 }
 
-Slip::Result Parse::module( Lex::List& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
+Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "define"sv, &Define::parse );
     addBuiltin( env, "func"sv, &Func::parse );

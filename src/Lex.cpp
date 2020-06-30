@@ -1,27 +1,38 @@
 #include "pch/Pch.h"
 
-#include "Lex.h"
+#include "Ast.h"
 
-namespace Slip::Lex {
-    REFLECT_BEGIN( Lex::Value )
-    REFLECT_PARENT( Atom )
+namespace Slip::Ast {
+    using namespace Io;
+
+    REFLECT_BEGIN( LexValue )
+    REFLECT_PARENT( LexNode )
     // REFLECT_FIELD(m_text)
-    REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const Lex::Value*>( arg )->text(); } )
+    REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexValue*>( arg )->text(); } )
     REFLECT_END()
 
-    REFLECT_BEGIN( Lex::Atom )
+    REFLECT_BEGIN( LexNode )
     REFLECT_FIELD( m_attrs )
     REFLECT_END()
 
+    REFLECT_BEGIN( LexString )
+    REFLECT_END()
+    REFLECT_BEGIN( LexNumber )
+    REFLECT_END()
+    REFLECT_BEGIN( LexIdent )
+    REFLECT_END()
+    REFLECT_BEGIN( LexList )
+    REFLECT_END()
+
     /// Parse one atom including an optional type
-    Result parse_atom( TextInput& in, Atom** atom );
+    Result lex_atom( TextInput& in, LexNode** atom );
     /// Parse one atom, no
-    Result parse_term( TextInput& in, Atom** atom );
+    Result lex_term( TextInput& in, LexNode** atom );
 }  // namespace Slip::Lex
 
 using namespace Slip;
 
-static std::string lex_error( const Lex::SourceLocation& loc, const char* fmt, ... ) {
+static std::string lex_error( const Io::SourceLocation& loc, const char* fmt, ... ) {
     va_list ap;
     va_start( ap, fmt );
     auto l = string_format( "%s:%i:%i:", loc.filename(), loc.line(), loc.col() );
@@ -30,7 +41,7 @@ static std::string lex_error( const Lex::SourceLocation& loc, const char* fmt, .
     return string_concat( l, m );
 }
 
-Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
+Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
 #define LEX_ERROR( LOC, ... ) RETURN_RES_IF_REACHED( Result::ERR, "%s", lex_error( LOC, __VA_ARGS__ ).c_str() );
 
     *atom = nullptr;
@@ -52,12 +63,12 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                 }
                 break;
             case '(': {
-                vector<Atom*> c;
+                vector<LexNode*> c;
                 auto start = in.tell();
                 in.next();
                 while( 1 ) {
-                    Atom* a;
-                    RETURN_IF_FAILED( parse_atom( in, &a ) );
+                    LexNode* a;
+                    RETURN_IF_FAILED( lex_atom( in, &a ) );
                     if( a ) {
                         c.push_back( a );
                     } else {
@@ -68,7 +79,7 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                     LEX_ERROR( in.location( start ), "Missing ')' for list begun here" );
                 }
 
-                auto l = new List( in.location( start, in.tell() ) );
+                auto l = new LexList( in.location( start, in.tell() ) );
                 l->m_items.swap( c );
                 *atom = l;
                 return Result::OK;
@@ -99,7 +110,7 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                     } else
                         break;
                 }
-                *atom = new Number( in.location( start, in.tell() ) );
+                *atom = new LexNumber( in.location( start, in.tell() ) );
                 return Result::OK;
             }
             case '"': {  // string
@@ -112,7 +123,7 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                         case 0:
                             LEX_ERROR( in.location( start ), "Null in string" );
                         case '"': {
-                            *atom = new String( in.location( start + 1, in.tell() - 1 ) );
+                            *atom = new LexString( in.location( start + 1, in.tell() - 1 ) );
                             return Result::OK;
                         }
                         default:
@@ -134,7 +145,7 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
                             break;
                         }
                     }
-                    *atom = new Symbol( in.location( start, in.tell() ) );
+                    *atom = new LexIdent( in.location( start, in.tell() ) );
                     return Result::OK;
                 }
                 LEX_ERROR( in.location(), "unexpected character '%c'", in.peek() );
@@ -144,26 +155,26 @@ Slip::Result Lex::parse_term( Io::TextInput& in, Lex::Atom** atom ) {
     return Result::OK;
 }
 
-Slip::Result Lex::parse_atom( Io::TextInput& in, Lex::Atom** atom ) {
+Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
     *atom = nullptr;
-    Atom* a;
-    RETURN_IF_FAILED( parse_term( in, &a ) );
+    LexNode* a;
+    RETURN_IF_FAILED( lex_term( in, &a ) );
     if( a ) {
         in.eatwhite();
         if( in.available() && in.peek() == ':' ) {
             in.next();
-            RETURN_IF_FAILED( parse_term( in, &a->m_decltype ) );
+            RETURN_IF_FAILED( lex_term( in, &a->m_decltype ) );
         }
     }
     *atom = a;
     return Result::OK;
 }
 
-Slip::Result Lex::parse_input( Lex::TextInput& input, Slip::unique_ptr_del<Lex::List>& lex ) {
-    auto l = make_unique_del<List>( input.location( input.tell(), input.tellEnd() ) );
+Slip::Result Ast::lex_input( Io::TextInput& input, Slip::unique_ptr_del<LexList>& lex ) {
+    auto l = make_unique_del<LexList>( input.location( input.tell(), input.tellEnd() ) );
     while( 1 ) {
-        Atom* a;
-        RETURN_IF_FAILED( parse_atom( input, &a ) );
+        LexNode* a;
+        RETURN_IF_FAILED( lex_atom( input, &a ) );
         if( a ) {
             l->append( a );
         } else {
@@ -174,8 +185,8 @@ Slip::Result Lex::parse_input( Lex::TextInput& input, Slip::unique_ptr_del<Lex::
     return Result::OK;
 }
 
-Slip::Result Slip::Lex::parse_file( Slip::Io::SourceManager& sm, const char* fname, Slip::unique_ptr_del<Lex::List>& lex ) {
+Slip::Result Slip::Ast::lex_file( Slip::Io::SourceManager& sm, const char* fname, Slip::unique_ptr_del<LexList>& lex ) {
     Io::TextInput text;
     RETURN_IF_FAILED( sm.load( fname, text ) );
-    return parse_input( text, lex );
+    return lex_input( text, lex );
 }

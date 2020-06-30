@@ -178,7 +178,6 @@
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="Sema.h" />
     <ClInclude Include="Slip.h" />
-    <ClInclude Include="Lex.h" />
     <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>

@@ -11,22 +11,15 @@ namespace Slip {
         unique_ptr_del<SourceManager> makeSourceManager();
     }  // namespace Io
 
-    namespace Lex {
-        struct Atom;
-        struct List;
-        struct Number;
-        struct String;
-        struct Symbol;
-
-        /// Lex an input
-        Result parse_input( Io::TextInput& input, unique_ptr_del<List>& lex );
-        Result parse_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<List>& lex );
-    }  // namespace Lex
-
     namespace Ast {
 #define AST_NODE( X ) struct X;
 #include "Ast.inc"
 #undef AST_NODE
+
+        /// Lex an input
+        Result lex_input( Io::TextInput& input, unique_ptr_del<LexList>& lex );
+        Result lex_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<LexList>& lex );
+
         void print( Node* node );
         void print( Module* node );
     }  // namespace Ast
@@ -35,7 +28,7 @@ namespace Slip {
         struct Evaluator;
 
         /// Parse lexed input
-        Result module( Lex::List& Lex, unique_ptr_del<Ast::Module>& mod );
+        Result module( Ast::LexList& Lex, unique_ptr_del<Ast::Module>& mod );
     }  // namespace Parse
 
     namespace Sema {

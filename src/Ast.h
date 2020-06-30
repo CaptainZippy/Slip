@@ -19,6 +19,8 @@ namespace Slip::Ast {
         const unsigned Abbrev = 2;  // Default is "ref"
     };                              // namespace Flags
 
+    using SourceLocation = Io::SourceLocation;
+
     struct Node : Reflect::AbstractReflected {
         REFLECT_DECL();
 
@@ -29,6 +31,7 @@ namespace Slip::Ast {
         virtual int tag() const;
 
         Node() = default;
+        Node(const SourceLocation& loc) : m_loc(loc) {}
 
         template <typename With>
         Node( With&& w ) {
@@ -40,8 +43,54 @@ namespace Slip::Ast {
         size_t m_userData;
         Ast::Type* m_type{nullptr};
         Ast::Node* m_declTypeExpr{nullptr};
-        Io::SourceLocation m_loc;
+        SourceLocation m_loc;
         size_t m_serial{s_serial++};
+    };
+
+    struct LexNode : public Node {
+       public:
+        AST_DECL();
+        LexNode( const SourceLocation& loc ) : Node( loc ) {}
+
+        LexNode* m_decltype = nullptr;
+        vector<LexNode*> m_attrs;
+
+        LexNode() = default;
+    };
+
+    struct LexValue : LexNode {
+        AST_DECL();
+        LexValue() = default;
+        LexValue( const SourceLocation& loc ) : LexNode( loc ) {}
+        string_view text() const {
+            auto s = m_loc.m_file->m_contents.c_str();
+            return {s + m_loc.m_start, m_loc.m_end - m_loc.m_start};
+        }
+    };
+
+    struct LexString : LexValue {
+        AST_DECL();
+        LexString( const SourceLocation& loc ) : LexValue( loc ) {}
+    };
+
+    struct LexIdent : LexValue {
+        AST_DECL();
+        LexIdent( const SourceLocation& loc ) : LexValue( loc ) {}
+    };
+
+    struct LexNumber : LexValue {
+        AST_DECL();
+        LexNumber( const SourceLocation& loc ) : LexValue( loc ) {}
+    };
+
+    struct LexList : public LexNode {
+        AST_DECL();
+        LexList( const SourceLocation& loc ) : LexNode( loc ) {}
+        size_t size() const { return m_items.size(); }
+        LexNode* at( int i ) const { return m_items[i]; }
+        void append( LexNode* a ) { m_items.push_back( a ); }
+        array_view<LexNode*> items() { return m_items; }
+        vector<LexNode*> m_items;
     };
 
     struct Named : Node {
@@ -80,11 +129,11 @@ namespace Slip::Ast {
 
     struct Builtin : Named {
         AST_DECL();
-        using ParseFunc = Result ( * )( Ast::Environment* env, Lex::List* list, void* context, Ast::Node** out );
+        using ParseFunc = Result ( * )( Ast::Environment* env, LexList* list, void* context, Ast::Node** out );
 
         Builtin( string_view name, ParseFunc func, void* ctx = nullptr ) : Named( name ), m_func( func ), m_context( ctx ) {}
 
-        Result parse( Ast::Environment* env, Lex::List* list, Ast::Node** out ) { return ( *m_func )( env, list, m_context, out ); }
+        Result parse( Ast::Environment* env, LexList* list, Ast::Node** out ) { return ( *m_func )( env, list, m_context, out ); }
 
         ParseFunc m_func;
         void* m_context;
@@ -225,7 +274,7 @@ namespace Slip::Ast {
         vector<Parameter*> m_params;
         istring m_dynEnvSym;
         Environment* m_staticEnv;
-        std::vector<Lex::Atom*> m_body;
+        std::vector<LexNode*> m_body;
 
         template <typename With>
         MacroDecl( string_view name, string_view dynEnvSym, Environment* staticEnv, With&& with )
@@ -322,18 +371,6 @@ namespace Slip::Ast {
         static string toString( const void* p ) {
             auto n = static_cast<const String*>( p );
             return n->m_str;
-        }
-    };
-
-    struct Syntax : Node {
-        AST_DECL();
-        Lex::Atom* m_atom;
-
-        Syntax( Lex::Atom* atom ) : m_atom( atom ) {}
-
-        template <typename With>
-        Syntax( Lex::Atom* atom, With&& with ) : m_atom( atom ) {
-            with( *this );
         }
     };
 
