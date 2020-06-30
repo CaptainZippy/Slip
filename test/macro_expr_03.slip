@@ -1,18 +1,22 @@
-; Macro in a macro
+; 
+(macro countup (vname limit body) env
+    (var cur 0:int)
+    (var end (expand limit env))
+    (while (lt? cur end)
+        (var (expand vname env) cur)
+        (expand body env)
+        (set! cur (add cur 1)) ))
 
-(macro bar (body up) env
-   ; (var a "bar":string)
-   ; (expand body up)
-    (expand body up))
+;(macro inc (vname) env
+;   (set! env.vname (add env.vname 1)))
 
-(macro foo (body) env
-    (var a 222:int)
-    (expand body env)
-    (expand body)
-    (bar body env)
-    )
+;(macro countup (vname limit body) env
+;    (var env.vname 0:int)
+;    (while (lt? x env.limit)
+;        (env.body)
+;        (set! env.vname (add env.vname 1))))
+
 
 (func main ():int
-    (var a 101:int)
-    (foo (puti a))
+    (countup i 10 (puti i))
     0)

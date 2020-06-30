@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="Lex::Value">
+    <Type Name="Ast::LexValue">
         <DisplayString>text={m_loc.m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_loc.m_start, [m_loc.m_end-m_loc.m_start]s8}</DisplayString>
     </Type>
-    <Type Name="Lex::List">
+    <Type Name="Ast::LexList">
         <Expand>
             <ExpandedItem>m_items,view(simple)</ExpandedItem>
         </Expand>
