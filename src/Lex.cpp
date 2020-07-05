@@ -5,25 +5,35 @@
 namespace Slip::Ast {
     using namespace Io;
 
+    REFLECT_BEGIN( LexNode )
+    REFLECT_FIELD( m_attrs )
+    REFLECT_END()
+
     REFLECT_BEGIN( LexValue )
     REFLECT_PARENT( LexNode )
     // REFLECT_FIELD(m_text)
     REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexValue*>( arg )->text(); } )
     REFLECT_END()
 
-    REFLECT_BEGIN( LexNode )
-    REFLECT_FIELD( m_attrs )
+    REFLECT_BEGIN( LexString )
+    REFLECT_PARENT( LexValue )
     REFLECT_END()
 
-    REFLECT_BEGIN( LexString )
-    REFLECT_END()
     REFLECT_BEGIN( LexNowExpr )
+    REFLECT_PARENT( LexValue )
     REFLECT_END()
+
     REFLECT_BEGIN( LexNumber )
+    REFLECT_PARENT( LexValue )
     REFLECT_END()
+
     REFLECT_BEGIN( LexIdent )
+    REFLECT_PARENT( LexValue )
     REFLECT_END()
+
     REFLECT_BEGIN( LexList )
+    REFLECT_PARENT( LexNode )
+    REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 
     /// Parse one atom including an optional type

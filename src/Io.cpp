@@ -57,15 +57,47 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
     }
 }
 
+namespace {
+    struct FileImpl : Slip::Io::TextOutput::Impl {
+        FILE* m_file;
+        bool m_close;
+        FileImpl( FILE* f, bool c ) : m_file( f ), m_close( c ) {}
+        virtual ~FileImpl() {
+            if( m_close ) {
+                fclose( m_file );
+            }
+        }
+        virtual void put( string_view s ) override { fwrite( s.data(), 1, s.size(), m_file ); }
+    };
+
+    struct VecImpl : Slip::Io::TextOutput::Impl {
+        std::vector<char>* m_vec;
+        VecImpl( std::vector<char>* v ) : m_vec( v ) {}
+        virtual ~VecImpl() {}
+        virtual void put( string_view s ) override { m_vec->insert( m_vec->end(), s.begin(), s.end() ); }
+    };
+}  // namespace
+
+Slip::Io::TextOutput::Impl::~Impl() {}
+Slip::Io::TextOutput::~TextOutput() { reinterpret_cast<Impl*>( m_impl )->~Impl(); }
+
+Slip::Io::TextOutput::TextOutput() { new( m_impl ) FileImpl( stdout, false ); }
+
+Slip::Io::TextOutput::TextOutput( const char* fname ) { new( m_impl ) FileImpl( fopen( fname, "w" ), true ); }
+
+Slip::Io::TextOutput::TextOutput( std::vector<char>* vec ) { new( m_impl ) VecImpl( vec ); }
+
+void Slip::Io::TextOutput::_writeImpl( std::string_view s ) { reinterpret_cast<Impl*>( m_impl )->put( s ); }
+
 void Slip::Io::TextOutput::_write( std::string_view s ) {
     switch( m_state ) {
         case State::Start:
-            fwrite( m_indent.c_str(), 1, m_indent.size(), m_file );
+            _writeImpl( string_view{m_indent.c_str(), m_indent.size()} );
             break;
         default:
             break;
     }
-    fwrite( s.data(), 1, s.size(), m_file );
+    _writeImpl( s );
     m_state = State::Normal;
 }
 

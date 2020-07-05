@@ -44,7 +44,13 @@ namespace Slip::Sema {
 
     struct ConstraintBuilder {
         Result operator()( Ast::Node* n, VisitInfo& vi ) {
-            RETURN_ERR_IF( vi.info == nullptr );
+            RETURN_ERR_IF( vi.info == nullptr, "Unrecognized node?" );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::LexNode* n, VisitInfo& vi ) {
+            auto& l = n->m_loc;
+            RETURN_ERR_IF( true, "Unexpanded lex node encountered. %s:%i:%i", l.filename(), l.line(), l.col() );
             return Result::OK;
         }
 
@@ -79,8 +85,8 @@ namespace Slip::Sema {
             if( !fi->func ) {  // TODO extract method
                 auto& loc = n->m_loc;
                 auto text = loc.text();
-                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(),
-                               text.size(), text.begin() );
+                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(), text.size(),
+                               text.begin() );
             }
             _isApplicable( fi, ai );
             vi.info = fi->get_func()->ret;
@@ -632,9 +638,8 @@ namespace Slip::Sema {
 Slip::Result Slip::Sema::type_check( Slip::Ast::Node* node ) {
     ConstraintBuilder builder;
     // RETURN_IF_FAILED(
-    builder.build( node );
-
-    builder.solve();
+    RETURN_IF_FAILED( builder.build( node ) );
+    RETURN_IF_FAILED( builder.solve() );
     return Result::OK;
 #if 0
     ConstraintSolver solver;

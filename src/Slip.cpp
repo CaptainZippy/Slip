@@ -94,7 +94,7 @@ static Slip::Result compile( const char* fname ) {
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
     RETURN_IF_FAILED( Parse::module( *lex, ast ) );
     if( Args::dumpParse ) Ast::print( ast.get() );
-    Sema::type_check( ast.get() );
+    RETURN_IF_FAILED( Sema::type_check( ast.get() ) );
     if( Args::dumpInfer ) Ast::print( ast.get() );
 
     string_view path{fname};
@@ -107,7 +107,7 @@ static Slip::Result compile( const char* fname ) {
         path.remove_suffix( path.size() - suff );
     }
     Io::TextOutput out{string_concat( Args::outputDir, "/", path, ".cpp" ).c_str()};
-    Backend::generate( *ast, out );
+    RETURN_IF_FAILED( Backend::generate( *ast, out ) );
     return Result::OK;
 }
 

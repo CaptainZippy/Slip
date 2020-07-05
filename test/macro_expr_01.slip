@@ -3,8 +3,8 @@
 (macro if2 (c a b) env
     (cond
         (#(env c) #(env a))
-        ;(true    (stringize c))
-       	(true     "FAIL")
+        (true     #(stringize c))
+        ;(true     "FAIL")
         ;(true     #(env b))
 ))
 

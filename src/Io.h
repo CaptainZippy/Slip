@@ -3,9 +3,12 @@
 
 namespace Slip::Io {
     struct TextOutput {
-        FILE* m_file{nullptr};
-        bool m_close{false};
+        struct Impl {
+            virtual ~Impl() = 0;
+            virtual void put( string_view s ) = 0;
+        };
         std::string m_indent;
+        char m_impl[16] = {};
         enum class State {
             Normal,
             Start,
@@ -13,42 +16,32 @@ namespace Slip::Io {
         };
         State m_state{State::Normal};
 
-        TextOutput() : m_file( stdout ), m_close( false ) {}
-        TextOutput( const char* fname ) : m_file( fopen( fname, "w" ) ), m_close( true ) {}
-        ~TextOutput() {
-            if( m_close ) {
-                fclose( m_file );
-            }
-        }
+        TextOutput( /*stdout*/ );
+        TextOutput( const char* fname );
+        TextOutput( std::vector<char>* txt );
+        ~TextOutput();
+
         void begin( string_view s ) {
             write( s );
             m_indent.push_back( ' ' );
-            // m_sep = false;
         }
 
         /// Write, indenting on newlines
         void write( string_view s );
-        /// Raw Write
-        void _write( string_view s );
 
-        // void write(const void* s) {
-        //    fprintf(m_file, "%p", s);
-        //    m_sep = true;
-        //}
-        void sep() {
-            // if (m_sep) {
-            //    fprintf(m_file, " ");
-            //    m_sep = false;
-            //}
-        }
+        void sep() {}
         void end( string_view s = {} ) {
             m_indent.erase( m_indent.size() - 1 );
             write( s );
         }
         void nl() {
-            fprintf( m_file, "\n" );
+            _writeImpl( "\n"sv );
             m_state = State::Start;
         }
+
+        /// Raw Write
+        void _write( string_view s );
+        void _writeImpl( string_view s );
     };
 
     struct SourceManager {

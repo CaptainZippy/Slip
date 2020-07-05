@@ -54,7 +54,11 @@ namespace {
             return n->m_name.std_str();
         }
         string operator()( Ast::Number* n ) { return string_format( "(%s)%s", n->m_type->name().c_str(), n->m_num.c_str() ); }
-        string operator()( Ast::String* n ) { return string_concat( "\"", n->m_str, "\"_str" ); }
+        string operator()( Ast::String* n ) {
+            string s = n->m_str;
+            std::replace( s.begin(), s.end(), '\n', ' ' );
+            return string_concat( "\"", s, "\"_str" );
+        }
         string operator()( Ast::Definition* n ) {
             auto val = dispatch( n->m_value );
             out.write( string_format( "%s %s = %s", n->m_type->name().c_str(), n->m_name, val.c_str() ) );
@@ -334,7 +338,8 @@ namespace {
     };
 }  // namespace
 
-void Slip::Backend::generate( Ast::Module& module, Io::TextOutput& out ) {
+Slip::Result Slip::Backend::generate( Ast::Module& module, Io::TextOutput& out ) {
     Generator g{out};
     Ast::dispatch<string>( &module, g );
+    return Result::OK;
 }

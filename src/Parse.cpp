@@ -230,19 +230,31 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto expr = dynamic_cast<Ast::LexList*>( now->m_expr );
         RETURN_ERR_IF( expr == nullptr || expr->size() != 2, "fixme" );
-        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at(0) );
-        auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at(1) );
+        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at( 0 ) );
+        auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
+        Ast::Node* replacement = nullptr;
 
-        Ast::Node* node0;
-        RETURN_IF_FAILED( env->lookup( expr0->text(), &node0 ) );
-        auto env0 = dynamic_cast<Ast::Environment*>( node0 );
-        Ast::Node* node1;
-        RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
-        auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
+        if( expr0->text() == "env" ) {
+            Ast::Node* node0;
+            RETURN_IF_FAILED( env->lookup( expr0->text(), &node0 ) );
+            auto env0 = dynamic_cast<Ast::Environment*>( node0 );
+            Ast::Node* node1;
+            RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
+            auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
+            RETURN_IF_FAILED( parse1( env0, lex1, &replacement ) );
+        }
+        else if( expr0->text() == "stringize" ) {
+            Ast::Node* node1;
+            RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
+            auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
 
-        Ast::Node* result;
-        RETURN_IF_FAILED( parse1(env0, lex1, &result) );
-        *out = result;
+            std::vector<char> txt;
+            Io::TextOutput out( &txt );
+            Ast::print( lex1, out );
+            replacement = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
+        }
+
+        *out = replacement;
         return Result::OK;
     }
     RETURN_ERR_IF( true );

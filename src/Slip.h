@@ -21,7 +21,7 @@ namespace Slip {
         Result lex_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<LexList>& lex );
 
         void print( Node* node );
-        void print( Module* node );
+        void print( Node* node, Io::TextOutput& output );
     }  // namespace Ast
 
     namespace Parse {
@@ -42,7 +42,7 @@ namespace Slip {
 
     namespace Backend {
         /// Generate output
-        void generate( Ast::Module& mod, Io::TextOutput& out );
+        Result generate( Ast::Module& mod, Io::TextOutput& out );
     }  // namespace Backend
 
 }  // namespace Slip

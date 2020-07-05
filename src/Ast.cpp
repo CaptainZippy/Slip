@@ -226,6 +226,10 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
             break;
         }
         case Reflect::Kind::Record: {
+            if( top.type->fields.empty() && top.type->parent ) {
+                print( {top.addr, top.type->parent}, out, abbrev );
+                return;
+            }
             std::vector<const Reflect::Type*> chain;
             for( auto c = top.type; c; c = c->parent ) {
                 chain.push_back( c );
@@ -290,11 +294,9 @@ void Ast::print( Node* node ) {
     out.nl();
 }
 
-void Ast::print( Module* node ) { print( static_cast<Node*>( node ) ); }
-
 void Ast::print( Node* node, Io::TextOutput& out ) {
     if( !node ) return;
     Reflect::Var top{node};
-    ::print( top, out, true );
+    ::print( top, out, false );
     out.nl();
 }
