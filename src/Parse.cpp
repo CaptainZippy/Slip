@@ -227,6 +227,23 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         auto r = new Ast::String( str->text(), WITH( _.m_loc = str->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
+    } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
+        auto expr = dynamic_cast<Ast::LexList*>( now->m_expr );
+        RETURN_ERR_IF( expr == nullptr || expr->size() != 2, "fixme" );
+        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at(0) );
+        auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at(1) );
+
+        Ast::Node* node0;
+        RETURN_IF_FAILED( env->lookup( expr0->text(), &node0 ) );
+        auto env0 = dynamic_cast<Ast::Environment*>( node0 );
+        Ast::Node* node1;
+        RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
+        auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
+
+        Ast::Node* result;
+        RETURN_IF_FAILED( parse1(env0, lex1, &result) );
+        *out = result;
+        return Result::OK;
     }
     RETURN_ERR_IF( true );
 }
@@ -528,7 +545,7 @@ struct Parse::Macro {
             auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc ) );
             macro->m_params.push_back( param );
         }
-        env->bind( macro->m_name, macro );
+        RETURN_IF_FAILED( env->bind( macro->m_name, macro ) );
         macro->m_body = std::move( lbody );
         *out = macro;
         return Result::OK;
@@ -650,7 +667,6 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "scope"sv, &Scope::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
-    addBuiltin( env, "#"sv, &Now::parse );
     addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_view" ) );
     addBuiltin( env, "array_const"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_const" ) );
     addBuiltin( env, "array_heap"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_heap" ) );

@@ -17,6 +17,8 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( LexString )
     REFLECT_END()
+    REFLECT_BEGIN( LexNowExpr )
+    REFLECT_END()
     REFLECT_BEGIN( LexNumber )
     REFLECT_END()
     REFLECT_BEGIN( LexIdent )
@@ -28,7 +30,7 @@ namespace Slip::Ast {
     Result lex_atom( TextInput& in, LexNode** atom );
     /// Parse one atom, no
     Result lex_term( TextInput& in, LexNode** atom );
-}  // namespace Slip::Lex
+}  // namespace Slip::Ast
 
 using namespace Slip;
 
@@ -132,9 +134,17 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 }
                 break;
             }
+            case '#': {
+                auto start = in.tell();
+                in.next();
+                LexNode* expr;
+                RETURN_IF_FAILED( lex_atom( in, &expr ) );
+                *atom = new LexNowExpr( in.location( start, in.tell() ), expr );
+                return Result::OK;
+            }
             default: {  // symbol
                 int c = in.peek();
-                if( isalpha( c ) || c == '_' || c == '@' || c == '#' ) {
+                if( isalpha( c ) || c == '_' || c == '@' ) {
                     auto start = in.tell();
                     in.next();
                     while( in.available() ) {
@@ -181,6 +191,11 @@ Slip::Result Ast::lex_input( Io::TextInput& input, Slip::unique_ptr_del<LexList>
             break;
         }
     }
+    input.eatwhite();
+    if( input.available() ) {
+        LEX_ERROR( input.location( input.tell() ), "Extra characters found after file body" );
+    }
+
     lex = std::move( l );
     return Result::OK;
 }

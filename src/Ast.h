@@ -78,6 +78,12 @@ namespace Slip::Ast {
         LexIdent( const SourceLocation& loc ) : LexValue( loc ) {}
     };
 
+    struct LexNowExpr : LexNode {
+        AST_DECL();
+        LexNowExpr( const SourceLocation& loc, LexNode* expr ) : LexNode( loc ), m_expr( expr ) {}
+        LexNode* m_expr;
+    };
+
     struct LexNumber : LexValue {
         AST_DECL();
         LexNumber( const SourceLocation& loc ) : LexValue( loc ) {}
