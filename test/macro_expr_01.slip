@@ -3,18 +3,9 @@
 (macro if2 (c a b) env
     (cond
         (#(env c) #(env a))
-        (true     #(stringize c))
-        ;(true     "FAIL")
-        ;(true     #(env b))
-))
-
-(macro if3 (c a b) env
-    (cond
-        (#(env c) (begin
-            (puts "Cond was true" (stringize c))
-            #(env a)))
         (true     (begin
-            (puts "Cond was false")
+            (puts "Test failed:")
+            (puts #(stringize c))
             #(env b)))
 ))
 

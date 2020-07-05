@@ -229,21 +229,25 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto expr = dynamic_cast<Ast::LexList*>( now->m_expr );
-        RETURN_ERR_IF( expr == nullptr || expr->size() != 2, "fixme" );
+        RETURN_ERR_IF( expr == nullptr || expr->size() < 1, "fixme" );
         auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at( 0 ) );
-        auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
         Ast::Node* replacement = nullptr;
 
         if( expr0->text() == "env" ) {
+            RETURN_ERR_IF( expr->size() != 2, "fixme" );
             Ast::Node* node0;
             RETURN_IF_FAILED( env->lookup( expr0->text(), &node0 ) );
             auto env0 = dynamic_cast<Ast::Environment*>( node0 );
+
+            auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
             Ast::Node* node1;
             RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
             auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
             RETURN_IF_FAILED( parse1( env0, lex1, &replacement ) );
         }
         else if( expr0->text() == "stringize" ) {
+            RETURN_ERR_IF( expr->size() != 2, "fixme" );
+            auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
             Ast::Node* node1;
             RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
             auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
@@ -252,6 +256,30 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             Io::TextOutput out( &txt );
             Ast::print( lex1, out );
             replacement = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
+        }
+        else if( expr0->text() == "with_env" ) {
+            Ast::LexIdent* lname;
+            Ast::LexIdent* lparent;
+            std::vector<Ast::LexNode*> lbody;
+            RETURN_IF_FAILED( matchLex( env, expr, &lname, &lparent, &lbody, Ellipsis::OneOrMore ) );
+            Ast::Node* parent;
+            RETURN_IF_FAILED( env->lookup( lparent->text(), &parent) );
+            auto parentEnv = dynamic_cast<Ast::Environment*>( parent );
+            auto inner = new Ast::Environment( parentEnv );
+            env->bind( lname->text(), inner );
+            if( lbody.size() == 1 ) {
+                RETURN_IF_FAILED( parse1( env, lbody[0], &replacement ) );
+            } else {
+                auto bd = new Ast::Sequence();
+                for( auto&& l : lbody ) {
+                    Ast::Node* b;
+                    RETURN_IF_FAILED( parse1( env, l, &b ) );
+                    bd->m_items.emplace_back( b );
+                }
+                replacement = bd;
+            }
+        } else {
+            RETURN_ERR_IF( true );
         }
 
         *out = replacement;

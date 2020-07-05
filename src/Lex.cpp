@@ -98,6 +98,8 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
             }
             case ')':
                 return Result::OK;
+            case '-':
+            case '+':
             case '0':
             case '1':
             case '2':
