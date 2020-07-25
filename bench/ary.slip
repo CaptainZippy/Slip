@@ -8,16 +8,25 @@
             #(env body)
             #(env update))))
 
+(macro for_range (it lo hi body) caller_env
+    #(with_env env caller_env
+        (var cur #(env lo))
+        (var end #(env hi))
+        #(bind env it cur)
+        (while (lt? cur end)
+            #(env body)
+            (set! cur (add #(env it) 1)))))
+
 (func ary (n:int): void ;(tuple int int)
   (var x:(array_heap int))
   (resize x n)
-  (for (var i 0) (lt? i n) (set! i (add i 1))
+  (for_range i 0 n
     (put! x i (add i 1)))
   (var y:(array_heap int))
   (resize y n)
-  (for (var i 0) (lt? i n) (set! i (add i 1))
+  (for_range i 0 n
     (put! y i 0))
-  (for (var k 0) (lt? k 1000) (set! k (add k 1))
+  (for_range k 0 1000
     (for (var i (sub n 1)) (lt? -1 i) (set! i (sub i 1))
       (put! y i (add (at y i) (at x i)))))
   (puti (at y 0))

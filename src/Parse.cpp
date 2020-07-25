@@ -67,6 +67,8 @@ namespace Slip::Parse {
 using namespace Slip;
 enum class Ellipsis { ZeroOrMore, OneOrMore };
 
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out );
+
 static Result matchLex( Ast::Environment* env, Parse::Args& args ) {
     RETURN_ERR_IF( !args.empty() );
     return Result::OK;
@@ -90,6 +92,13 @@ template <typename HEAD, typename... REST>
 static Result matchLex( Ast::Environment* env, Parse::Args& args, HEAD** head, REST... rest ) {
     RETURN_ERR_IF( args.empty() );
     auto h = dynamic_cast<HEAD*>( args.cur() );
+    if( !h ) {
+        if( auto now = dynamic_cast<Ast::LexNowExpr*>( args.cur() ) ) {
+            Ast::Node* n;
+            RETURN_IF_FAILED( parse1( env, now, &n ) );
+            h = dynamic_cast<HEAD*>( args.cur() );
+        }
+    }
     RETURN_ERR_IF( !h );
     args.advance();
     *head = h;
@@ -104,7 +113,6 @@ static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest 
     return matchLex( env, args, rest... );
 }
 
-static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out );
 
 static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
     RETURN_ERR_IF( args->size() < 2 || args->size() > 3 );
@@ -244,8 +252,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
             auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
             RETURN_IF_FAILED( parse1( env0, lex1, &replacement ) );
-        }
-        else if( expr0->text() == "stringize" ) {
+        } else if( expr0->text() == "stringize" ) {
             RETURN_ERR_IF( expr->size() != 2, "fixme" );
             auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
             Ast::Node* node1;
@@ -256,14 +263,13 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             Io::TextOutput out( &txt );
             Ast::print( lex1, out );
             replacement = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
-        }
-        else if( expr0->text() == "with_env" ) {
+        } else if( expr0->text() == "with_env" ) {
             Ast::LexIdent* lname;
             Ast::LexIdent* lparent;
             std::vector<Ast::LexNode*> lbody;
             RETURN_IF_FAILED( matchLex( env, expr, &lname, &lparent, &lbody, Ellipsis::OneOrMore ) );
             Ast::Node* parent;
-            RETURN_IF_FAILED( env->lookup( lparent->text(), &parent) );
+            RETURN_IF_FAILED( env->lookup( lparent->text(), &parent ) );
             auto parentEnv = dynamic_cast<Ast::Environment*>( parent );
             auto inner = new Ast::Environment( parentEnv );
             env->bind( lname->text(), inner );
@@ -274,11 +280,29 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
                 for( auto&& l : lbody ) {
                     Ast::Node* b;
                     RETURN_IF_FAILED( parse1( env, l, &b ) );
-                    bd->m_items.emplace_back( b );
+                    if(b) bd->m_items.emplace_back( b );
                 }
                 replacement = bd;
             }
-        } else {
+        } else if( expr0->text() == "expand" ) {
+            Ast::Node* n;
+            RETURN_IF_FAILED( macroExpand1( env, expr, nullptr, &n ) );
+        } else if( expr0->text() == "bind" ) {
+            Ast::LexIdent* lenv;
+            Ast::LexIdent* lname;
+            Ast::LexIdent* lval;
+            RETURN_IF_FAILED( matchLex( env, expr, &lenv, &lname, &lval ) );
+            Ast::Node* nenv;
+            RETURN_IF_FAILED( env->lookup( lenv->text(), &nenv ) );
+            auto env2 = dynamic_cast<Ast::Environment*>( nenv );
+
+            Ast::Node* nname;
+            RETURN_IF_FAILED( env->lookup( lname->text(), &nname) );
+            Ast::Node* nval;
+            RETURN_IF_FAILED( env->lookup( lval->text(), &nval) );
+            RETURN_IF_FAILED( env2->bind( dynamic_cast<Ast::LexIdent*>( nname )->text(), nval ) );
+        }
+        else {
             RETURN_ERR_IF( true );
         }
 
