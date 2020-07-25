@@ -88,7 +88,7 @@ namespace Slip::Sema {
                 RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(), text.size(),
                                text.begin() );
             }
-            _isApplicable( fi, ai );
+            _isApplicable( n->m_func, fi, ai );
             vi.info = fi->get_func()->ret;
             return Result::OK;
         }
@@ -123,7 +123,7 @@ namespace Slip::Sema {
             vi.info = new TypeInfo();
             TypeInfo* ci;
             RETURN_IF_FAILED( dispatch( n->m_contents, &ci ) );
-            _isConvertible( vi.info, ci );
+            _isConvertible( n, vi.info, n->m_contents, ci );
             return Result::OK;
         }
 
@@ -132,7 +132,7 @@ namespace Slip::Sema {
             RETURN_IF_FAILED( dispatch( n->m_target, &blockinfo ) );  // TODO verify already done
             TypeInfo* valinfo;
             RETURN_IF_FAILED( dispatch( n->m_value, &valinfo ) );
-            _isConvertible( blockinfo, valinfo );
+            _isConvertible( n->m_target, blockinfo, n->m_value, valinfo );
             vi.info = _internKnownType( &Ast::s_typeVoid );
             return Result::OK;
         }
@@ -204,7 +204,7 @@ namespace Slip::Sema {
                 if( n->m_body ) {
                     TypeInfo* bt;
                     RETURN_IF_FAILED( dispatch( n->m_body, &bt ) );
-                    _isConvertible( ret, bt );
+                    _isConvertible( n, ret, n->m_body, bt );
                 }
             }
             return Result::OK;
@@ -232,7 +232,7 @@ namespace Slip::Sema {
                 for( auto&& i : n->m_initializer ) {
                     TypeInfo* d;
                     RETURN_IF_FAILED( dispatch( i, &d ) );
-                    _isConvertible( tt, d );
+                    _isConvertible( et, tt, i, d );
                 }
             } else if( varType->m_fields.size() ) {
                 for( auto&& i : n->m_initializer ) {
@@ -244,7 +244,7 @@ namespace Slip::Sema {
                 RETURN_ERR_IF( n->m_initializer.size() != 1 );
                 TypeInfo* ti;
                 RETURN_IF_FAILED( dispatch( n->m_initializer[0], &ti ) );
-                _isConvertible( varTypeInfo, ti );
+                _isConvertible( nullptr, varTypeInfo, n->m_initializer[0], ti );
             }
             return Result::OK;
         }
@@ -254,7 +254,7 @@ namespace Slip::Sema {
             RETURN_IF_FAILED( dispatch( n->m_rhs, &tr ) );
             TypeInfo* tl;
             RETURN_IF_FAILED( dispatch( n->m_lhs, &tl ) );
-            _isConvertible( tl, tr );
+            _isConvertible( n->m_lhs, tl, n->m_rhs, tr );
             vi.info = tl;
             return Result::OK;
         }
@@ -286,15 +286,15 @@ namespace Slip::Sema {
             // condition is a boolean
             TypeInfo* ci;
             RETURN_IF_FAILED( dispatch( n->m_cond, &ci ) );
-            _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
+            _isConvertible( n, _internKnownType( &Ast::s_typeBool ), n->m_cond, ci );
             // two legs have a common type
             TypeInfo* ti;
             RETURN_IF_FAILED( dispatch( n->m_true, &ti ) );
             TypeInfo* fi;
             RETURN_IF_FAILED( dispatch( n->m_false, &fi ) );
             vi.info = new TypeInfo{};
-            _isConvertible( vi.info, ti );
-            _isConvertible( vi.info, fi );
+            _isConvertible( n, vi.info, n->m_true, ti );
+            _isConvertible( n, vi.info, n->m_false, fi );
             return Result::OK;
         }
 
@@ -302,7 +302,7 @@ namespace Slip::Sema {
             // condition is a boolean
             TypeInfo* ci;
             RETURN_IF_FAILED( dispatch( n->m_cond, &ci ) );
-            _isConvertible( _internKnownType( &Ast::s_typeBool ), ci );
+            _isConvertible( n, _internKnownType( &Ast::s_typeBool ), n->m_cond, ci );
             RETURN_IF_FAILED( dispatch( n->m_body, &vi.info ) );
             return Result::OK;
         }
@@ -314,19 +314,22 @@ namespace Slip::Sema {
                 // conditions are all booleans
                 TypeInfo* ft;
                 RETURN_IF_FAILED( dispatch( c.first, &ft ) );
-                _isConvertible( _internKnownType( &Ast::s_typeBool ), ft );
+                _isConvertible( n, _internKnownType( &Ast::s_typeBool ), c.first, ft );
                 // expressions convert to a common type
                 TypeInfo* st;
                 RETURN_IF_FAILED( dispatch( c.second, &st ) );
-                _isConvertible( vi.info, st );
+                _isConvertible( n, vi.info, c.second, st );
             }
             return Result::OK;
         }
 
        public:
         struct Convertible {
-            Convertible( TypeInfo* b, TypeInfo* d ) : base( b ), derived( d ) {}
+            Convertible( TypeInfo* b, TypeInfo* d ) : bnode{nullptr}, base( b ), dnode{nullptr}, derived( d ) {}
+            Convertible( Ast::Node* bn, TypeInfo* b, Ast::Node* dn, TypeInfo* d ) : bnode(bn), base( b ), dnode(dn), derived( d ) {}
+            Ast::Node* bnode;
             TypeInfo* base;
+            Ast::Node* dnode;
             TypeInfo* derived;
         };
         deque<VisitInfo> m_visited;
@@ -362,7 +365,8 @@ namespace Slip::Sema {
                     }
                 }
             }
-            for( auto&& c : m_convertible ) {
+            for( int i = 0; i < m_convertible.size(); ++i ) {
+                auto& c = m_convertible[i];
                 assert( c.derived->type == c.base->type );  // TODO inheritance check
             }
             for( auto&& v : m_visited ) {
@@ -406,7 +410,9 @@ namespace Slip::Sema {
             }
         }
 
-        void _isConvertible( TypeInfo* base, TypeInfo* derived ) { m_convertible.emplace_back( base, derived ); }
+        void _isConvertible( Ast::Node* bnode, TypeInfo* base, Ast::Node* dnode, TypeInfo* derived ) {
+            m_convertible.emplace_back( bnode, base, dnode, derived );
+        }
 
         TypeInfo* _internKnownType( Ast::Type* t ) {
             auto it = m_knownTypes.emplace( t, nullptr );
@@ -507,12 +513,12 @@ namespace Slip::Sema {
             }
         }
 
-        void _isApplicable( TypeInfo* ti, array_view<TypeInfo*> args ) {
+        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<TypeInfo*> args ){
             auto f = ti->get_func();
             assert( f );
             assert( f->params.size() == args.size() );
             for( unsigned i = 0; i < args.size(); ++i ) {
-                _isConvertible( f->params[i], args[i] );
+                _isConvertible( callable, f->params[i], nullptr, args[i] );
             }
         }
     };

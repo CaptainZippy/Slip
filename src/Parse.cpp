@@ -62,6 +62,28 @@ namespace Slip::Parse {
     struct ArrayView;
     struct ArrayConst;
 
+    template <typename... Args>
+    static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
+        auto r = new Ast::Type( name );
+        r->m_callable = {args...};
+        return r;
+    }
+
+    static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func, void* ctx = nullptr ) {
+        env->bind( name, new Ast::Builtin( name, func, ctx ) );
+    }
+
+    static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
+        auto n = istring::make( name );
+        auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
+        char pname[2] = {'a', 0};
+        for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
+            auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
+            f->m_params.emplace_back( p );
+            pname[0] += 1;
+        }
+        env->bind( n, f );
+    }
 }  // namespace Slip::Parse
 
 using namespace Slip;
@@ -629,13 +651,6 @@ struct Parse::Now {
     }
 };
 
-template <typename... Args>
-static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
-    auto r = new Ast::Type( name );
-    r->m_callable = {args...};
-    return r;
-}
-
 struct Parse::ArrayView {
     struct Cache {
         string _generic_root;
@@ -699,22 +714,6 @@ struct Parse::ArrayView {
         return Result::OK;
     }
 };
-
-static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func, void* ctx = nullptr ) {
-    env->bind( name, new Ast::Builtin( name, func, ctx ) );
-}
-
-static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
-    auto n = istring::make( name );
-    auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
-    char pname[2] = {'a', 0};
-    for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
-        auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
-        f->m_params.emplace_back( p );
-        pname[0] += 1;
-    }
-    env->bind( n, f );
-}
 
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
