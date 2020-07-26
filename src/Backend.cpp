@@ -257,6 +257,15 @@ namespace {
             return dispatch( n->m_resolved );
         }
 
+        string operator()( Ast::StructDecl* n ) {
+            out.begin( string_concat( "struct ", n->name(), " {\n" ) );
+            for( auto f : n->m_fields ) {
+                out.write( string_concat( f->m_type->name(), " ", f->name(), ";\n") );
+            }
+            out.end( "};" );
+            return n->name().std_str();
+        }
+
         string operator()( Ast::Module* n ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );

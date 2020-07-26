@@ -58,6 +58,7 @@ namespace Slip::Parse {
     struct Set;
     struct Scope;
     struct Macro;
+    struct Struct;
     struct Now;
     struct ArrayView;
     struct ArrayConst;
@@ -134,7 +135,6 @@ static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest 
     args.advance();
     return matchLex( env, args, rest... );
 }
-
 
 static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
     RETURN_ERR_IF( args->size() < 2 || args->size() > 3 );
@@ -302,7 +302,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
                 for( auto&& l : lbody ) {
                     Ast::Node* b;
                     RETURN_IF_FAILED( parse1( env, l, &b ) );
-                    if(b) bd->m_items.emplace_back( b );
+                    if( b ) bd->m_items.emplace_back( b );
                 }
                 replacement = bd;
             }
@@ -319,12 +319,11 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             auto env2 = dynamic_cast<Ast::Environment*>( nenv );
 
             Ast::Node* nname;
-            RETURN_IF_FAILED( env->lookup( lname->text(), &nname) );
+            RETURN_IF_FAILED( env->lookup( lname->text(), &nname ) );
             Ast::Node* nval;
-            RETURN_IF_FAILED( env->lookup( lval->text(), &nval) );
+            RETURN_IF_FAILED( env->lookup( lval->text(), &nval ) );
             RETURN_IF_FAILED( env2->bind( dynamic_cast<Ast::LexIdent*>( nname )->text(), nval ) );
-        }
-        else {
+        } else {
             RETURN_ERR_IF( true );
         }
 
@@ -638,6 +637,27 @@ struct Parse::Macro {
     }
 };
 
+struct Parse::Struct {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+        *out = nullptr;
+        Ast::LexIdent* lname;
+        std::vector<Ast::LexNode*> lfields;
+        RETURN_IF_FAILED( matchLex( env, args, &lname, &lfields, Ellipsis::ZeroOrMore ) );
+        auto decl = new Ast::StructDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
+        RETURN_IF_FAILED( env->bind( decl->m_name, decl ) );
+        for( auto&& lf : lfields ) {
+            auto li = dynamic_cast<Ast::LexIdent*>( lf );
+            RETURN_ERR_IF( li == nullptr, "Expected identifier for field" );
+            RETURN_ERR_IF( li->m_decltype == nullptr, "Missing type for field" );
+            Ast::Node* ft;
+            RETURN_IF_FAILED( parse1( env, li->m_decltype, &ft ) );
+            decl->m_fields.emplace_back( new Ast::StructField( li->text(), WITH( _.m_loc = li->m_loc; _.m_declTypeExpr = ft; ) ) );
+        }
+        *out = decl;
+        return Result::OK;
+    }
+};
+
 struct Parse::Now {
     static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
         *out = nullptr;
@@ -730,6 +750,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "set!"sv, &Set::parse );
     addBuiltin( env, "scope"sv, &Scope::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
+    addBuiltin( env, "struct"sv, &Struct::parse );
     addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_view" ) );
     addBuiltin( env, "array_const"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_const" ) );
     addBuiltin( env, "array_heap"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_heap" ) );

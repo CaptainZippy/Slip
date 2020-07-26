@@ -31,7 +31,7 @@ namespace Slip::Ast {
         virtual int tag() const;
 
         Node() = default;
-        Node(const SourceLocation& loc) : m_loc(loc) {}
+        Node( const SourceLocation& loc ) : m_loc( loc ) {}
 
         template <typename With>
         Node( With&& w ) {
@@ -380,6 +380,23 @@ namespace Slip::Ast {
         }
     };
 
+    struct StructDecl : Named {
+        AST_DECL();
+        template <typename With>
+        StructDecl( string_view n, With&& with ) : Named( n ) {
+            with( *this );
+        }
+        std::vector<StructField*> m_fields;
+    };
+
+    struct StructField : Named {
+        AST_DECL();
+        template <typename With>
+        StructField( string_view n, With&& with ) : Named( n ) {
+            with( *this );
+        }
+    };
+
     extern Ast::Type s_typeType;
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeBool;
@@ -397,7 +414,7 @@ namespace Slip::Ast {
         // TODO remove?
         std::vector<Ast::FunctionDecl*> m_methods;
         // non-empty for record type
-        std::vector<Ast::Parameter> m_fields;
+        std::vector<Ast::StructField*> m_fields;
         // non-empty for array type
         Ast::Type* m_array{nullptr};
     };

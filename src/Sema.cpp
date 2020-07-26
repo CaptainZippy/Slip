@@ -73,6 +73,18 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::StructDecl* n, VisitInfo& vi ) {
+            auto r = new Ast::Type( n->name() );
+            r->m_fields = n->m_fields;
+            for( auto&& f : r->m_fields ) {
+                auto i = _evalTypeExpr( f->m_declTypeExpr );
+                f->m_type = i->get_type();
+            }
+            vi.info = _internKnownType( r );
+            n->m_type = r;
+            return Result::OK;
+        }
+
         Result operator()( Ast::FunctionCall* n, VisitInfo& vi ) {
             TypeInfo* fi;
             RETURN_IF_FAILED( dispatch( n->m_func, &fi ) );
@@ -235,10 +247,14 @@ namespace Slip::Sema {
                     _isConvertible( et, tt, i, d );
                 }
             } else if( varType->m_fields.size() ) {
-                for( auto&& i : n->m_initializer ) {
-                    TypeInfo* d;
-                    RETURN_IF_FAILED( dispatch( i, &d ) );
-                    // TODO convertible
+                RETURN_IF_FAILED( varType->m_fields.size() != n->m_initializer.size() );
+                for( int i = 0; i < varType->m_fields.size(); ++i ) {
+                    auto ft = varType->m_fields[i]->m_type;
+                    auto fi = _internKnownType( ft );
+                    auto iv = n->m_initializer[i];
+                    TypeInfo* id;
+                    RETURN_IF_FAILED( dispatch( iv, &id ) );
+                    _isConvertible( ft, fi, iv, id );
                 }
             } else {
                 RETURN_ERR_IF( n->m_initializer.size() != 1 );
@@ -326,7 +342,7 @@ namespace Slip::Sema {
        public:
         struct Convertible {
             Convertible( TypeInfo* b, TypeInfo* d ) : bnode{nullptr}, base( b ), dnode{nullptr}, derived( d ) {}
-            Convertible( Ast::Node* bn, TypeInfo* b, Ast::Node* dn, TypeInfo* d ) : bnode(bn), base( b ), dnode(dn), derived( d ) {}
+            Convertible( Ast::Node* bn, TypeInfo* b, Ast::Node* dn, TypeInfo* d ) : bnode( bn ), base( b ), dnode( dn ), derived( d ) {}
             Ast::Node* bnode;
             TypeInfo* base;
             Ast::Node* dnode;
@@ -440,9 +456,13 @@ namespace Slip::Sema {
             if( auto t = dynamic_cast<Ast::Type*>( te ) ) {
                 return _internKnownType( t );
             } else if( auto r = dynamic_cast<Ast::Reference*>( te ) ) {
-                auto t = dynamic_cast<Ast::Type*>( r->m_target );
-                assert( t );
-                return _internKnownType( t );
+                if( auto t = dynamic_cast<Ast::Type*>( r->m_target ) ) {
+                    return _internKnownType( t );
+                } else if( auto s = dynamic_cast<Ast::StructDecl*>( r->m_target ) ) {
+                    return _internKnownType( s->m_type );
+                } else {
+                    assert( false );
+                }
             } else if( auto call = dynamic_cast<Ast::FunctionCall*>( te ) ) {
                 auto fnode = call->m_func;
                 if( auto r = dynamic_cast<Ast::Reference*>( fnode ) ) {
@@ -513,7 +533,7 @@ namespace Slip::Sema {
             }
         }
 
-        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<TypeInfo*> args ){
+        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<TypeInfo*> args ) {
             auto f = ti->get_func();
             assert( f );
             assert( f->params.size() == args.size() );

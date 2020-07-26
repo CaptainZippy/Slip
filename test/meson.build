@@ -16,6 +16,7 @@ slip_tests = [
     'now_expr_02',
     'recursive_01',
     'string_type_01',
+    'struct_type_01',
     'type_infer_00',
     'type_infer_01',
     'type_infer_02',

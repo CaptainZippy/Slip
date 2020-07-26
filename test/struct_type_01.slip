@@ -1,0 +1,8 @@
+
+(struct person
+    name:string
+    age:int)
+
+(func main ():int
+    (var me:person "joe" 21)
+    0)

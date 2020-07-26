@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-    <Type Name="Ast::LexValue">
-        <DisplayString>text={m_loc.m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_loc.m_start, [m_loc.m_end-m_loc.m_start]s8}</DisplayString>
+    <Type Name="Slip::Ast::LexValue">
+        <DisplayString>text={m_loc.m_file->m_contents._Mypair._Myval2._Bx._Ptr+m_loc.m_start, [m_loc.m_end-m_loc.m_start]s8}</DisplayString>
     </Type>
-    <Type Name="Ast::LexList">
+    <Type Name="Slip::Ast::LexList">
         <Expand>
             <ExpandedItem>m_items,view(simple)</ExpandedItem>
         </Expand>
@@ -24,15 +24,15 @@
             </ArrayItems>
         </Expand>
     </Type>
-    <Type Name="Slip::Io::SourceLocationOld">
-        <DisplayString Condition="m_file.m_name">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
-        <DisplayString>file="unnamed"</DisplayString>
+    <Type Name="Slip::Io::SourceNameAndContents">
+        <DisplayString>{m_name}</DisplayString>
     </Type>
     <Type Name="Slip::Io::SourceLocation">
         <DisplayString>file={m_file->m_name} near={m_file->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
     </Type>
-    <Type Name="Ast::Node">
-        <DisplayString Condition="m_file.m_ptr">file={m_file.m_ptr->m_name} near={m_file.m_ptr->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
-        <DisplayString>file="unnamed"</DisplayString>
+    <Type Name="Slip::Ast::Node">
+        <Expand>
+            <ExpandedItem Condition="m_loc.m_file">m_loc</ExpandedItem>
+        </Expand>
     </Type>
 </AutoVisualizer>
