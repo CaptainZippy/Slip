@@ -172,6 +172,7 @@
   <ItemGroup>
     <ClInclude Include="Ast.h" />
     <ClInclude Include="Backend.h" />
+    <ClInclude Include="Func.h" />
     <ClInclude Include="Io.h" />
     <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h" />

@@ -27,6 +27,7 @@
     <ClInclude Include="Sema.h" />
     <ClInclude Include="Slip.h" />
     <ClInclude Include="Io.h" />
+    <ClInclude Include="Func.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Ast.inc" />
