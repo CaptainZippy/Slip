@@ -471,7 +471,7 @@ namespace Slip::Sema {
                 auto func = dynamic_cast<Ast::FunctionDecl*>( fnode );
                 assert( func );
                 Ast::Node* ret;
-                ( *func->m_intrinsic )( call->m_args, &ret );
+                ( func->m_intrinsic )( call->m_args, &ret );
                 auto type = dynamic_cast<Ast::Type*>( ret );
                 assert( type );
                 return _internKnownType( type );

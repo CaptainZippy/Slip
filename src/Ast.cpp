@@ -191,10 +191,10 @@ Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter*
     return f;
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Intrinsic intrin, Node* ret,
+Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Node* ret,
                                                      std::initializer_list<Parameter*> params ) {
     auto f = new FunctionDecl( name );
-    f->m_intrinsic = intrin;
+    f->m_intrinsic = std::move(intrin);
     f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
     f->m_body->m_declTypeExpr = ret;

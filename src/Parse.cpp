@@ -70,8 +70,8 @@ namespace Slip::Parse {
         return r;
     }
 
-    static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc func, void* ctx = nullptr ) {
-        env->bind( name, new Ast::Builtin( name, func, ctx ) );
+    static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc&& fun ) {
+        env->bind( name, new Ast::Builtin( name, std::move(fun) ) );
     }
 
     static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
@@ -136,7 +136,7 @@ static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest 
     return matchLex( env, args, rest... );
 }
 
-static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
     RETURN_ERR_IF( args->size() < 2 || args->size() > 3 );
     Ast::LexIdent* larg;
     Ast::LexIdent* lenv = nullptr;
@@ -176,7 +176,7 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
         localEnv->bind( macro->m_params[i]->name(), args[i] );
     }
     localEnv->bind( macro->m_dynEnvSym, env );
-    static Ast::Builtin expander{"expand"sv, &macroExpand1, nullptr};
+    static Ast::Builtin expander{"expand"sv, &macroExpand1};
     localEnv->bind( "expand"sv, &expander );
     std::vector<Ast::Node*> body;
     for( auto&& b : macro->m_body ) {
@@ -308,7 +308,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             }
         } else if( expr0->text() == "expand" ) {
             Ast::Node* n;
-            RETURN_IF_FAILED( macroExpand1( env, expr, nullptr, &n ) );
+            RETURN_IF_FAILED( macroExpand1( env, expr, &n ) );
         } else if( expr0->text() == "bind" ) {
             Ast::LexIdent* lenv;
             Ast::LexIdent* lname;
@@ -334,7 +334,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
 }
 
 struct Parse::Define {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         Ast::LexIdent* lname;
         Ast::LexNode* lval;
         RETURN_IF_FAILED( matchLex( env, args, &lname, &lval ) );
@@ -350,7 +350,7 @@ struct Parse::Define {
 };
 
 struct Parse::Func {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         RETURN_ERR_IF( args->size() < 3 );
         Ast::LexIdent* lname;
@@ -396,7 +396,7 @@ struct Parse::Func {
 };
 
 struct Parse::Let {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         Ast::LexIdent* lname;
         Ast::LexNode* lbody;
         if( matchLex( env, args, &lname, &lbody ).isOk() ) {  // short form (let foo 0)
@@ -442,7 +442,7 @@ struct Parse::Let {
 };
 
 struct Parse::If {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         Ast::LexNode* lcond;
         Ast::LexNode* ltrue;
         Ast::LexNode* lfalse;
@@ -461,7 +461,7 @@ struct Parse::If {
 };
 
 struct Parse::While {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         Ast::LexNode* lcond;
         std::vector<Ast::LexNode*> lbody;
         RETURN_IF_FAILED( matchLex( env, args, &lcond, &lbody, Ellipsis::OneOrMore ) );
@@ -485,7 +485,7 @@ struct Parse::While {
 };
 
 struct Parse::Cond {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         RETURN_ERR_IF( args->size() < 2 );
         vector<pair<Ast::Node*, Ast::Node*>> cases;
@@ -508,7 +508,7 @@ struct Parse::Cond {
 };
 
 struct Parse::Begin {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
         for( auto arg : args->items().ltrim( 1 ) ) {
@@ -522,7 +522,7 @@ struct Parse::Begin {
 };
 
 struct Parse::Scope {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         auto ret = new Ast::Sequence;
         auto inner = new Ast::Environment( env );
@@ -537,7 +537,7 @@ struct Parse::Scope {
 };
 
 struct Parse::Block {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* name;
         std::vector<Ast::LexNode*> contents;
@@ -557,7 +557,7 @@ struct Parse::Block {
 };
 
 struct Parse::Break {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* llabel;
         Ast::LexNode* lval;
@@ -575,7 +575,7 @@ struct Parse::Break {
 };
 
 struct Parse::Var {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
 
         Ast::LexIdent* sym;
@@ -601,7 +601,7 @@ struct Parse::Var {
 };
 
 struct Parse::Set {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* sym;
         Ast::LexNode* expr;
@@ -616,7 +616,7 @@ struct Parse::Set {
 };
 
 struct Parse::Macro {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* lname;
         Ast::LexList* largs;
@@ -638,7 +638,7 @@ struct Parse::Macro {
 };
 
 struct Parse::Struct {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* lname;
         std::vector<Ast::LexNode*> lfields;
@@ -659,7 +659,7 @@ struct Parse::Struct {
 };
 
 struct Parse::Now {
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexList rest{args->m_loc};
         for( auto p : args->items().ltrim( 1 ) ) {
@@ -720,14 +720,13 @@ struct Parse::ArrayView {
         std::map<std::string, Ast::Type*> types_;
     };
 
-    static Result parse( Ast::Environment* env, Ast::LexList* args, void* context, Ast::Node** out ) {
+    static Result parse( Cache* cache, Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
         Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
         Ast::Node* param = env->lookup( lparam->text() );  // TODO
         auto type = dynamic_cast<Ast::Type*>( param );
         assert( type );
-        auto cache = static_cast<Cache*>( context );
         Ast::Type* r;
         RETURN_IF_FAILED( cache->instantiate( type, &r ) );
         *out = r;
@@ -751,9 +750,15 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "scope"sv, &Scope::parse );
     addBuiltin( env, "macro"sv, &Macro::parse );
     addBuiltin( env, "struct"sv, &Struct::parse );
-    addBuiltin( env, "array_view"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_view" ) );
-    addBuiltin( env, "array_const"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_const" ) );
-    addBuiltin( env, "array_heap"sv, &ArrayView::parse, new Parse::ArrayView::Cache( "array_heap" ) );
+    addBuiltin( env, "array_view"sv, [cache = new Parse::ArrayView::Cache( "array_view" )]( auto e, auto a, auto o ) {
+        return ArrayView::parse( cache, e, a, o );
+    } );
+    addBuiltin( env, "array_const"sv, [cache = new Parse::ArrayView::Cache( "array_const" )]( auto e, auto a, auto o ) {
+        return ArrayView::parse( cache, e, a, o );
+    } );
+    addBuiltin( env, "array_heap"sv, [cache = new Parse::ArrayView::Cache( "array_heap" )]( auto e, auto a, auto o ) {
+        return ArrayView::parse( cache, e, a, o );
+    } );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );

@@ -135,14 +135,14 @@ namespace Slip::Ast {
 
     struct Builtin : Named {
         AST_DECL();
-        using ParseFunc = Result ( * )( Ast::Environment* env, LexList* list, void* context, Ast::Node** out );
+        using ParseProto = Result( Ast::Environment* env, LexList* list, Ast::Node** out );
+        using ParseFunc = Func<ParseProto>;
 
-        Builtin( string_view name, ParseFunc func, void* ctx = nullptr ) : Named( name ), m_func( func ), m_context( ctx ) {}
+        Builtin( string_view name, ParseFunc&& func ) : Named( name ), m_func( std::move(func) ) {}
 
-        Result parse( Ast::Environment* env, LexList* list, Ast::Node** out ) { return ( *m_func )( env, list, m_context, out ); }
+        Result parse( Ast::Environment* env, LexList* list, Ast::Node** out ) { return m_func( env, list, out ); }
 
         ParseFunc m_func;
-        void* m_context;
     };
 
     struct Cond : Node {
@@ -241,12 +241,12 @@ namespace Slip::Ast {
 
     struct FunctionDecl : Named {
         AST_DECL();
-        using Intrinsic = Result ( * )( array_view<Node*> args, Ast::Node** out );
+        using IntrinsicProto = Result( array_view<Node*> args, Ast::Node** out );
 
         vector<Parameter*> m_params;
         Ast::Node* m_declReturnTypeExpr{nullptr};
         Node* m_body{nullptr};
-        Intrinsic m_intrinsic{nullptr};
+        Func<IntrinsicProto> m_intrinsic;
 
         FunctionDecl( string_view name ) : Named( name ) {}
 
@@ -259,7 +259,8 @@ namespace Slip::Ast {
         static FunctionDecl* makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret );
 
         /// Create a named intrinsic function.
-        static FunctionDecl* makeIntrinsic( string_view name, Intrinsic intrin, Node* ret, initializer_list<Parameter*> params );
+        static FunctionDecl* makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Node* ret,
+                                            initializer_list<Parameter*> params );
     };
 
     struct If : Node {
