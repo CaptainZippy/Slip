@@ -142,6 +142,12 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_child, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( Selector )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_lhs, Flags::Child )
+    REFLECT_FIELD2( m_rhs, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( StructDecl )
     REFLECT_PARENT( Named)
     REFLECT_FIELD2( m_fields, Flags::Child )

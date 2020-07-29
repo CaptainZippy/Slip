@@ -257,6 +257,14 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         auto r = new Ast::String( str->text(), WITH( _.m_loc = str->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
+    } else if( auto dot = dynamic_cast<Ast::LexDot*>( atom ) ) {
+        Ast::Node* lhs;
+        RETURN_IF_FAILED( parse1( env, dot->m_lhs, &lhs ) );
+        auto rhs = dynamic_cast<Ast::LexIdent*>( dot->m_rhs );
+        RETURN_ERR_IF( !rhs, "Symbol expected in first list position" );//todo:now
+        auto r = new Ast::Selector( lhs, rhs, WITH( _.m_loc = dot->m_loc ) );
+        *out = r;
+        return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto expr = dynamic_cast<Ast::LexList*>( now->m_expr );
         RETURN_ERR_IF( expr == nullptr || expr->size() < 1, "fixme" );

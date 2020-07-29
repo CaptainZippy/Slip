@@ -257,10 +257,15 @@ namespace {
             return dispatch( n->m_resolved );
         }
 
+        string operator()( Ast::Selector* n ) {
+            auto lhs = dispatch( n->m_lhs );
+            return string_concat(lhs.c_str(), ".", n->m_rhs->text());
+        }
+
         string operator()( Ast::StructDecl* n ) {
             out.begin( string_concat( "struct ", n->name(), " {\n" ) );
             for( auto f : n->m_fields ) {
-                out.write( string_concat( f->m_type->name(), " ", f->name(), ";\n") );
+                out.write( string_concat( f->m_type->name(), " ", f->name(), ";\n" ) );
             }
             out.end( "};" );
             return n->name().std_str();

@@ -1,0 +1,13 @@
+(struct wholename
+    first:string
+    last:string )
+
+(struct person
+    name:wholename
+    age:int)
+
+(func main ():int
+    (var name:wholename "joe" "boot")
+    (var me:person name 21)
+    (puts me.name.first)
+    0)

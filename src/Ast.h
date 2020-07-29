@@ -68,6 +68,14 @@ namespace Slip::Ast {
         }
     };
 
+    struct LexDot : public LexNode {
+        AST_DECL();
+        LexDot( LexNode* lhs, LexNode* rhs) : m_lhs(lhs), m_rhs(rhs) {}
+
+        LexNode* m_lhs;
+        LexNode* m_rhs;
+    };
+
     struct LexString : LexValue {
         AST_DECL();
         LexString( const SourceLocation& loc ) : LexValue( loc ) {}
@@ -138,7 +146,7 @@ namespace Slip::Ast {
         using ParseProto = Result( Ast::Environment* env, LexList* list, Ast::Node** out );
         using ParseFunc = Func<ParseProto>;
 
-        Builtin( string_view name, ParseFunc&& func ) : Named( name ), m_func( std::move(func) ) {}
+        Builtin( string_view name, ParseFunc&& func ) : Named( name ), m_func( std::move( func ) ) {}
 
         Result parse( Ast::Environment* env, LexList* list, Ast::Node** out ) { return m_func( env, list, out ); }
 
@@ -357,6 +365,16 @@ namespace Slip::Ast {
         AST_DECL();
         Scope( Node* c ) : m_child( c ) {}
         Node* m_child{nullptr};
+    };
+
+    struct Selector : public Node {
+        AST_DECL();
+        template <typename With>
+        Selector( Node* l, LexIdent* r, With&& with ) : m_lhs( l ), m_rhs( r ) {
+            with( *this );
+        }
+        Node* m_lhs{nullptr};
+        LexIdent* m_rhs{nullptr};
     };
 
     struct Sequence : Node {

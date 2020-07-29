@@ -15,6 +15,12 @@ namespace Slip::Ast {
     REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexValue*>( arg )->text(); } )
     REFLECT_END()
 
+    REFLECT_BEGIN( LexDot )
+    REFLECT_PARENT( LexNode )
+    REFLECT_FIELD2( m_lhs, Flags::Child )
+    REFLECT_FIELD2( m_rhs, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( LexString )
     REFLECT_PARENT( LexValue )
     REFLECT_END()
@@ -154,6 +160,9 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 *atom = new LexNowExpr( in.location( start, in.tell() ), expr );
                 return Result::OK;
             }
+            case '.': {
+                return Result::OK;
+            }
             default: {  // symbol
                 int c = in.peek();
                 if( isalpha( c ) || c == '_' || c == '@' ) {
@@ -179,16 +188,28 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
 
 Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
     *atom = nullptr;
-    LexNode* a;
-    RETURN_IF_FAILED( lex_term( in, &a ) );
-    if( a ) {
+    LexNode* ret;
+    RETURN_IF_FAILED( lex_term( in, &ret ) );
+    while( ret ) {
         in.eatwhite();
-        if( in.available() && in.peek() == ':' ) {
-            in.next();
-            RETURN_IF_FAILED( lex_term( in, &a->m_decltype ) );
+        if( in.available() ) {
+            if( in.peek() == ':' ) {
+                in.next();
+                RETURN_IF_FAILED( lex_term( in, &ret->m_decltype ) );
+            }
+            else if( in.peek() == '.' ) {
+                in.next();
+                LexNode* b;
+                RETURN_IF_FAILED( lex_term( in, &b ) );
+                ret = new Ast::LexDot( ret, b );
+            } else {
+                break;
+            }
+        } else {
+            break;
         }
     }
-    *atom = a;
+    *atom = ret;
     return Result::OK;
 }
 

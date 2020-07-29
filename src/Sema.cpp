@@ -339,6 +339,19 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::Selector* n, VisitInfo& vi ) {
+            TypeInfo* lhsi;
+            RETURN_IF_FAILED( dispatch( n->m_lhs, &lhsi ) );
+            auto type = lhsi->get_type();
+            auto rhsi = dynamic_cast<Ast::LexIdent*>( n->m_rhs );
+            auto id = istring::make( rhsi->text() );
+            auto it = std::find_if(type->m_fields.begin(), type->m_fields.end(), [id](auto a) {
+                return a->name() == id; } );
+            RETURN_ERR_IF( it == type->m_fields.end(), "Field not found" );
+            vi.info = _internKnownType( (*it)->m_type );
+            return Result::OK;
+        }
+
        public:
         struct Convertible {
             Convertible( TypeInfo* b, TypeInfo* d ) : bnode{nullptr}, base( b ), dnode{nullptr}, derived( d ) {}
