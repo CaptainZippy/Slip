@@ -136,6 +136,9 @@
     <None Include="..\test\struct_type_03.slip">
       <Filter>test</Filter>
     </None>
+    <None Include="..\test\struct_type_04.slip">
+      <Filter>test</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

@@ -19,6 +19,7 @@ slip_tests = [
     'struct_type_01',
     'struct_type_02',
     'struct_type_03',
+    'struct_type_04',
     'type_infer_00',
     'type_infer_01',
     'type_infer_02',

@@ -205,6 +205,7 @@
     <None Include="..\test\struct_type_01.slip" />
     <None Include="..\test\struct_type_02.slip" />
     <None Include="..\test\struct_type_03.slip" />
+    <None Include="..\test\struct_type_04.slip" />
     <None Include="Ast.inc" />
     <None Include="..\test\array_type_01.slip" />
     <None Include="..\test\cond_expr_01.slip" />

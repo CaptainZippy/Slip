@@ -132,13 +132,18 @@ namespace {
         }
 
         string operator()( Ast::While* n ) {
-            auto ret = newVarId();
-            out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
+            bool hasVar = n->m_type != &Ast::s_typeVoid;
+            auto ret = hasVar ? newVarId() : "";
+            if( hasVar ) {
+                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
+            }
             out.begin( "while(true) {\n" );
             auto cond = dispatch( n->m_cond );
             out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
             string b = dispatch( n->m_body );
-            out.write( string_concat( ret, " = ", b, ";\n" ) );
+            if( hasVar ) {
+                out.write( string_concat( ret, " = ", b, ";\n" ) );
+            }
             out.end( "}\n" );
             return ret;
         }
@@ -223,10 +228,9 @@ namespace {
         }
 
         string operator()( Ast::Assignment* n ) {
-            auto it = dispatched.find( n->m_lhs );
-            assert( it != dispatched.end() );
-            out.write( string_concat( it->second, " = "sv, dispatch( n->m_rhs ), ";\n"sv ) );
-            return it->second.std_str();
+            auto lhs = dispatch( n->m_lhs );
+            out.write( string_concat( lhs, " = "sv, dispatch( n->m_rhs ), ";\n"sv ) );
+            return lhs;
         }
 
         string operator()( Ast::FunctionCall* n ) {
@@ -259,7 +263,7 @@ namespace {
 
         string operator()( Ast::Selector* n ) {
             auto lhs = dispatch( n->m_lhs );
-            return string_concat(lhs.c_str(), ".", n->m_rhs->text());
+            return string_concat( lhs.c_str(), ".", n->m_rhs->text() );
         }
 
         string operator()( Ast::StructDecl* n ) {

@@ -71,7 +71,7 @@ namespace Slip::Parse {
     }
 
     static void addBuiltin( Ast::Environment* env, string_view name, Ast::Builtin::ParseFunc&& fun ) {
-        env->bind( name, new Ast::Builtin( name, std::move(fun) ) );
+        env->bind( name, new Ast::Builtin( name, std::move( fun ) ) );
     }
 
     static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
@@ -261,7 +261,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         Ast::Node* lhs;
         RETURN_IF_FAILED( parse1( env, dot->m_lhs, &lhs ) );
         auto rhs = dynamic_cast<Ast::LexIdent*>( dot->m_rhs );
-        RETURN_ERR_IF( !rhs, "Symbol expected in first list position" );//todo:now
+        RETURN_ERR_IF( !rhs, "Symbol expected in first list position" );  // todo:now
         auto r = new Ast::Selector( lhs, rhs, WITH( _.m_loc = dot->m_loc ) );
         *out = r;
         return Result::OK;
@@ -611,14 +611,14 @@ struct Parse::Var {
 struct Parse::Set {
     static Result parse( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
         *out = nullptr;
-        Ast::LexIdent* sym;
-        Ast::LexNode* expr;
-        RETURN_IF_FAILED( matchLex( env, args, &sym, &expr ) );
-        Ast::Node* value = nullptr;
-        RETURN_IF_FAILED( env->lookup( sym->text(), &value ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
-        Ast::Node* rhs;
-        RETURN_IF_FAILED( parse1( env, expr, &rhs ) );
-        *out = new Ast::Assignment( value, rhs, WITH( _.m_loc = sym->m_loc ) );
+        Ast::LexNode* lex_dst;
+        Ast::LexNode* lex_src;
+        RETURN_IF_FAILED( matchLex( env, args, &lex_dst, &lex_src ) );
+        Ast::Node* dst;
+        RETURN_IF_FAILED( parse1( env, lex_dst, &dst ) );
+        Ast::Node* src;
+        RETURN_IF_FAILED( parse1( env, lex_src, &src ) );
+        *out = new Ast::Assignment( dst, src, WITH( _.m_loc = lex_src->m_loc ) );
         return Result::OK;
     }
 };
