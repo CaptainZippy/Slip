@@ -1,0 +1,17 @@
+(struct countup
+    cur:int
+    end:int )
+
+(func advance (self:(ref countup)):bool
+    (if (lt? self.cur self.end)
+        (begin (set! self.cur (add self.cur 1)) true)
+        false))
+
+(func current (self:countup):int
+    self.cur)
+
+(func main ():int
+    (var iter:countup 10 15)
+    (while (advance iter)
+        (puti (current iter)))
+    0)

@@ -74,14 +74,13 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::StructDecl* n, VisitInfo& vi ) {
-            auto r = new Ast::Type( n->name() );
-            r->m_fields = n->m_fields;
-            for( auto&& f : r->m_fields ) {
+            auto type = new Ast::Type( n->name() );
+            for( auto&& f : n->m_fields ) {
                 auto i = _evalTypeExpr( f->m_declTypeExpr );
                 f->m_type = i->get_type();
             }
-            vi.info = _internKnownType( r );
-            n->m_type = r;
+            type->m_struct = n;
+            vi.info = _internKnownType( type );
             return Result::OK;
         }
 
@@ -181,8 +180,14 @@ namespace Slip::Sema {
                     return false;
                 }
                 for( unsigned i = 0; i < args.size(); ++i ) {
-                    if( proto[i]->type && args[i]->type && proto[i]->type != args[i]->type ) {  // TODO non-exact
-                        return false;
+                    if( proto[i]->type &&
+                        args[i]->type &&
+                        proto[i]->type != args[i]->type ) {
+                        auto sa = proto[i]->type->m_struct;
+                        auto sb = args[i]->type->m_struct;
+                        if( sa==nullptr || sb==nullptr || sa != sb ) {  // TODO non-exact
+                            return false;
+                        }
                     }
                 }
                 return true;
@@ -246,10 +251,10 @@ namespace Slip::Sema {
                     RETURN_IF_FAILED( dispatch( i, &d ) );
                     _isConvertible( et, tt, i, d );
                 }
-            } else if( varType->m_fields.size() ) {
-                RETURN_IF_FAILED( varType->m_fields.size() != n->m_initializer.size() );
-                for( int i = 0; i < varType->m_fields.size(); ++i ) {
-                    auto ft = varType->m_fields[i]->m_type;
+            } else if( auto decl = varType->m_struct ) {
+                RETURN_IF_FAILED( decl->m_fields.size() != n->m_initializer.size() );
+                for( int i = 0; i < decl->m_fields.size(); ++i ) {
+                    auto ft = decl->m_fields[i]->m_type;
                     auto fi = _internKnownType( ft );
                     auto iv = n->m_initializer[i];
                     TypeInfo* id;
@@ -343,12 +348,13 @@ namespace Slip::Sema {
             TypeInfo* lhsi;
             RETURN_IF_FAILED( dispatch( n->m_lhs, &lhsi ) );
             auto type = lhsi->get_type();
+            RETURN_ERR_IF( type->m_struct == nullptr, "Non struct type" );
             auto rhsi = dynamic_cast<Ast::LexIdent*>( n->m_rhs );
             auto id = istring::make( rhsi->text() );
-            auto it = std::find_if(type->m_fields.begin(), type->m_fields.end(), [id](auto a) {
-                return a->name() == id; } );
-            RETURN_ERR_IF( it == type->m_fields.end(), "Field not found" );
-            vi.info = _internKnownType( (*it)->m_type );
+            auto decl = type->m_struct;
+            auto it = std::find_if( decl->m_fields.begin(), decl->m_fields.end(), [id]( auto a ) { return a->name() == id; } );
+            RETURN_ERR_IF( it == decl->m_fields.end(), "Field not found" );
+            vi.info = _internKnownType( ( *it )->m_type );
             return Result::OK;
         }
 
@@ -396,7 +402,7 @@ namespace Slip::Sema {
             }
             for( int i = 0; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
-                assert( c.derived->type == c.base->type );  // TODO inheritance check
+                //assert( c.derived->type == c.base->type );  // TODO fixme inheritance check
             }
             for( auto&& v : m_visited ) {
                 assert( v.node );
@@ -489,7 +495,17 @@ namespace Slip::Sema {
                 assert( type );
                 return _internKnownType( type );
             } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
-                Result::failed( "unresolved call", 0, 0, named->name().c_str() );
+                std::vector<Ast::Node*> candidates = named->m_candidates;
+                if( candidates.size() != 1 ) {
+                    Result::failed( "unresolved call", 0, 0, named->name().c_str() );
+                }
+                auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] );
+                assert( func );
+                Ast::Node* ret;
+                ( func->m_intrinsic )( named->m_args, &ret );
+                auto type = dynamic_cast<Ast::Type*>( ret );
+                assert( type );
+                return _internKnownType( type );
             }
             assert( false );
             return nullptr;

@@ -428,12 +428,14 @@ namespace Slip::Ast {
         AST_DECL();
         Type( string_view sym );
         Type( istring sym );
+
+        bool m_ref{false};
         // non-empty for callable types.
         std::vector<Ast::Type*> m_callable;  //[0]=return [1:]=args
         // TODO remove?
         std::vector<Ast::FunctionDecl*> m_methods;
         // non-empty for record type
-        std::vector<Ast::StructField*> m_fields;
+        Ast::StructDecl* m_struct{nullptr};
         // non-empty for array type
         Ast::Type* m_array{nullptr};
     };

@@ -59,7 +59,7 @@ namespace Slip::Parse {
         env->bind( name, new Ast::Builtin( name, std::move( fun ) ) );
     }
 
-    static void addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) {
+    static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
         auto n = istring::make( name );
         auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
         char pname[2] = {'a', 0};
@@ -69,6 +69,7 @@ namespace Slip::Parse {
             pname[0] += 1;
         }
         env->bind( n, f );
+        return f;
     }
 }  // namespace Slip::Parse
 
@@ -610,7 +611,9 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Node
     std::vector<Ast::LexNode*> lfields;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &lfields, Ellipsis::ZeroOrMore ) );
     auto decl = new Ast::StructDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
-    RETURN_IF_FAILED( env->bind( decl->m_name, decl ) );
+    auto type = new Ast::Type( decl->name() );
+    type->m_struct = decl;
+    RETURN_IF_FAILED( env->bind( decl->m_name, type ) );
     for( auto&& lf : lfields ) {
         auto li = dynamic_cast<Ast::LexIdent*>( lf );
         RETURN_ERR_IF( li == nullptr, "Expected identifier for field" );
@@ -686,6 +689,22 @@ struct Parse::ArrayView {
     }
 };
 
+static Result makeTypeRef( array_view<Ast::Node*> args, Ast::Node** out ) {
+    RETURN_ERR_IF( args.size() != 1 );
+    auto cur = args[0];
+    while( auto ref = dynamic_cast<Ast::Reference*>( cur ) ) {
+        cur = ref->m_target;
+    }
+    auto type = dynamic_cast<Ast::Type*>( cur );
+    RETURN_ERR_IF( type == nullptr );
+    assert( type->m_struct );
+    auto ref = new Ast::Type( *type );
+    ref->m_ref = true;
+    ref->m_struct = type->m_struct;
+    *out = ref;
+    return Result::OK;
+}
+
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "define"sv, &parse_Define );
@@ -731,7 +750,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
-    // auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
+    auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
 
     addIntrinsic( env, "eq?", b_ii );
@@ -746,6 +765,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addIntrinsic( env, "dfromi", d_i );
     addIntrinsic( env, "atoi", i_s );
     addIntrinsic( env, "strcat!", v_ss );
+    addIntrinsic( env, "ref", t_t )->m_intrinsic = &makeTypeRef;
 
     auto module = make_unique_del<Ast::Module>();
     for( auto c : lex.items() ) {
