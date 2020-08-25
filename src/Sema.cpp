@@ -157,10 +157,12 @@ namespace Slip::Sema {
             }
 
             std::vector<Ast::Node*> candidates = n->m_candidates;
-            if( auto ty = ai[0]->type ) {  // TODO move
-                for( auto&& f : ty->m_methods ) {
-                    if( f->m_name == n->m_name ) {
-                        candidates.emplace_back( f );
+            if( ai.empty() == false ) {
+                if( auto ty = ai[0]->type ) {  // TODO move
+                    for( auto&& f : ty->m_methods ) {
+                        if( f->m_name == n->m_name ) {
+                            candidates.emplace_back( f );
+                        }
                     }
                 }
             }

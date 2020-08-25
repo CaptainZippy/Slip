@@ -160,17 +160,33 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 *atom = new LexNowExpr( in.location( start, in.tell() ), expr );
                 return Result::OK;
             }
+            case '@': {
+                auto start = in.tell();
+                std::vector<Ast::LexNode*> attrs;
+                while(in.peek()=='@') {
+                    in.next();
+                    LexNode* attr;
+                    RETURN_IF_FAILED( lex_atom( in, &attr ) );
+                    attrs.push_back( attr );
+                    in.eatwhite();
+                }
+                LexNode* expr;
+                RETURN_IF_FAILED( lex_atom( in, &expr ) );
+                expr->m_attrs.swap( attrs );
+                *atom = expr;
+                return Result::OK;
+            }
             case '.': {
                 return Result::OK;
             }
             default: {  // symbol
                 int c = in.peek();
-                if( isalpha( c ) || c == '_' || c == '@' ) {
+                if( isalpha( c ) || c == '_' ) {
                     auto start = in.tell();
                     in.next();
                     while( in.available() ) {
                         int c = in.peek();
-                        if( isdigit( c ) || isalpha( c ) || c == '@' || c == '_' || c == '?' || c == '!' ) {
+                        if( isdigit( c ) || isalpha( c ) || c == '_' || c == '?' || c == '!' ) {
                             in.next();
                         } else {
                             break;
