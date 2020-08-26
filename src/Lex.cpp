@@ -163,7 +163,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
             case '@': {
                 auto start = in.tell();
                 std::vector<Ast::LexNode*> attrs;
-                while(in.peek()=='@') {
+                while( in.peek() == '@' ) {
                     in.next();
                     LexNode* attr;
                     RETURN_IF_FAILED( lex_atom( in, &attr ) );
@@ -172,6 +172,9 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 }
                 LexNode* expr;
                 RETURN_IF_FAILED( lex_atom( in, &expr ) );
+                if( expr == nullptr ) {
+                    LEX_ERROR( in.location(), "Attribute missing expression" );
+                }
                 expr->m_attrs.swap( attrs );
                 *atom = expr;
                 return Result::OK;
@@ -212,8 +215,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
             if( in.peek() == ':' ) {
                 in.next();
                 RETURN_IF_FAILED( lex_term( in, &ret->m_decltype ) );
-            }
-            else if( in.peek() == '.' ) {
+            } else if( in.peek() == '.' ) {
                 in.next();
                 LexNode* b;
                 RETURN_IF_FAILED( lex_term( in, &b ) );
