@@ -161,7 +161,6 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 return Result::OK;
             }
             case '@': {
-                auto start = in.tell();
                 std::vector<Ast::LexNode*> attrs;
                 while( in.peek() == '@' ) {
                     in.next();

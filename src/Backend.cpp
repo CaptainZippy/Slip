@@ -301,8 +301,11 @@ namespace {
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
+            out.write( "inline int mul(int a, int b) { return a*b; }\n" );
+            out.write( "inline int mod(int a, int b) { return a%b; }\n" );
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
             out.write( "inline int atoi(const string& s) { return ::atoi(s.m_s.data()); }\n" );
+            out.write( "inline double muld(double a, double b) { return a*b; }\n" );
             out.write( "inline double divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double addd(double a, double b) { return a+b; }\n" );
             out.write( "inline int puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );

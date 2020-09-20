@@ -756,11 +756,15 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addIntrinsic( env, "eq?", b_ii );
     addIntrinsic( env, "lt?", b_ii );
     addIntrinsic( env, "add", i_ii );
+    addIntrinsic( env, "mod", i_ii );
+    addIntrinsic( env, "mul", i_ii );
     addIntrinsic( env, "sub", i_ii );
     addIntrinsic( env, "puts", v_s );
     addIntrinsic( env, "puti", v_i );
     addIntrinsic( env, "putd", v_d );
     addIntrinsic( env, "addd", d_dd );
+    addIntrinsic( env, "muld", d_dd );
+    addIntrinsic( env, "modd", d_dd );
     addIntrinsic( env, "divd", d_dd );
     addIntrinsic( env, "dfromi", d_i );
     addIntrinsic( env, "atoi", i_s );
