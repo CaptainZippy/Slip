@@ -1,0 +1,21 @@
+    
+; int last = 42;
+
+; todo generator
+(func random (max:double):double
+    (var IM:int 139968)
+    (var IA:int 3877)
+    (var IC:int 29573)
+    (var last_:int 42)
+    (var last (mod
+        (add
+            (mul last_ IA)
+            IC)
+        IM))
+    (muld max (divd (dfromi last) (dfromi IM))))
+
+(func main (argv:(array_view string)):int
+    (puts "hello ")
+    (putd (random 10))
+    0)
+

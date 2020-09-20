@@ -188,6 +188,8 @@
     <None Include="..\bench\ary.slip" />
     <None Include="..\bench\fibo.slip" />
     <None Include="..\bench\harmonic.slip" />
+    <None Include="..\bench\hash.slip" />
+    <None Include="..\bench\heapsort.slip" />
     <None Include="..\bench\hello.slip" />
     <None Include="..\bench\meson.build" />
     <None Include="..\bench\moments.slip" />

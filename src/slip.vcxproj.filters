@@ -142,6 +142,12 @@
     <None Include="..\test\attr_expr_01.slip">
       <Filter>test</Filter>
     </None>
+    <None Include="..\bench\hash.slip">
+      <Filter>bench</Filter>
+    </None>
+    <None Include="..\bench\heapsort.slip">
+      <Filter>bench</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

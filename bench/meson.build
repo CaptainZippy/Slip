@@ -4,6 +4,8 @@ slip_bench = [
     'ary',
     'fibo',
     'harmonic',
+    'hash',
+    'heapsort',
     'hello',
     #'moments',
     #'nestedloop',
