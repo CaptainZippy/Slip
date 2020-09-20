@@ -33,6 +33,18 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_value, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( CoroutineDecl )
+    REFLECT_PARENT( Named )
+    REFLECT_FIELD2( m_params, Flags::Child )
+    // REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
+    REFLECT_FIELD2( m_body, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( CoroutineYield )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_expr, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( Number )
     REFLECT_PARENT( Node )
     REFLECT_FIELD2( m_num, Flags::Abbrev )

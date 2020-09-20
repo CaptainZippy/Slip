@@ -54,6 +54,35 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::CoroutineYield* n, VisitInfo& vi ) {
+            vi.info = _internKnownType( &Ast::s_typeVoid );  // callable?
+            TypeInfo* exprinfo;
+            RETURN_IF_FAILED( dispatch( n->m_expr, &exprinfo ) );
+            TypeInfo* coroinfo;
+            RETURN_IF_FAILED( dispatch( n->m_coro, &coroinfo ) );
+            _isConvertible( n, coroinfo->get_func()->ret, n->m_expr, exprinfo );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::CoroutineDecl* n, VisitInfo& vi ) {
+            if( n->m_type ) {  // intrinsic?
+                vi.info = _internKnownType( n->m_type );
+            } else {
+                vi.info = new TypeInfo{};
+                auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
+                std::vector<TypeInfo*> params;
+                for( auto&& p : n->m_params ) {
+                    TypeInfo* t;
+                    RETURN_IF_FAILED( dispatch( p, &t ) );
+                    params.emplace_back( t );
+                }
+                _isFunction( vi.info, ret, std::move( params ) );
+                TypeInfo* _;
+                RETURN_IF_FAILED( dispatch( n->m_body, &_ ) );
+            }
+            return Result::OK;
+        }
+
         Result operator()( Ast::Module* n, VisitInfo& vi ) {
             vi.info = _internKnownType( &Ast::s_typeVoid );  // Todo: proper type
             for( auto i : n->m_items ) {
@@ -402,6 +431,7 @@ namespace Slip::Sema {
                     }
                 }
             }
+            // for( auto&& c : m_convertible ) {
             for( int i = 0; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
                 //assert( c.derived->type == c.base->type );  // TODO fixme inheritance check

@@ -1,6 +1,20 @@
 ; TODO range()
 ; TODO tuple return
 
+(coro countup (lo:int hi:int step:int):int
+    (var cur lo)
+    (while (lt? cur hi)
+      (yield cur)
+      (set! cur (sub cur step))))
+
+(macro for2 (it iterable body) caller_env
+    #(with_env env caller_env
+        (var state #(env iterable))
+        (while false                        ;(advance state)
+            (var cur 0:int)                 ;(current state))
+            #(bind env it cur)
+            #(env body) )))
+
 (macro for (init cond update body) caller_env
     #(with_env env caller_env
         #(env init)
@@ -20,8 +34,10 @@
 (func ary (n:int): void ;(tuple int int)
   (var x:(array_heap int))
   (resize x n)
-  (for_range i 0 n
+  (for2 i (countup 0 n 1)
     (put! x i (add i 1)))
+  ;(for_range i 0 n
+  ;  (put! x i (add i 1)))
   (var y:(array_heap int))
   (resize y n)
   (for_range i 0 n

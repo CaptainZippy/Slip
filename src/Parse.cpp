@@ -321,10 +321,68 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             RETURN_ERR_IF( true );
         }
 
+        if( replacement == nullptr ) {
+            int x;
+            x = 0;
+        }
+
         *out = replacement;
         return Result::OK;
     }
     RETURN_ERR_IF( true );
+}
+
+static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    *out = nullptr;
+    RETURN_ERR_IF( args->size() < 3 );
+    Ast::LexIdent* lname;
+    Ast::LexList* largs;
+    std::vector<Ast::LexNode*> lbody;
+    RETURN_IF_FAILED( matchLex( env, args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
+    auto coro = new Ast::CoroutineDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
+    env->bind( coro->m_name, coro );
+    auto inner = new Ast::Environment( env );
+    /*addBuiltin( inner, "yield"sv, [coro](auto env, auto args, auto out) {
+            RETURN_ERR_IF( args->size() != 2 );
+            auto ret = new Ast::CoroutineYield();
+            RETURN_IF_FAILED( parse1( env, args->at( 1 ), &ret->m_expr ) );
+            ret->m_coro = coro;
+            *out = ret;
+            return Result::OK;
+        } );*/
+
+    if( auto a = largs->m_decltype ) {
+        Ast::Node* te;
+        RETURN_IF_FAILED( parse1( inner, a, &te ) );
+        coro->m_declReturnTypeExpr = te;
+    }
+    for( auto item : largs->items() ) {
+        auto sym = dynamic_cast<Ast::LexIdent*>( item );
+        RETURN_ERR_IF( sym == nullptr );
+        Ast::Node* te;
+        RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
+        auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
+        coro->m_params.push_back( param );
+    }
+    // TODO check unique names
+    for( auto p : coro->m_params ) {
+        inner->bind( p->m_name, p );
+    }
+    Ast::Node* body;
+    if( lbody.size() == 1 ) {
+        RETURN_IF_FAILED( parse1( inner, lbody[0], &body ) );
+    } else {
+        auto bd = new Ast::Sequence();
+        for( auto&& l : lbody ) {
+            Ast::Node* b;
+            RETURN_IF_FAILED( parse1( inner, l, &b ) );
+            bd->m_items.emplace_back( b );
+        }
+        body = bd;
+    }
+    coro->m_body = body;
+    *out = coro;
+    return Result::OK;
 }
 
 static Result parse_Define( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
@@ -460,7 +518,7 @@ static Result parse_While( Ast::Environment* env, Ast::LexList* args, Ast::Node*
         for( auto&& l : lbody ) {
             Ast::Node* b;
             RETURN_IF_FAILED( parse1( env, l, &b ) );
-            bd->m_items.emplace_back( b );
+            if( b ) bd->m_items.emplace_back( b );
         }
         nbody = bd;
     }

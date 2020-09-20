@@ -163,6 +163,27 @@ namespace Slip::Ast {
         }
     };
 
+    struct CoroutineDecl : Named {
+        AST_DECL();
+
+        vector<Parameter*> m_params;
+        Ast::Node* m_declReturnTypeExpr{nullptr};
+        Node* m_body{nullptr};
+
+        CoroutineDecl( string_view name ) : Named( name ) {}
+
+        template <typename With>
+        CoroutineDecl( string_view name, With&& with ) : Named( name ) {
+            with( *this );
+        }
+    };
+
+    struct CoroutineYield : Node {
+        AST_DECL();
+        Node* m_expr{nullptr};
+        CoroutineDecl* m_coro{nullptr};
+    };
+
     struct Decl : Node {
         AST_DECL();
     };

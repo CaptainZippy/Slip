@@ -29,6 +29,9 @@ namespace {
             return "";
         }
 
+        string operator()( Ast::CoroutineDecl* n ) {
+            return "fixme";
+        }
         string operator()( Ast::MacroDecl* n ) { return ""; }
 
         string operator()( Ast::MacroExpansion* n ) { return dispatch( n->m_expansion ); }
