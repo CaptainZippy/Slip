@@ -29,8 +29,51 @@ namespace {
             return "";
         }
 
+        string operator()( Ast::Type* n ) { return n->name().std_str(); }
+
+        string operator()( Ast::CoroutineYield* n ) {
+            auto r = dispatch( n->m_expr );
+            out.write( string_concat( "state_ = 1;\n" ) );
+            out.write( string_concat( "return ", r, ";\n" ) );
+            out.write( string_concat( "case_1: /*yield*/\n" ) );
+            return "/*yield*/"; //FIXME.coro
+        }
+
         string operator()( Ast::CoroutineDecl* n ) {
-            return "fixme";
+            out.begin( string_concat( "struct ", n->name(), "{" ) );
+            out.write( "int state_{0};\n" );
+            for( auto p : n->m_params ) {
+                out.write( string_concat( p->m_type->name(), " ", p->name(), ";\n" ) );
+            }
+            out.begin( string_concat( n->name(), "(" ) );
+            const char* sep = "";
+            for( auto p : n->m_params ) {
+                out.write( string_concat( sep, p->m_type->name(), " _", p->name() ) );
+                sep = ", ";
+            }
+            out.end( ")\n" );
+            const char* sep2 = ":";
+            for( auto p : n->m_params ) {
+                out.write( string_concat( sep2, p->name(), "(_", p->name(), ")\n" ) );
+                sep2 = ",";
+            }
+            out.write( "{}\n" );
+            string name = dispatch( n->m_declReturnTypeExpr );
+            out.begin( string_concat( name, " operator()(int& status) {\n" ) );
+            out.begin( "switch( state_ ) {\n" );
+            out.write( "case 0: goto case_0;\n" );
+            out.write( "case 1: goto case_1;\n" );
+            out.end( "}\n" );
+            out.write( "case_err:\n" );
+            out.write( "status = -1;\n" );
+            out.write( "return {};\n" );
+
+            out.write( "case_0:\n" );
+            dispatch( n->m_body );
+            out.write( "goto case_err;\n" );
+            out.begin( "}\n" );
+            out.end( "};" );
+            return n->name().std_str();
         }
         string operator()( Ast::MacroDecl* n ) { return ""; }
 
@@ -140,9 +183,9 @@ namespace {
             if( hasVar ) {
                 out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
             }
-            out.begin( "while(true) {\n" );
+            out.begin( "while(true) {\nif(" );
             auto cond = dispatch( n->m_cond );
-            out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
+            out.write( string_concat( " !", cond, ") { break; }\n" ) );
             string b = dispatch( n->m_body );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", b, ";\n" ) );
@@ -202,13 +245,14 @@ namespace {
             addName( n, istring::make( symbol ) );
             out.begin( string_concat( "\n", n->m_type->m_callable[0]->name(), " ", symbol, "(" ) );
             const char* sep = "";
+            if( n->m_type->m_callCanFail ) {
+                out.write( "int& status" );
+                sep = ", ";
+            }
             for( auto p : n->m_params ) {
                 assert( p->m_type );
                 assert( p->m_name.c_str() );
-                out.write( string_concat( sep,
-                    p->m_type->name(),
-                    p->m_type->m_ref ? "& " : " ",
-                    p->m_name ) );
+                out.write( string_concat( sep, p->m_type->name(), p->m_type->m_ref ? "& " : " ", p->m_name ) );
                 sep = ", ";
             }
             out.write( ") {\n" );
@@ -256,7 +300,11 @@ namespace {
                 retId = "/*void*/";
                 out.write( string_concat( func, "(" ) );
             }
-            auto sep = "";
+            const char* sep = "";
+            if( n->m_func->m_type->m_callCanFail ) {
+                out.write( "status" );
+                sep = ", ";
+            }
             for( auto a : args ) {
                 out.write( string_concat( sep, a ) );
                 sep = ", ";
@@ -290,6 +338,7 @@ namespace {
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
             out.begin( "namespace XX {" );
+            out.write( "int status{0};//FIXME.coro\n" );
             out.write(
                 "struct string { std::string m_s; "
                 "string() = default; "

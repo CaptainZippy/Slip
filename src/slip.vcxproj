@@ -199,6 +199,7 @@
     <None Include="..\stl.natjmc" />
     <None Include="..\test\array_type_02.slip" />
     <None Include="..\test\attr_expr_01.slip" />
+    <None Include="..\test\coro_expr_01.slip" />
     <None Include="..\test\macro_expr_01.slip" />
     <None Include="..\test\macro_expr_02.slip" />
     <None Include="..\test\macro_expr_03.slip" />

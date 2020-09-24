@@ -342,14 +342,14 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::N
     auto coro = new Ast::CoroutineDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
     env->bind( coro->m_name, coro );
     auto inner = new Ast::Environment( env );
-    /*addBuiltin( inner, "yield"sv, [coro](auto env, auto args, auto out) {
-            RETURN_ERR_IF( args->size() != 2 );
-            auto ret = new Ast::CoroutineYield();
-            RETURN_IF_FAILED( parse1( env, args->at( 1 ), &ret->m_expr ) );
-            ret->m_coro = coro;
-            *out = ret;
-            return Result::OK;
-        } );*/
+    Slip::Parse::addBuiltin( inner, "yield"sv, [coro]( auto env, auto args, auto out ) -> Result {
+        RETURN_ERR_IF( args->size() != 2 );
+        auto ret = new Ast::CoroutineYield();
+        RETURN_IF_FAILED( parse1( env, args->at( 1 ), &ret->m_expr ) );
+        ret->m_coro = coro;
+        *out = ret;
+        return Result::OK;
+    } );
 
     if( auto a = largs->m_decltype ) {
         Ast::Node* te;
@@ -765,8 +765,9 @@ static Result makeTypeRef( array_view<Ast::Node*> args, Ast::Node** out ) {
 
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
+    addBuiltin( env, "coro"sv, &parse_Coroutine );
     addBuiltin( env, "define"sv, &parse_Define );
-    addBuiltin( env, "func"sv, &parse_Func);
+    addBuiltin( env, "func"sv, &parse_Func );
     addBuiltin( env, "if"sv, &parse_If );
     addBuiltin( env, "while"sv, &parse_While );
     addBuiltin( env, "cond"sv, &parse_Cond );

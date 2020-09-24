@@ -1,0 +1,13 @@
+
+(coro countup (lo:int hi:int step:int):int
+    (while (lt? lo hi)
+      (yield lo)
+      (set! lo (add lo step))))
+
+(func test ():void
+    (var f (countup 5 10 1))
+    (puti (f)))
+
+(func main ():int
+    (test)
+    0)

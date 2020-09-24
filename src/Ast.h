@@ -451,6 +451,8 @@ namespace Slip::Ast {
         Type( istring sym );
 
         bool m_ref{false};
+        // callable can fail
+        bool m_callCanFail{false};
         // non-empty for callable types.
         std::vector<Ast::Type*> m_callable;  //[0]=return [1:]=args
         // TODO remove?

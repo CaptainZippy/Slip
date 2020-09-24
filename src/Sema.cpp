@@ -76,7 +76,11 @@ namespace Slip::Sema {
                     RETURN_IF_FAILED( dispatch( p, &t ) );
                     params.emplace_back( t );
                 }
-                _isFunction( vi.info, ret, std::move( params ) );
+                auto v_t = new Ast::Type( "auto"sv );  // FIXME.coro
+                v_t->m_callCanFail = true;
+                v_t->m_callable.push_back( ret->get_type() );
+                auto ti_v_t = _internKnownType( v_t );
+                _isFunction( vi.info, ti_v_t, std::move( params ) );
                 TypeInfo* _;
                 RETURN_IF_FAILED( dispatch( n->m_body, &_ ) );
             }
@@ -211,12 +215,10 @@ namespace Slip::Sema {
                     return false;
                 }
                 for( unsigned i = 0; i < args.size(); ++i ) {
-                    if( proto[i]->type &&
-                        args[i]->type &&
-                        proto[i]->type != args[i]->type ) {
+                    if( proto[i]->type && args[i]->type && proto[i]->type != args[i]->type ) {
                         auto sa = proto[i]->type->m_struct;
                         auto sb = args[i]->type->m_struct;
-                        if( sa==nullptr || sb==nullptr || sa != sb ) {  // TODO non-exact
+                        if( sa == nullptr || sb == nullptr || sa != sb ) {  // TODO non-exact
                             return false;
                         }
                     }
@@ -434,7 +436,7 @@ namespace Slip::Sema {
             // for( auto&& c : m_convertible ) {
             for( int i = 0; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
-                //assert( c.derived->type == c.base->type );  // TODO fixme inheritance check
+                // assert( c.derived->type == c.base->type );  // TODO fixme inheritance check
             }
             for( auto&& v : m_visited ) {
                 assert( v.node );
