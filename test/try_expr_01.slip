@@ -1,0 +1,13 @@
+
+(func safe_div (num:int den:int):(result int)
+    (if (eq? den 0)
+        failed
+        (div num den)))
+
+(func test ():void
+    (var x (safe_div 100 22))
+    (puts "OK"))
+
+(func main ():int
+    (test)
+    0)

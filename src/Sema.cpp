@@ -97,7 +97,11 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::Number* n, VisitInfo& vi ) {
-            vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            if( auto t = n->m_type ) {
+                vi.info = _internKnownType( t );
+            } else {
+                vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            }
             return Result::OK;
         }
 
@@ -129,7 +133,7 @@ namespace Slip::Sema {
             if( !fi->func ) {  // TODO extract method
                 auto& loc = n->m_loc;
                 auto text = loc.text();
-                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%*s", loc.filename(), loc.line(), loc.col(), text.size(),
+                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%.*s", loc.filename(), loc.line(), loc.col(), text.size(),
                                text.begin() );
             }
             _isApplicable( n->m_func, fi, ai );
@@ -347,8 +351,7 @@ namespace Slip::Sema {
             TypeInfo* fi;
             RETURN_IF_FAILED( dispatch( n->m_false, &fi ) );
             vi.info = new TypeInfo{};
-            _isConvertible( n, vi.info, n->m_true, ti );
-            _isConvertible( n, vi.info, n->m_false, fi );
+            _isConvertible( n, vi.info, {{n->m_true, ti}, {n->m_false, fi}} );
             return Result::OK;
         }
 
@@ -393,12 +396,15 @@ namespace Slip::Sema {
 
        public:
         struct Convertible {
-            Convertible( TypeInfo* b, TypeInfo* d ) : bnode{nullptr}, base( b ), dnode{nullptr}, derived( d ) {}
-            Convertible( Ast::Node* bn, TypeInfo* b, Ast::Node* dn, TypeInfo* d ) : bnode( bn ), base( b ), dnode( dn ), derived( d ) {}
-            Ast::Node* bnode;
-            TypeInfo* base;
-            Ast::Node* dnode;
-            TypeInfo* derived;
+            struct Pair {
+                Ast::Node* node;
+                TypeInfo* info;
+                Ast::Type* type() const { return info->type; }
+            };
+            Convertible( Ast::Node* ln, TypeInfo* li, Ast::Node* rn, TypeInfo* ri ) : lhs{ln, li} { rhs.push_back( {rn, ri} ); }
+            Convertible( Ast::Node* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ln, li}, rhs( rl ) {}
+            Pair lhs;
+            std::vector<Pair> rhs;
         };
         deque<VisitInfo> m_visited;
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
@@ -413,43 +419,86 @@ namespace Slip::Sema {
 
         Result solve() {
             while( true ) {
-                bool more = false;  // backwards
+                bool progress = false;  // backwards
                 for( auto&& c : m_convertible ) {
-                    if( !c.base->type && c.derived->type ) {
-                        more = true;
-                        _resolveType( c.base, c.derived->type );
-                    }
-                }
-                if( !more ) {
-                    more = false;  // try forwards inference
-                    for( auto&& c : m_convertible ) {
-                        if( !c.derived->type && c.base->type ) {
-                            more = true;
-                            _resolveType( c.derived, c.base->type );
+                    if( !c.lhs.type() && c.rhs[0].type() ) {
+                        bool allsame = true;
+                        for( auto&& e : c.rhs ) {
+                            if( e.type() != c.rhs[0].type() ) {
+                                allsame = false;
+                                break;
+                            }
+                        }
+                        if( allsame ) {
+                            progress = true;
+                            _resolveType( c.lhs.info, c.rhs[0].type() );
                         }
                     }
-                    if( !more ) {
+                }
+                if( !progress ) {  // nothing from backward, try forwards inference
+                    progress = false;
+                    for( auto&& c : m_convertible ) {
+                        // If we know the left type
+                        if( c.lhs.type() ) {
+                            std::vector<TypeInfo*> nulls;
+                            // if there are a mixture of matching & null types, we promote nulls to matching
+                            for( auto&& e : c.rhs ) {
+                                if( e.type() == nullptr ) {
+                                    nulls.push_back( e.info );
+                                }
+                                else if( e.type() != c.lhs.type() ) {
+                                    nulls.clear();
+                                    break;
+                                }
+                            }
+                            if( nulls.size() ) {
+                                progress = true;
+                                for( auto&& n : nulls ) {
+                                    _resolveType( n, c.lhs.type() );
+                                }
+                            }
+                        }
+                    }
+                    if( !progress ) {
                         break;
                     }
                 }
             }
-            // for( auto&& c : m_convertible ) {
             for( int i = 0; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
-                // assert( c.derived->type == c.base->type );  // TODO fixme inheritance check
+                for( auto&& r : c.rhs ) {
+                    assert( canImplicitlyConvert( c.lhs.type(), r.type() ) );
+                }
             }
             for( auto&& v : m_visited ) {
                 assert( v.node );
-                assert( v.info->type != nullptr );
+                auto loc = v.node->m_loc;
+                RETURN_ERR_IF( v.info->type == nullptr, "Can't resolve type %s:%i:%i: near \"%.*s\"", loc.filename(), loc.line(), loc.col(),
+                               loc.text().size(), loc.text().begin() );
                 if( v.node->m_type ) {
                     assert( v.node->m_type == v.info->type );
                 } else {
-                    assert( v.node->m_type == nullptr );
+                    assert( v.info->type );
+                    v.node->m_type = v.info->type;
                 }
-
-                v.node->m_type = v.info->type;
             }
             return Result::OK;
+        }  // namespace Slip::Sema
+
+        bool canImplicitlyConvert( Ast::Type* lhs, Ast::Type* rhs ) {
+            if( lhs == rhs )
+                return true;
+            if( lhs == &Ast::s_typeVoid )
+                return true;
+            if( lhs->m_ref == rhs )
+                return true;
+            if( lhs->name().view() == "auto"sv )
+                return true;
+            for( auto&& s : lhs->m_sum ) {
+                if( s == rhs )
+                    return true;
+            }
+            return false;
         }
 
         Result dispatch( Ast::Node* top, TypeInfo** out ) {
@@ -481,6 +530,9 @@ namespace Slip::Sema {
 
         void _isConvertible( Ast::Node* bnode, TypeInfo* base, Ast::Node* dnode, TypeInfo* derived ) {
             m_convertible.emplace_back( bnode, base, dnode, derived );
+        }
+        void _isConvertible( Ast::Node* bnode, TypeInfo* base, std::initializer_list<Convertible::Pair> rhs ) {
+            m_convertible.emplace_back( bnode, base, rhs );
         }
 
         TypeInfo* _internKnownType( Ast::Type* t ) {
@@ -604,7 +656,7 @@ namespace Slip::Sema {
                 _isConvertible( callable, f->params[i], nullptr, args[i] );
             }
         }
-    };
+    };  // namespace Slip::Sema
 
 #if 0
     struct ConstraintSolver {

@@ -440,6 +440,7 @@ namespace Slip::Ast {
     extern Ast::Type s_typeType;
     extern Ast::Type s_typeInt;
     extern Ast::Type s_typeBool;
+    extern Ast::Type s_typeError;
     extern Ast::Type s_typeDouble;
     extern Ast::Type s_typeFloat;
     extern Ast::Type s_typeVoid;
@@ -450,7 +451,8 @@ namespace Slip::Ast {
         Type( string_view sym );
         Type( istring sym );
 
-        bool m_ref{false};
+        // Ptr to original if a ref
+        Type* m_ref{nullptr};
         // callable can fail
         bool m_callCanFail{false};
         // non-empty for callable types.
@@ -461,6 +463,8 @@ namespace Slip::Ast {
         Ast::StructDecl* m_struct{nullptr};
         // non-empty for array type
         Ast::Type* m_array{nullptr};
+        // non-empty for sum type
+        std::vector<Ast::Type*> m_sum;
     };
 
     struct VariableDecl : Named {

@@ -47,6 +47,7 @@ namespace Slip::Parse {
 
     struct ArrayView;
     struct ArrayConst;
+    struct ResultT;
 
     template <typename... Args>
     static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
@@ -747,6 +748,41 @@ struct Parse::ArrayView {
     }
 };
 
+struct Parse::ResultT {
+    struct Cache {
+        Result instantiate( Ast::Type* t, Ast::Type** out ) {
+            *out = nullptr;
+            auto name = string_format( "Result<%s>", t->name().c_str() );
+            if( auto it = types_.find( name ); it != types_.end() ) {
+                *out = it->second;
+                return Result::OK;
+            }
+            auto r = new Ast::Type( name );
+            r->m_sum.emplace_back( t );
+            r->m_sum.emplace_back( &Ast::s_typeError );
+            types_.emplace( name, r );
+            *out = r;
+            return Result::OK;
+        }
+        std::map<std::string, Ast::Type*> types_;
+    };
+
+    static Result parse( Cache* cache, Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+        *out = nullptr;
+        Ast::LexIdent* lparam;
+        RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
+        Ast::Node* param = env->lookup( lparam->text() );  // TODO
+        auto type = dynamic_cast<Ast::Type*>( param );
+        assert( type );
+        Ast::Type* r;
+        RETURN_IF_FAILED( cache->instantiate( type, &r ) );
+        *out = r;
+        return Result::OK;
+        return Result::OK;
+    }
+};
+
+
 static Result makeTypeRef( array_view<Ast::Node*> args, Ast::Node** out ) {
     RETURN_ERR_IF( args.size() != 1 );
     auto cur = args[0];
@@ -757,7 +793,7 @@ static Result makeTypeRef( array_view<Ast::Node*> args, Ast::Node** out ) {
     RETURN_ERR_IF( type == nullptr );
     assert( type->m_struct );
     auto ref = new Ast::Type( *type );
-    ref->m_ref = true;
+    ref->m_ref = type;
     ref->m_struct = type->m_struct;
     *out = ref;
     return Result::OK;
@@ -789,6 +825,9 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "array_heap"sv, [cache = new Parse::ArrayView::Cache( "array_heap" )]( auto e, auto a, auto o ) {
         return ArrayView::parse( cache, e, a, o );
     } );
+    addBuiltin( env, "result"sv, [cache = new Parse::ResultT::Cache()]( auto e, auto a, auto o ) {
+        return ResultT::parse( cache, e, a, o );
+    } );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );
@@ -799,6 +838,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
 
     env->bind( "true"sv, new Ast::Number( "true", WITH( _.m_type = &Ast::s_typeBool ) ) );
     env->bind( "false"sv, new Ast::Number( "false", WITH( _.m_type = &Ast::s_typeBool ) ) );
+    env->bind( "failed"sv, new Ast::Number( "failed", WITH( _.m_type = &Ast::s_typeError ) ) );
 
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
     auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
@@ -817,6 +857,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addIntrinsic( env, "add", i_ii );
     addIntrinsic( env, "mod", i_ii );
     addIntrinsic( env, "mul", i_ii );
+    addIntrinsic( env, "div", i_ii );
     addIntrinsic( env, "sub", i_ii );
     addIntrinsic( env, "puts", v_s );
     addIntrinsic( env, "puti", v_i );

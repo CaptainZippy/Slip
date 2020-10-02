@@ -5,6 +5,7 @@ IndentWidth: 4
 Language: Cpp
 NamespaceIndentation: All
 #AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine : false
 ColumnLimit: 140
 SpacesInParentheses: true
 SpaceBeforeParens: Never

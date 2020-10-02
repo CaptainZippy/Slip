@@ -354,6 +354,7 @@ namespace {
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
             out.write( "inline int mul(int a, int b) { return a*b; }\n" );
+            out.write( "inline int div( int a, int b ) { return a / b; }\n" );
             out.write( "inline int mod(int a, int b) { return a%b; }\n" );
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
             out.write( "inline int atoi(const string& s) { return ::atoi(s.m_s.data()); }\n" );
@@ -374,6 +375,10 @@ namespace {
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
             out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
+            out.write( "enum Error { failed=1 };\n" );
+            out.write( "template<typename T> struct Result { T ok; int fail;\n" );
+            out.write( "    void operator=( const T& t ) { ok = t; }\n" );
+            out.write( "    void operator=( Error e ) { fail = e; }\n};\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
