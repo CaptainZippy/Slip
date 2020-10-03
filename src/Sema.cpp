@@ -405,6 +405,7 @@ namespace Slip::Sema {
             Convertible( Ast::Node* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ln, li}, rhs( rl ) {}
             Pair lhs;
             std::vector<Pair> rhs;
+            bool todo{true};
         };
         deque<VisitInfo> m_visited;
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
@@ -419,9 +420,14 @@ namespace Slip::Sema {
 
         Result solve() {
             while( true ) {
-                bool progress = false;  // backwards
+                bool progress = false;
+                // Try propogating types RIGHT TO LEFT (in terms of assignments)
+                // until we fail to make progress.
+                // e.g. auto lhs = rhs; where rhs has a known type.
                 for( auto&& c : m_convertible ) {
-                    if( !c.lhs.type() && c.rhs[0].type() ) {
+                    // If all the rhs (usually 1, more for if/switch)
+                    // has a single type, we can copy it to the lhs
+                    if( c.todo && c.lhs.type() == nullptr && c.rhs[0].type() ) {
                         bool allsame = true;
                         for( auto&& e : c.rhs ) {
                             if( e.type() != c.rhs[0].type() ) {
@@ -432,30 +438,37 @@ namespace Slip::Sema {
                         if( allsame ) {
                             progress = true;
                             _resolveType( c.lhs.info, c.rhs[0].type() );
+                            c.todo = false;
                         }
                     }
                 }
-                if( !progress ) {  // nothing from backward, try forwards inference
+                // No progress made RIGHT TO LEFT, try ONE step LEFT TO RIGHT
+                // before going back to the upper loop.
+                // void f(int); auto x; f(x); Means x is an int.
+                if( !progress ) {
                     progress = false;
                     for( auto&& c : m_convertible ) {
                         // If we know the left type
-                        if( c.lhs.type() ) {
+                        if( c.todo && c.lhs.type() ) {
                             std::vector<TypeInfo*> nulls;
-                            // if there are a mixture of matching & null types, we promote nulls to matching
+                            // If there are a mixture of matching & null types,
+                            // we promote nulls to matching
                             for( auto&& e : c.rhs ) {
                                 if( e.type() == nullptr ) {
                                     nulls.push_back( e.info );
-                                }
-                                else if( e.type() != c.lhs.type() ) {
+                                } else if( e.type() != c.lhs.type() ) {
                                     nulls.clear();
                                     break;
                                 }
                             }
+                            // Some work to do?
                             if( nulls.size() ) {
                                 progress = true;
                                 for( auto&& n : nulls ) {
                                     _resolveType( n, c.lhs.type() );
                                 }
+                                c.todo = false;
+                                break;
                             }
                         }
                     }
@@ -464,19 +477,21 @@ namespace Slip::Sema {
                     }
                 }
             }
+            // Check we satisfied all constraints
             for( int i = 0; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
                 for( auto&& r : c.rhs ) {
                     assert( canImplicitlyConvert( c.lhs.type(), r.type() ) );
                 }
             }
+            // And write our results back into the nodes
             for( auto&& v : m_visited ) {
                 assert( v.node );
                 auto loc = v.node->m_loc;
                 RETURN_ERR_IF( v.info->type == nullptr, "Can't resolve type %s:%i:%i: near \"%.*s\"", loc.filename(), loc.line(), loc.col(),
                                loc.text().size(), loc.text().begin() );
                 if( v.node->m_type ) {
-                    assert( v.node->m_type == v.info->type );
+                    assert( v.node->m_type == v.info->type ); // type already assigned, ensure it matches deduced
                 } else {
                     assert( v.info->type );
                     v.node->m_type = v.info->type;
