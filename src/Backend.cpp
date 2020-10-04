@@ -6,10 +6,29 @@
 namespace {
     using namespace std;
     using namespace Slip;
+    // true false or undefined only allowing transitions "true <-> undefined <-> false"
+    struct TriBool {
+        bool get() const {
+            assert( m_val != -1 );
+            return !!m_val;
+        }
+        void define( bool b ) {
+            assert( m_val == -1 );
+            m_val = b ? 1 : 0;
+        }
+        void undefine() {
+            assert( m_val != -1 );
+            m_val = -1;
+        }
+
+       private:
+        int m_val{-1};
+    };
     struct Generator {
         Io::TextOutput& out;
         std::unordered_map<Ast::Node*, istring> dispatched;
         int m_counter = 1;
+        TriBool m_outerFuncCanFail;
 
         Generator( Io::TextOutput& o ) : out( o ) {
             // populate "dispatched" with intrinsics
@@ -36,7 +55,7 @@ namespace {
             out.write( string_concat( "state_ = 1;\n" ) );
             out.write( string_concat( "return ", r, ";\n" ) );
             out.write( string_concat( "case_1: /*yield*/\n" ) );
-            return "/*yield*/"; //FIXME.coro
+            return "/*yield*/";  // FIXME.coro
         }
 
         string operator()( Ast::CoroutineDecl* n ) {
@@ -69,7 +88,9 @@ namespace {
             out.write( "return {};\n" );
 
             out.write( "case_0:\n" );
+            m_outerFuncCanFail.define( true );
             dispatch( n->m_body );
+            m_outerFuncCanFail.undefine();
             out.write( "goto case_err;\n" );
             out.begin( "}\n" );
             out.end( "};" );
@@ -248,6 +269,9 @@ namespace {
             if( n->m_type->m_callCanFail ) {
                 out.write( "int& status" );
                 sep = ", ";
+                m_outerFuncCanFail.define( true );
+            } else {
+                m_outerFuncCanFail.define( false );
             }
             for( auto p : n->m_params ) {
                 assert( p->m_type );
@@ -257,6 +281,7 @@ namespace {
             }
             out.write( ") {\n" );
             string ret = dispatch( n->m_body );
+            m_outerFuncCanFail.undefine();
             out.write( string_concat( "return ", ret, ";\n" ) );
             out.end( "}\n" );
             return symbol;
@@ -288,6 +313,9 @@ namespace {
 
         string operator()( Ast::FunctionCall* n ) {
             auto func = dispatch( n->m_func );
+            if( n->m_func->m_type->m_callCanFail && m_outerFuncCanFail.get() == false ) {
+                out.write( "int status{0};\n" );
+            }
             vector<string> args;
             for( auto a : n->m_args ) {
                 args.push_back( dispatch( a ) );
@@ -338,7 +366,6 @@ namespace {
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
             out.begin( "namespace XX {" );
-            out.write( "int status{0};//FIXME.coro\n" );
             out.write(
                 "struct string { std::string m_s; "
                 "string() = default; "
