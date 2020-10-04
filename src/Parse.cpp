@@ -631,6 +631,12 @@ static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
     return Result::OK;
 }
 
+static Result parse_Const( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    RETURN_IF_FAILED( parse_Var( env, args, out ) );
+    static_cast<Ast::VariableDecl*>( *out )->m_const = true;
+    return Result::OK;
+}
+
 static Result parse_Set( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
     *out = nullptr;
     Ast::LexNode* lex_dst;
@@ -812,6 +818,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "block"sv, &parse_Block );
     addBuiltin( env, "break"sv, &parse_Break );
     addBuiltin( env, "var"sv, &parse_Var );
+    addBuiltin( env, "const"sv, &parse_Const );
     addBuiltin( env, "set!"sv, &parse_Set );
     addBuiltin( env, "scope"sv, &parse_Scope );
     addBuiltin( env, "macro"sv, &parse_Macro );

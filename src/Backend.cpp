@@ -272,7 +272,7 @@ namespace {
             }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
             addName( n, istring::make( name ) );
-            out.begin( string_concat( n->m_type->name(), " "sv, name, "{" ) );
+            out.begin( string_concat( n->m_const ? "static const " : "", n->m_type->name(), " "sv, name, "{" ) );
             if( n->m_initializer.empty() == false ) {
                 out.write( init );
             }

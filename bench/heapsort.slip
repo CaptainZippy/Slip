@@ -2,20 +2,20 @@
 ; int last = 42;
 
 ; todo generator
-(func random (max:double):double
-    (var IM:int 139968)
-    (var IA:int 3877)
-    (var IC:int 29573)
-    (var last_:int 42)
-    (var last (mod
-        (add
-            (mul last_ IA)
-            IC)
-        IM))
-    (muld max (divd (dfromi last) (dfromi IM))))
+(coro random (max:double):double
+    (const IM:int 139968)
+    (const IA:int 3877)
+    (const IC:int 29573)
+    (var last:int 42)
+    (while true
+        (set! last (mod (add (mul last IA) IC) IM))
+        (yield (divd
+            (muld max (dfromi last))
+            (dfromi IM)))))
 
 (func main (argv:(array_view string)):int
     (puts "hello ")
-    (putd (random 10))
+    (var r (random 10))
+    (putd (r))
     0)
 

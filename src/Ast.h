@@ -474,6 +474,7 @@ namespace Slip::Ast {
             with( *this );
         }
         std::vector<Node*> m_initializer;
+        bool m_const{false};
     };
 
     struct While : Node {
