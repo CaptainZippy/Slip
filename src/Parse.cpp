@@ -421,6 +421,15 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Node**
         Ast::Node* te;
         RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
         auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
+        auto it = find_if( item->m_decltype->m_attrs, []( Ast::LexNode* n ) {
+            if( auto i = dynamic_cast<Ast::LexIdent*>( n ) ) {
+                return i->text() == "ref";
+            }
+            return false;
+        } );
+        if( !it.empty() ) {
+            param->m_ref = true;
+        }
         func->m_params.push_back( param );
     }
     // TODO check unique names
@@ -784,26 +793,9 @@ struct Parse::ResultT {
         RETURN_IF_FAILED( cache->instantiate( type, &r ) );
         *out = r;
         return Result::OK;
-        return Result::OK;
     }
 };
 
-
-static Result makeTypeRef( array_view<Ast::Node*> args, Ast::Node** out ) {
-    RETURN_ERR_IF( args.size() != 1 );
-    auto cur = args[0];
-    while( auto ref = dynamic_cast<Ast::Reference*>( cur ) ) {
-        cur = ref->m_target;
-    }
-    auto type = dynamic_cast<Ast::Type*>( cur );
-    RETURN_ERR_IF( type == nullptr );
-    assert( type->m_struct );
-    auto ref = new Ast::Type( *type );
-    ref->m_ref = type;
-    ref->m_struct = type->m_struct;
-    *out = ref;
-    return Result::OK;
-}
 
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
@@ -876,7 +868,6 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addIntrinsic( env, "dfromi", d_i );
     addIntrinsic( env, "atoi", i_s );
     addIntrinsic( env, "strcat!", v_ss );
-    addIntrinsic( env, "ref", t_t )->m_intrinsic = &makeTypeRef;
 
     auto module = make_unique_del<Ast::Module>();
     for( auto c : lex.items() ) {

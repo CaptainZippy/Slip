@@ -368,6 +368,7 @@ namespace Slip::Ast {
 
     struct Parameter : Named {
         AST_DECL();
+        bool m_ref{false};
         template <typename With>
         Parameter( string_view s, With&& with ) : Named( s ) {
             with( *this );
@@ -451,8 +452,6 @@ namespace Slip::Ast {
         Type( string_view sym );
         Type( istring sym );
 
-        // Ptr to original if a ref
-        Type* m_ref{nullptr};
         // callable can fail
         bool m_callCanFail{false};
         // non-empty for callable types.

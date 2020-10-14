@@ -2,7 +2,7 @@
     cur:int
     end:int )
 
-(func advance (self:(ref countup)):bool
+(func advance (self:@ref countup):bool
     (if (lt? self.cur self.end)
         (begin (set! self.cur (add self.cur 1)) true)
         false))

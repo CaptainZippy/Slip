@@ -258,7 +258,7 @@ namespace {
                     assert( p->m_name.c_str() );
                     symbol.append( "__" );
                     symbol.append( p->m_type->name() );  // todo valid symbol, spaces etc
-                    if( p->m_type->m_ref ) {
+                    if( p->m_ref ) {
                         symbol.append( "_ref" );
                     }
                 }
@@ -276,7 +276,7 @@ namespace {
             for( auto p : n->m_params ) {
                 assert( p->m_type );
                 assert( p->m_name.c_str() );
-                out.write( string_concat( sep, p->m_type->name(), p->m_type->m_ref ? "& " : " ", p->m_name ) );
+                out.write( string_concat( sep, p->m_type->name(), p->m_ref ? "& " : " ", p->m_name ) );
                 sep = ", ";
             }
             out.write( ") {\n" );

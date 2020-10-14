@@ -505,8 +505,6 @@ namespace Slip::Sema {
                 return true;
             if( lhs == &Ast::s_typeVoid )
                 return true;
-            if( lhs->m_ref == rhs )
-                return true;
             if( lhs->name().view() == "auto"sv )
                 return true;
             for( auto&& s : lhs->m_sum ) {

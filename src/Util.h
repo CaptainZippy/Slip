@@ -8,7 +8,8 @@ namespace Slip {
     inline void error( const char* msg ) { __debugbreak(); }
 
 #define assert( A ) \
-    if( !( A ) ) __debugbreak()
+    if( !( A ) )    \
+    __debugbreak()
 #define cast( T, a ) dynamic_cast<T*>( a )
 
     struct Result {
@@ -134,7 +135,8 @@ namespace Slip {
         Optional( const Optional& o ) = delete;
         void operator=( const Optional& o ) = delete;
         void reset() {
-            if( m_ptr ) m_ptr->~T();
+            if( m_ptr )
+                m_ptr->~T();
         }
         explicit operator bool() const { return m_ptr != nullptr; }
         T operator*() {
@@ -181,9 +183,23 @@ namespace Slip {
         return {iterable};
     }
 
+    template <typename Iter>
+    struct range {
+        range() : begin{}, end{} {}
+        range( Iter b, Iter e ) : begin( b ), end( e ) {}
+        bool empty() const { return begin == end; }
+        Iter begin;
+        Iter end;
+    };
+
     template <typename T, typename V>
-    auto find( T&& iterable, const V& v ) {
-        return std::find( iterable.begin(), iterable.end(), v );
+    auto find( T&& iterable, const V& v ) -> range<typename std::decay_t<T>::iterator> {
+        return {std::find( iterable.begin(), iterable.end(), v ), iterable.end()};
+    }
+
+    template <typename T, typename P>
+    auto find_if( T&& iterable, P&& p ) -> range<typename std::decay_t<T>::iterator> {
+        return {std::find_if( iterable.begin(), iterable.end(), p ), iterable.end()};
     }
 
     template <typename Cont, typename Lambda>
