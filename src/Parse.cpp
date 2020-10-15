@@ -78,6 +78,7 @@ using namespace Slip;
 enum class Ellipsis { ZeroOrMore, OneOrMore };
 
 static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out );
+static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Node** out );
 
 static Result matchLex( Ast::Environment* env, Parse::Args& args ) {
     RETURN_ERR_IF( !args.empty() );
@@ -297,7 +298,8 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
                 for( auto&& l : lbody ) {
                     Ast::Node* b;
                     RETURN_IF_FAILED( parse1( env, l, &b ) );
-                    if( b ) bd->m_items.emplace_back( b );
+                    if( b )
+                        bd->m_items.emplace_back( b );
                 }
                 replacement = bd;
             }
@@ -454,6 +456,14 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Node**
 }
 
 static Result parse_Let( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    Ast::Node* n;
+    Ast::VariableDecl* v;
+    RETURN_IF_FAILED( parse_Var( env, args, &n ) );
+    RETURN_IF_FAILED( dynCast( n, &v ) );
+    v->m_kind = Ast::VariableDecl::Kind::Immutable;
+    *out = v;
+    return Result::OK;
+#if 0
     Ast::LexIdent* lname;
     Ast::LexNode* lbody;
     if( matchLex( env, args, &lname, &lbody ).isOk() ) {  // short form (let foo 0)
@@ -495,6 +505,7 @@ static Result parse_Let( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
 
     *out = seq;
     return Result::OK;
+#endif
 }
 
 static Result parse_If( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
@@ -528,7 +539,8 @@ static Result parse_While( Ast::Environment* env, Ast::LexList* args, Ast::Node*
         for( auto&& l : lbody ) {
             Ast::Node* b;
             RETURN_IF_FAILED( parse1( env, l, &b ) );
-            if( b ) bd->m_items.emplace_back( b );
+            if( b )
+                bd->m_items.emplace_back( b );
         }
         nbody = bd;
     }
@@ -634,6 +646,7 @@ static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
     }
 
     auto ret = new Ast::VariableDecl( istring::make( sym->text() ), WITH( _.m_declTypeExpr = varType, _.m_loc = sym->m_loc ) );
+    ret->m_kind = Ast::VariableDecl::Kind::Mutable;
     ret->m_initializer.swap( vals );
     RETURN_IF_FAILED( env->bind( sym->text(), ret ) );
     *out = ret;
@@ -641,8 +654,12 @@ static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
 }
 
 static Result parse_Const( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
-    RETURN_IF_FAILED( parse_Var( env, args, out ) );
-    static_cast<Ast::VariableDecl*>( *out )->m_const = true;
+    Ast::Node* n;
+    Ast::VariableDecl* v;
+    RETURN_IF_FAILED( parse_Var( env, args, &n ) );
+    RETURN_IF_FAILED( dynCast( n, &v ) );
+    v->m_kind = Ast::VariableDecl::Kind::Constant;
+    *out = v;
     return Result::OK;
 }
 
@@ -796,7 +813,6 @@ struct Parse::ResultT {
     }
 };
 
-
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "coro"sv, &parse_Coroutine );
@@ -824,9 +840,8 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "array_heap"sv, [cache = new Parse::ArrayView::Cache( "array_heap" )]( auto e, auto a, auto o ) {
         return ArrayView::parse( cache, e, a, o );
     } );
-    addBuiltin( env, "result"sv, [cache = new Parse::ResultT::Cache()]( auto e, auto a, auto o ) {
-        return ResultT::parse( cache, e, a, o );
-    } );
+    addBuiltin( env, "result"sv,
+                [cache = new Parse::ResultT::Cache()]( auto e, auto a, auto o ) { return ResultT::parse( cache, e, a, o ); } );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );

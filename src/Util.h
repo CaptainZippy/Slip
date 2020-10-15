@@ -262,6 +262,14 @@ namespace Slip {
         return unique_ptr_del<_Ty>( new _Ty( std::forward<_Types>( _Args )... ), []( _Ty* t ) { delete t; } );
     }
 
+    template <typename DST, typename SRC>
+    Result dynCast( SRC* src, DST** dst ) {
+        if( auto p = dynamic_cast<DST*>( src ) ) {
+            *dst = p;
+            return Result::OK;
+        }
+        return Result::ERR;
+    }
 }  // namespace Slip
 
 namespace std {

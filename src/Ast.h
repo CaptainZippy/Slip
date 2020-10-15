@@ -473,7 +473,12 @@ namespace Slip::Ast {
             with( *this );
         }
         std::vector<Node*> m_initializer;
-        bool m_const{false};
+        enum class Kind {
+            Immutable, // can't change beyond initialization
+            Mutable,   // can change
+            Constant,  // immutable, known at compile time
+        };
+        Kind m_kind{Kind::Immutable};
     };
 
     struct While : Node {

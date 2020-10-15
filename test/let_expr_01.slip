@@ -3,7 +3,8 @@
     (add n 1))
 
 (func main ():int
-    ;(let ((x 4))  (puti (next x)))
-    ;(define x 4)
-    ;(puti (next x))
+    (let x 4)
+    (puti (next x))
+    (var y 4)
+    (puti (next y))
     0)

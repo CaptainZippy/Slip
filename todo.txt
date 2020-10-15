@@ -3,7 +3,8 @@
 
 * check for unused values (mostly so backend doesn't have unused variable warnings)
 * neatly handle "void" in backend
-
+* error checking for immutable, mutable, const
+    * must initialize const with constant expr
 
 # generics
 # ranges/iterators
