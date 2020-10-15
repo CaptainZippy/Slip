@@ -8,7 +8,7 @@ slip_bench = [
     'heapsort',
     'hello',
     #'moments',
-    #'nestedloop',
+    'nestedloop',
     #'nsieve',
 ]
 
