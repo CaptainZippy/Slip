@@ -70,7 +70,7 @@ namespace Slip::Ast {
 
     struct LexDot : public LexNode {
         AST_DECL();
-        LexDot( LexNode* lhs, LexNode* rhs) : m_lhs(lhs), m_rhs(rhs) {}
+        LexDot( LexNode* lhs, LexNode* rhs ) : m_lhs( lhs ), m_rhs( rhs ) {}
 
         LexNode* m_lhs;
         LexNode* m_rhs;
@@ -466,6 +466,18 @@ namespace Slip::Ast {
         std::vector<Ast::Type*> m_sum;
     };
 
+    struct TryExpr : Node {
+        AST_DECL();
+
+        template <typename With>
+        TryExpr( Ast::Node* expr, Ast::Node* fail, With&& with ) : m_expr( expr ), m_fail( fail ) {
+            with( *this );
+        }
+
+        Ast::Node* m_expr;
+        Ast::Node* m_fail;
+    };
+
     struct VariableDecl : Named {
         AST_DECL();
         template <typename With>
@@ -474,9 +486,9 @@ namespace Slip::Ast {
         }
         std::vector<Node*> m_initializer;
         enum class Kind {
-            Immutable, // can't change beyond initialization
-            Mutable,   // can change
-            Constant,  // immutable, known at compile time
+            Immutable,  // can't change beyond initialization
+            Mutable,    // can change
+            Constant,   // immutable, known at compile time
         };
         Kind m_kind{Kind::Immutable};
     };

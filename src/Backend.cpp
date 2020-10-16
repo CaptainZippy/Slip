@@ -372,6 +372,19 @@ namespace {
             return n->name().std_str();
         }
 
+        string operator()( Ast::TryExpr* n ) {
+            auto rhs = dispatch( n->m_expr );
+            out.write( string_concat( "if(", rhs, ".fail) {\n" ) );
+            if( n->m_fail ) {
+                auto fail = dispatch( n->m_fail );
+                out.write( string_concat( rhs, ".ok = ", fail, ";\n" ) );
+            } else {
+                out.write( string_concat( "return ", rhs, ".fail;\n" ) );
+            }
+            out.write( "}\n" );
+            return string_concat( rhs, ".ok" );
+        }
+
         string operator()( Ast::Module* n ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );

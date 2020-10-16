@@ -161,7 +161,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( StructDecl )
-    REFLECT_PARENT( Named)
+    REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_fields, Flags::Child )
     REFLECT_END()
 
@@ -172,6 +172,12 @@ namespace Slip::Ast {
     REFLECT_BEGIN( Definition )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_value, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( TryExpr )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_expr, Flags::Child )
+    REFLECT_FIELD2( m_fail, Flags::Child )
     REFLECT_END()
 }  // namespace Slip::Ast
 
@@ -212,7 +218,7 @@ Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter*
 Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Node* ret,
                                                      std::initializer_list<Parameter*> params ) {
     auto f = new FunctionDecl( name );
-    f->m_intrinsic = std::move(intrin);
+    f->m_intrinsic = std::move( intrin );
     f->m_declReturnTypeExpr = ret;
     f->m_body = new Node();
     f->m_body->m_declTypeExpr = ret;
@@ -323,7 +329,8 @@ void Ast::print( Node* node ) {
 }
 
 void Ast::print( Node* node, Io::TextOutput& out ) {
-    if( !node ) return;
+    if( !node )
+        return;
     Reflect::Var top{node};
     ::print( top, out, false );
     out.nl();

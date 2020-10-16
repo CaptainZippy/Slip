@@ -676,6 +676,34 @@ static Result parse_Set( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
     return Result::OK;
 }
 
+static Result parse_Try( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    *out = nullptr;
+    Ast::LexNode* lexpr{};
+    Ast::LexNode* lfail{};
+    switch( args->size() ) {
+        default:
+        case 0:
+        case 1:
+            RETURN_RES_IF_REACHED( Result::ERR, "try expects 1 or 2 args" );
+        case 2:
+            RETURN_IF_FAILED( matchLex( env, args, &lexpr ) );
+            break;
+        case 3:
+            RETURN_IF_FAILED( matchLex( env, args, &lexpr, &lfail ) );
+            break;
+    }
+
+    Ast::Node* expr;
+    RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
+    Ast::Node* fail{};
+    if( lfail ) {
+        RETURN_IF_FAILED( parse1( env, lfail, &fail ) );
+    }
+
+    *out = new Ast::TryExpr( expr, fail, WITH( _.m_loc = lexpr->m_loc ) );
+    return Result::OK;
+}
+
 static Result parse_Macro( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
     *out = nullptr;
     Ast::LexIdent* lname;
@@ -828,6 +856,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "var"sv, &parse_Var );
     addBuiltin( env, "const"sv, &parse_Const );
     addBuiltin( env, "set!"sv, &parse_Set );
+    addBuiltin( env, "try"sv, &parse_Try );
     addBuiltin( env, "scope"sv, &parse_Scope );
     addBuiltin( env, "macro"sv, &parse_Macro );
     addBuiltin( env, "struct"sv, &parse_Struct );

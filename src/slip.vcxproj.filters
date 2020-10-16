@@ -154,6 +154,9 @@
     <None Include="..\test\try_expr_01.slip">
       <Filter>test</Filter>
     </None>
+    <None Include="..\test\try_expr_02.slip">
+      <Filter>test</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

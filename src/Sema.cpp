@@ -313,6 +313,7 @@ namespace Slip::Sema {
             TypeInfo* tl;
             RETURN_IF_FAILED( dispatch( n->m_lhs, &tl ) );
             _isConvertible( n->m_lhs, tl, n->m_rhs, tr );
+            // TODO check lhs is assignable
             vi.info = tl;
             return Result::OK;
         }
@@ -391,6 +392,22 @@ namespace Slip::Sema {
             auto it = std::find_if( decl->m_fields.begin(), decl->m_fields.end(), [id]( auto a ) { return a->name() == id; } );
             RETURN_ERR_IF( it == decl->m_fields.end(), "Field not found" );
             vi.info = _internKnownType( ( *it )->m_type );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::TryExpr* n, VisitInfo& vi ) {
+            TypeInfo* expri;
+            RETURN_IF_FAILED( dispatch( n->m_expr, &expri ) );
+            auto type = expri->get_type();
+            RETURN_ERR_IF( type->m_sum.size() != 2 );
+            vi.info = _internKnownType( type->m_sum[0] );//TODO assumes error type@1
+
+            TypeInfo* faili{};
+            if( n->m_fail ) {
+                RETURN_IF_FAILED( dispatch( n->m_fail, &faili ) );
+                _isConvertible( n, vi.info, n->m_fail, faili );
+            }
+
             return Result::OK;
         }
 
@@ -491,7 +508,7 @@ namespace Slip::Sema {
                 RETURN_ERR_IF( v.info->type == nullptr, "Can't resolve type %s:%i:%i: near \"%.*s\"", loc.filename(), loc.line(), loc.col(),
                                loc.text().size(), loc.text().begin() );
                 if( v.node->m_type ) {
-                    assert( v.node->m_type == v.info->type ); // type already assigned, ensure it matches deduced
+                    assert( v.node->m_type == v.info->type );  // type already assigned, ensure it matches deduced
                 } else {
                     assert( v.info->type );
                     v.node->m_type = v.info->type;

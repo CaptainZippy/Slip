@@ -1,0 +1,15 @@
+
+(func safe_div (num:int den:int):(result int)
+    (if (eq? den 0)
+        failed
+        (div num den)))
+
+(func test ():void
+    (var x0 (try (safe_div 100 22) -1))
+    (var x1 (try (safe_div 100 0) -1))
+    (puti x0)
+    (puti x1))
+
+(func main ():int
+    (test)
+    0)
