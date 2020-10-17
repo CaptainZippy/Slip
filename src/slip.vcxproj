@@ -195,6 +195,9 @@
     <None Include="..\bench\moments.slip" />
     <None Include="..\bench\nestedloop.slip" />
     <None Include="..\bench\nsieve.slip" />
+    <None Include="..\errs\meson.build" />
+    <None Include="..\errs\syntax_01.slip" />
+    <None Include="..\errs\syntax_02.slip" />
     <None Include="..\meson.build" />
     <None Include="..\stl.natjmc" />
     <None Include="..\test\array_type_02.slip" />
@@ -225,6 +228,7 @@
     <None Include="..\test\type_infer_02.slip" />
     <None Include="..\test\type_infer_03.slip" />
     <None Include="..\test\var_expr_01.slip" />
+    <None Include="Errors.inc" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis" />

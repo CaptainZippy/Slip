@@ -1,5 +1,7 @@
 # Temp build files
 build/
+test/*.cpp
+bench/*.cpp
 
 # Git merge files
 *.orig

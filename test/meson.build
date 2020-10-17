@@ -38,5 +38,7 @@ testmain = static_library('testmain', 'util/main.cpp')
 foreach t : slip_tests
     cpp = slip_compile.process('@0@.slip'.format(t))
     exe = executable(t, cpp, link_with:testmain )
-    test(t, exe)
+    test(t, exe,
+        suite: 'test',
+        protocol: 'exitcode')
 endforeach

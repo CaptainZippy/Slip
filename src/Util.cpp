@@ -2,17 +2,40 @@
 
 namespace Slip {
 
-    void Result::failed( const char* what, const char* file, int line, const char* fmt, ... ) {
-        fprintf( stderr, "%s:%i:1: error: ", file, line );
+    int default_diagnostic_fn( const char* fmt, va_list args ) { return vfprintf( stderr, fmt, args ); }
+
+    int ( *diagnostic_fn )( const char* fmt, va_list args ) = &default_diagnostic_fn;
+
+    void set_diagnostic_fn( int ( *fn )( const char* fmt, va_list args ) ) { diagnostic_fn = fn; }
+
+    int diagnostic( const char* fmt, ... ) {
+        va_list ap;
+        va_start( ap, fmt );
+        int r = diagnostic( fmt, ap );
+        va_end( ap );
+        return r;
+    }
+    int diagnostic( const char* fmt, va_list args ) { return ( *diagnostic_fn )( fmt, args ); }
+
+    void Result::failed( int code, const char* what, const char* file, int line, const char* fmt, ... ) {
+        diagnostic( "%s:%i:1: error: E%04i(%s)", file, line, code, Error::toString( code ) );
         if( fmt && fmt[0] ) {
             va_list ap;
             va_start( ap, fmt );
-            vfprintf( stderr, fmt, ap );
+            diagnostic( fmt, ap );
             va_end( ap );
-        } else {
-            fprintf( stderr, "Failed" );
         }
-        fprintf( stderr, " - '%s'\n", what );
+        diagnostic( " - '%s'\n", what );
+    }
+
+    const char* Error::toString( int code ) {
+        const char* s[] = {
+            "Success",
+#define ERROR_CASE( A ) #A,
+#include "Errors.inc"
+#undef ERROR_CASE
+        };
+        return ( code >= 0 && code < sizeof( s ) / sizeof( char* ) ) ? s[code] : "Unknown error";
     }
 
     std::string string_format( const char* fmt, ... ) {

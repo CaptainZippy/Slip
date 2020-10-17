@@ -5,12 +5,24 @@ namespace Slip {
 
     typedef unsigned char byte;
 
-    inline void error( const char* msg ) { __debugbreak(); }
+    int diagnostic( const char* fmt, ... );
+    int diagnostic( const char* fmt, va_list args );
+    void set_diagnostic_fn( int ( *fn )( const char* fmt, va_list args ) );
 
 #define assert( A ) \
     if( !( A ) )    \
     __debugbreak()
 #define cast( T, a ) dynamic_cast<T*>( a )
+
+    namespace Error {
+        const char* toString( int code );
+        enum {
+            NoError = 0,
+#define ERROR_CASE( A ) A,
+#include "Errors.inc"
+#undef ERROR_CASE
+        };
+    }  // namespace Error
 
     struct Result {
         enum OkCode { OK = 0 };
@@ -19,30 +31,30 @@ namespace Slip {
         Result( int c ) : code( c ) {}
         bool isOk() const { return code == OK; }
         int code;
-        static void failed( const char* what, const char* file, int line, const char* fmt, ... );
+        static void failed( int code, const char* what, const char* file, int line, const char* fmt, ... );
     };
 #define R_OK Result::OK
-#define RETURN_IF_FAILED( COND, ... )                                    \
-    do {                                                                 \
-        Result res = ( COND );                                           \
-        if( !res.isOk() ) {                                              \
-            Result::failed( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
-            return res;                                                  \
-        }                                                                \
+#define RETURN_IF_FAILED( COND, ... )                                              \
+    do {                                                                           \
+        Result res = ( COND );                                                     \
+        if( !res.isOk() ) {                                                        \
+            Result::failed( res.code, #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            return res;                                                            \
+        }                                                                          \
     } while( 0 )
 
-#define RETURN_ERR_IF( COND, ... )                                       \
-    do {                                                                 \
-        if( ( COND ) ) {                                                 \
-            Result::failed( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
-            return Result::ERR;                                          \
-        }                                                                \
+#define RETURN_ERR_IF( COND, ... )                                                      \
+    do {                                                                                \
+        if( ( COND ) ) {                                                                \
+            Result::failed( Error::Failed, #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            return Result::ERR;                                                         \
+        }                                                                               \
     } while( 0 )
 
-#define RETURN_RES_IF_REACHED( RES, ... )                               \
-    do {                                                                \
-        Result::failed( "Failed", __FILE__, __LINE__, "" __VA_ARGS__ ); \
-        return RES;                                                     \
+#define RETURN_RES_IF_REACHED( RES, ... )                                    \
+    do {                                                                     \
+        Result::failed( RES, "Failed", __FILE__, __LINE__, "" __VA_ARGS__ ); \
+        return RES;                                                          \
     } while( 0 )
 
     template <typename T>

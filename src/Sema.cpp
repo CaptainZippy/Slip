@@ -613,7 +613,7 @@ namespace Slip::Sema {
             } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
                 std::vector<Ast::Node*> candidates = named->m_candidates;
                 if( candidates.size() != 1 ) {
-                    Result::failed( "unresolved call", 0, 0, named->name().c_str() );
+                    Result::failed( Error::UnresolvedCall, "unresolved call", 0, 0, named->name().c_str() );
                 }
                 auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] );
                 assert( func );

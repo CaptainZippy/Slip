@@ -33,5 +33,6 @@ slip_compile = generator(slipcc,
     output : ['@BASENAME@.cpp'],
     arguments: ['--output-dir=@BUILD_DIR@', '@INPUT@'])
 
-subdir('test')
-subdir('bench')
+# subdir('test')
+subdir('errs')
+# subdir('bench')

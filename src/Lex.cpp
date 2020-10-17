@@ -61,6 +61,7 @@ static std::string lex_error( const Io::SourceLocation& loc, const char* fmt, ..
 
 Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
 #define LEX_ERROR( LOC, ... ) RETURN_RES_IF_REACHED( Result::ERR, "%s", lex_error( LOC, __VA_ARGS__ ).c_str() );
+#define LEX_ERROR2( ERR, LOC, ... ) RETURN_RES_IF_REACHED( ERR, "%s", lex_error( LOC, __VA_ARGS__ ).c_str() );
 
     *atom = nullptr;
     while( in.available() ) {
@@ -94,7 +95,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     }
                 }
                 if( in.next() != ')' ) {
-                    LEX_ERROR( in.location( start ), "Missing ')' for list begun here" );
+                    LEX_ERROR2(Error::MissingClosingParen, in.location( start ), "Missing ')' for list begun here" );
                 }
 
                 auto l = new LexList( in.location( start, in.tell() ) );
