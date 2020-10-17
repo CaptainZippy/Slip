@@ -50,24 +50,12 @@ namespace Slip::Ast {
 
 using namespace Slip;
 
-static std::string lex_error( const Io::SourceLocation& loc, const char* fmt, ... ) {
-    va_list ap;
-    va_start( ap, fmt );
-    auto l = string_format( "%s:%i:%i:", loc.filename(), loc.line(), loc.col() );
-    auto m = string_formatv( fmt, ap );
-    va_end( ap );
-    return string_concat( l, m );
-}
-
 Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
-#define LEX_ERROR( LOC, ... ) RETURN_RES_IF_REACHED( Result::ERR, "%s", lex_error( LOC, __VA_ARGS__ ).c_str() );
-#define LEX_ERROR2( ERR, LOC, ... ) RETURN_RES_IF_REACHED( ERR, "%s", lex_error( LOC, __VA_ARGS__ ).c_str() );
-
     *atom = nullptr;
     while( in.available() ) {
         switch( in.peek() ) {
             case '\0':
-                LEX_ERROR( in.location(), "null in input" );
+                RETURN_ERROR( Error::LexInvalidCharacter, in.location(), "null in input" );
             case ' ':
             case '\r':
             case '\n':
@@ -95,7 +83,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     }
                 }
                 if( in.next() != ')' ) {
-                    LEX_ERROR2(Error::MissingClosingParen, in.location( start ), "Missing ')' for list begun here" );
+                    RETURN_ERROR( Error::MissingClosingParen, in.location( start ), "Missing ')' for list begun here" );
                 }
 
                 auto l = new LexList( in.location( start, in.tell() ) );
@@ -140,9 +128,9 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 while( 1 ) {
                     switch( in.next() ) {
                         case -1:
-                            LEX_ERROR( in.location( start ), "End of file reached while parsing string" );
+                            RETURN_ERROR( Error::LexPrematureEndOfFile, in.location( start ), "End of file reached while parsing string" );
                         case 0:
-                            LEX_ERROR( in.location( start ), "Null in string" );
+                            RETURN_ERROR( Error::LexInvalidCharacter, in.location( start ), "Null in string" );
                         case '"': {
                             *atom = new LexString( in.location( start + 1, in.tell() - 1 ) );
                             return Result::OK;
@@ -173,7 +161,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 LexNode* expr;
                 RETURN_IF_FAILED( lex_atom( in, &expr ) );
                 if( expr == nullptr ) {
-                    LEX_ERROR( in.location(), "Attribute missing expression" );
+                    RETURN_ERROR( Error::LexMalformedAttribute, in.location(), "Attribute missing expression" );
                 }
                 expr->m_attrs.swap( attrs );
                 *atom = expr;
@@ -198,7 +186,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     *atom = new LexIdent( in.location( start, in.tell() ) );
                     return Result::OK;
                 }
-                LEX_ERROR( in.location(), "unexpected character '%c'", in.peek() );
+                RETURN_ERROR( Error::LexInvalidCharacter, in.location(), "unexpected character '%c'", in.peek() );
             }
         }
     }
@@ -244,7 +232,7 @@ Slip::Result Ast::lex_input( Io::TextInput& input, Slip::unique_ptr_del<LexList>
     }
     input.eatwhite();
     if( input.available() ) {
-        LEX_ERROR( input.location( input.tell() ), "Extra characters found after file body" );
+        RETURN_ERROR( Error::LexSpuriousChars, input.location( input.tell() ), "Extra characters found after file body" );
     }
 
     lex = std::move( l );

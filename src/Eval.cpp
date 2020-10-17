@@ -106,7 +106,7 @@ namespace {
         }
 
         Result operator()( Ast::NamedFunctionCall* n, Ast::Environment* env ) {
-            RETURN_ERR_IF( n->m_resolved == nullptr );
+            RETURN_ERROR_IF( n->m_resolved == nullptr, Error::UnresolvedCall, n->m_loc );
             RETURN_IF_FAILED( dispatch( n->m_resolved, env ) );
             return Result::OK;
         }

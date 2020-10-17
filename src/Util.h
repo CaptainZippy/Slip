@@ -6,7 +6,7 @@ namespace Slip {
     typedef unsigned char byte;
 
     int diagnostic( const char* fmt, ... );
-    int diagnostic( const char* fmt, va_list args );
+    int diagnosticv( const char* fmt, va_list args );
     void set_diagnostic_fn( int ( *fn )( const char* fmt, va_list args ) );
 
 #define assert( A ) \
@@ -24,6 +24,10 @@ namespace Slip {
         };
     }  // namespace Error
 
+    namespace Io {
+        struct SourceLocation;
+    }
+
     struct Result {
         enum OkCode { OK = 0 };
         enum ErrCode { ERR = 1 };
@@ -32,15 +36,17 @@ namespace Slip {
         bool isOk() const { return code == OK; }
         int code;
         static void failed( int code, const char* what, const char* file, int line, const char* fmt, ... );
+        static void failed( int code, const Io::SourceLocation& loc, const char* fmt, ... );
+        static void debugContext( const char* expr, const char* file, int line, const char* fmt, ... );
     };
-#define R_OK Result::OK
-#define RETURN_IF_FAILED( COND, ... )                                              \
-    do {                                                                           \
-        Result res = ( COND );                                                     \
-        if( !res.isOk() ) {                                                        \
-            Result::failed( res.code, #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
-            return res;                                                            \
-        }                                                                          \
+
+#define RETURN_IF_FAILED( COND, ... )                                          \
+    do {                                                                       \
+        Result res = ( COND );                                                 \
+        if( !res.isOk() ) {                                                    \
+            Result::debugContext( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            return res;                                                        \
+        }                                                                      \
     } while( 0 )
 
 #define RETURN_ERR_IF( COND, ... )                                                      \
@@ -51,10 +57,20 @@ namespace Slip {
         }                                                                               \
     } while( 0 )
 
-#define RETURN_RES_IF_REACHED( RES, ... )                                    \
-    do {                                                                     \
-        Result::failed( RES, "Failed", __FILE__, __LINE__, "" __VA_ARGS__ ); \
-        return RES;                                                          \
+#define RETURN_ERROR_IF( COND, CODE, LOC, ... )                 \
+    do {                                                        \
+        if( ( COND ) ) {                                        \
+            Result::failed( CODE, LOC, "" __VA_ARGS__ );        \
+            Result::debugContext( "", __FILE__, __LINE__, "" ); \
+            return CODE;                                        \
+        }                                                       \
+    } while( 0 )
+
+#define RETURN_ERROR( CODE, LOC, ... )                      \
+    do {                                                    \
+        Result::failed( CODE, LOC, "" __VA_ARGS__ );        \
+        Result::debugContext( "", __FILE__, __LINE__, "" ); \
+        return CODE;                                        \
     } while( 0 )
 
     template <typename T>

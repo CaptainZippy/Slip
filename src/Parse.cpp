@@ -324,11 +324,6 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
             RETURN_ERR_IF( true );
         }
 
-        if( replacement == nullptr ) {
-            int x;
-            x = 0;
-        }
-
         *out = replacement;
         return Result::OK;
     }
@@ -684,7 +679,7 @@ static Result parse_Try( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
         default:
         case 0:
         case 1:
-            RETURN_RES_IF_REACHED( Result::ERR, "try expects 1 or 2 args" );
+            RETURN_ERROR( Result::ERR, args->m_loc, "try expects 1 or 2 args" );
         case 2:
             RETURN_IF_FAILED( matchLex( env, args, &lexpr ) );
             break;

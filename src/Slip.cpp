@@ -40,7 +40,7 @@ namespace Slip::Args {
         Result parse( array_view<const char*> args ) {
             auto positionals = make_array_view( m_positional );
             for( string_view key_val : args ) {
-                if( key_val[0] == '-' ) {
+                if( key_val[0] == '-' ) {  // switch?
                     auto equals = key_val.find( "=" );
                     string_view key = key_val;
                     string_view val;
@@ -56,11 +56,14 @@ namespace Slip::Args {
                             break;
                         }
                     }
-                    RETURN_ERR_IF( !found, "Unknown argument %s", key_val.data() );
+                    RETURN_ERROR_IF( !found, Error::UnknownCmdlineArgument, Io::SourceLocation(), "%s", key_val.data() );
                 } else {  // positional
-                    RETURN_ERR_IF( positionals.empty(), "Extra positional argument" );
+                    RETURN_ERROR_IF( positionals.empty(), Error::ExtraPositionalCmdlineArgument, Io::SourceLocation(), "'%s'", key_val.data() );
                     positionals.front().m_action( key_val );
-                    positionals = positionals.ltrim( 1 );
+                    // don't consume variadic positionals
+                    if( positionals.back().m_meta.find( "..." ) == string_view::npos ) {
+                        positionals = positionals.ltrim( 1 );
+                    }
                 }
             }
             return Result::OK;
@@ -85,12 +88,11 @@ namespace Slip::Args {
     };
 }  // namespace Slip::Args
 
-static Slip::Result compile( const char* fname ) {
+static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fname ) {
     using namespace Slip;
 
-    auto smanager = Io::makeSourceManager();
     unique_ptr_del<Ast::LexList> lex{nullptr, nullptr};
-    RETURN_IF_FAILED( Ast::lex_file( *smanager, fname, lex ) );
+    RETURN_IF_FAILED( Ast::lex_file( smanager, fname, lex ) );
 
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
     RETURN_IF_FAILED( Parse::module( *lex, ast ) );
@@ -126,26 +128,27 @@ namespace Tap {
             va_end( ap );
             if( !s.empty() ) {
                 if( state == in_diag ) {
-                    fwrite( "\n", 1, 3, stderr );
+                    fwrite( "\n", 1, 1, stdout );
                 }
-                fwrite( s.c_str(), 1, s.size(), stderr );
+                fwrite( s.c_str(), 1, s.size(), stdout );
                 state = s.back() == '\n' ? at_start : in_header;
             }
         }
         return 0;
     }
 
-    static int diagnostic( const char* fmt, va_list args ) {
+    static int diagnosticv( const char* fmt, va_list args ) {
+        return 0;
         auto s = Slip::string_formatv( fmt, args );
         if( s.empty() ) {
             return 0;
         }
         switch( state ) {
             case at_start:
-                fwrite( "# ", 1, 2, stderr );
+                fwrite( "# ", 1, 2, stdout );
                 break;
             case in_header:
-                fwrite( "\n# ", 1, 3, stderr );
+                fwrite( "\n# ", 1, 3, stdout );
                 break;
             case in_diag:
                 break;
@@ -154,16 +157,30 @@ namespace Tap {
         for( size_t cur = 0; cur != s.size(); ) {
             auto nl = s.find( '\n', cur );
             if( nl == std::string::npos ) {
-                fwrite( s.c_str() + cur, 1, s.length() - cur, stderr );
+                fwrite( s.c_str() + cur, 1, s.length() - cur, stdout );
                 return 0;
             }
-            fwrite( s.c_str() + cur, 1, 1 + nl - cur, stderr );
+            fwrite( s.c_str() + cur, 1, 1 + nl - cur, stdout );
             cur = nl + 1;
         }
         if( s.back() == '\n' ) {
             state = at_start;
         }
         return 0;
+    }
+
+    Slip::Result getExpectedError( Slip::Io::SourceManager& smanager, const char* filename, std::string_view& expected ) {
+        // First line of file contains a comment with the expected error. e.g. "; LexInvalidCharacter"
+        using namespace Slip;
+        Io::TextInput text;
+        RETURN_IF_FAILED( smanager.load( filename, text ) );
+        RETURN_ERROR_IF( text.next() != ';', Error::MalformedTestResult, text.location() );
+        text.eatwhite();
+        const char* start = text.cur;
+        while( isalnum( text.next() ) ) {
+        }
+        expected = string_view{start, size_t( text.cur - start - 1 )};
+        return Result::OK;
     }
 
 };  // namespace Tap
@@ -179,21 +196,37 @@ Slip::Result slip_main( int argc, const char* argv[] ) {
     parser.add( "--output-dir=dir", "Output to specified directory", []( string_view v ) { Args::outputDir = v; } );
     parser.add( "--tap", "Use TAP test mode", []( string_view v ) {
         Args::tapTest = true;
-        set_diagnostic_fn( &Tap::diagnostic );
+        set_diagnostic_fn( &Tap::diagnosticv );
     } );
     parser.add( "input...", "Input files to compile", []( string_view v ) { Args::inputs.emplace_back( v ); } );
     RETURN_IF_FAILED( parser.parse( make_array_view( argv + 1, argc - 1 ) ) );
 
+    auto smanager = Io::makeSourceManager();
+
     if( Args::tapTest == false ) {
         for( auto input : Args::inputs ) {
-            RETURN_IF_FAILED( compile( input.c_str() ) );
+            RETURN_IF_FAILED( compile( *smanager, input.c_str() ) );
         }
     } else {
         Tap::header( "1..%i\n", Args::inputs.size() );
         int i = 0;
         for( auto input : Args::inputs ) {
-            const char* status = compile( input.c_str() ).isOk() ? "ok" : "not ok";
-            Tap::header( "%s %i - %s\n", status, ++i, input.c_str() );
+            auto result = compile( *smanager, input.c_str() );
+            string_view expected;
+            const char* actual = Error::toString( result.code );
+            if( Tap::getExpectedError( *smanager, input.c_str(), expected ).isOk() ) {
+
+                if( result.isOk() ) {
+                    Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, expected.size(), expected.data(), input.c_str() );
+                } else if( actual != expected ) {
+                    Tap::header( "not ok %i - expected %.*s but got E%04i(%s) in %s\n", ++i, expected.size(), expected.data(), result.code,
+                                 actual, input.c_str() );
+                } else {
+                    Tap::header( "ok %i - %s\n", ++i, input.c_str() );
+                }
+            } else {
+                Tap::header( "not ok %i - Error code missing from first line in %s %s\n", ++i, input.c_str(), actual );
+            }
         }
     }
 

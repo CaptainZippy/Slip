@@ -171,13 +171,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
-    <ClInclude Include="Backend.h" />
     <ClInclude Include="Func.h" />
     <ClInclude Include="Io.h" />
-    <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h" />
     <ClInclude Include="Reflect.h" />
-    <ClInclude Include="Sema.h" />
     <ClInclude Include="Slip.h" />
     <ClInclude Include="Util.h" />
   </ItemGroup>

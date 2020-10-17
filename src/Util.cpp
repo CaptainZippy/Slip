@@ -1,5 +1,7 @@
 #include "pch/Pch.h"
 
+#include "Io.h"
+
 namespace Slip {
 
     int default_diagnostic_fn( const char* fmt, va_list args ) { return vfprintf( stderr, fmt, args ); }
@@ -11,21 +13,45 @@ namespace Slip {
     int diagnostic( const char* fmt, ... ) {
         va_list ap;
         va_start( ap, fmt );
-        int r = diagnostic( fmt, ap );
+        int r = diagnosticv( fmt, ap );
         va_end( ap );
         return r;
     }
-    int diagnostic( const char* fmt, va_list args ) { return ( *diagnostic_fn )( fmt, args ); }
+    int diagnosticv( const char* fmt, va_list args ) { return ( *diagnostic_fn )( fmt, args ); }
+
+    void Result::failed( int code, const Io::SourceLocation& loc, const char* fmt, ... ) {
+        diagnostic( "%s:%i:%i: error: E%04i(%s)", loc.filename(), loc.line(), loc.col(), code, Error::toString( code ) );
+        if( fmt[0] ) {
+            diagnostic( ": " );
+            va_list ap;
+            va_start( ap, fmt );
+            diagnosticv( fmt, ap );
+            va_end( ap );
+        }
+        diagnostic( "\n" );
+        return;
+    }
 
     void Result::failed( int code, const char* what, const char* file, int line, const char* fmt, ... ) {
         diagnostic( "%s:%i:1: error: E%04i(%s)", file, line, code, Error::toString( code ) );
         if( fmt && fmt[0] ) {
             va_list ap;
             va_start( ap, fmt );
-            diagnostic( fmt, ap );
+            diagnosticv( fmt, ap );
             va_end( ap );
         }
-        diagnostic( " - '%s'\n", what );
+        diagnostic( what ? " - '%s'\n" : "\n", what );
+    }
+
+    void Result::debugContext( const char* expr, const char* file, int line, const char* fmt, ... ) {
+        diagnostic( "%s:%i:1: debug: %s", file, line, expr );
+        if( fmt && fmt[0] ) {
+            va_list ap;
+            va_start( ap, fmt );
+            diagnosticv( fmt, ap );
+            va_end( ap );
+        }
+        diagnostic( "\n" );
     }
 
     const char* Error::toString( int code ) {
@@ -35,7 +61,7 @@ namespace Slip {
 #include "Errors.inc"
 #undef ERROR_CASE
         };
-        return ( code >= 0 && code < sizeof( s ) / sizeof( char* ) ) ? s[code] : "Unknown error";
+        return ( code >= 0 && code < int( sizeof( s ) / sizeof( char* ) ) ) ? s[code] : "Unknown error";
     }
 
     std::string string_format( const char* fmt, ... ) {

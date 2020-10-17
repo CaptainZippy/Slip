@@ -1,5 +1,9 @@
+; MissingClosingParen
 
-(func main ():int
-    (var foo (add 1 2)) ; TODO #(add 1 2)
-    (puti foo)
+(func test():int
+    0)
+
+(func main () :int
+    (var foo (add 1 2) ##missing paren
+    (puti foo))
     0

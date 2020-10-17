@@ -197,7 +197,7 @@ Result Ast::Environment::bind( istring sym, Node* value ) {
     auto fdVal = dynamic_cast<Ast::FunctionDecl*>( value );
     auto fdCur = dynamic_cast<Ast::FunctionDecl*>( it->second );
     auto& loc = it->second->m_loc;
-    RETURN_ERR_IF( fdVal == nullptr || fdCur == nullptr,
+    RETURN_ERROR_IF( fdVal == nullptr || fdCur == nullptr, Error::CannotOverload, value->m_loc,
                    "Only functions can be overloaded. '%s' is already defined\n"
                    "%s:%i:%i: Previously defined here",
                    sym.c_str(), loc.filename(), loc.line(), loc.col() );

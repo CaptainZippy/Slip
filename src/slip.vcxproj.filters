@@ -18,13 +18,10 @@
   <ItemGroup>
     <ClInclude Include="Reflect.h" />
     <ClInclude Include="Ast.h" />
-    <ClInclude Include="Parse.h" />
     <ClInclude Include="pch/Pch.h">
       <Filter>pch</Filter>
     </ClInclude>
     <ClInclude Include="Util.h" />
-    <ClInclude Include="Backend.h" />
-    <ClInclude Include="Sema.h" />
     <ClInclude Include="Slip.h" />
     <ClInclude Include="Io.h" />
     <ClInclude Include="Func.h" />

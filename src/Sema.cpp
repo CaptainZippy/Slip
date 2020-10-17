@@ -290,7 +290,7 @@ namespace Slip::Sema {
                 }
             } else if( auto decl = varType->m_struct ) {
                 RETURN_IF_FAILED( decl->m_fields.size() != n->m_initializer.size() );
-                for( int i = 0; i < decl->m_fields.size(); ++i ) {
+                for( auto i = 0ul; i < decl->m_fields.size(); ++i ) {
                     auto ft = decl->m_fields[i]->m_type;
                     auto fi = _internKnownType( ft );
                     auto iv = n->m_initializer[i];
@@ -495,7 +495,7 @@ namespace Slip::Sema {
                 }
             }
             // Check we satisfied all constraints
-            for( int i = 0; i < m_convertible.size(); ++i ) {
+            for( auto i = 0ul; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
                 for( auto&& r : c.rhs ) {
                     assert( canImplicitlyConvert( c.lhs.type(), r.type() ) );
@@ -739,7 +739,7 @@ namespace Slip::Sema {
                     for (auto&& a : again) {
                         a->print();
                     }
-                    RETURN_RES_IF_REACHED(Result::ERR, "Failed to resolve");
+                    RETURN_ERROR(Result::ERR, "Failed to resolve");
                 }
                 again.swap(todo);
             } while (todo.size());

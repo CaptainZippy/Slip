@@ -1,0 +1,7 @@
+; CannotOverload
+
+(func main ():int
+    (var foo:int 1)
+    (var foo:int 2)
+    (puti foo)
+    0)

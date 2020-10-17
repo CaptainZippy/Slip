@@ -8,7 +8,7 @@ namespace Slip::Io {
             virtual void put( string_view s ) = 0;
         };
         std::string m_indent;
-        char m_impl[16] = {};
+        char m_impl[32] = {};
         enum class State {
             Normal,
             Start,
