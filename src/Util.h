@@ -49,14 +49,6 @@ namespace Slip {
         }                                                                      \
     } while( 0 )
 
-#define RETURN_ERR_IF( COND, ... )                                                      \
-    do {                                                                                \
-        if( ( COND ) ) {                                                                \
-            Result::failed( Error::Failed, #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
-            return Result::ERR;                                                         \
-        }                                                                               \
-    } while( 0 )
-
 #define RETURN_ERROR_IF( COND, CODE, LOC, ... )                 \
     do {                                                        \
         if( ( COND ) ) {                                        \

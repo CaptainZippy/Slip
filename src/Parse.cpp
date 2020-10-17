@@ -3,6 +3,15 @@
 #include "Ast.h"
 #include "Slip.h"
 
+// FIXME: remove
+#define RETURN_ERR_IF( COND, ... )                                                      \
+    do {                                                                                \
+        if( ( COND ) ) {                                                                \
+            Result::failed( Error::Failed, #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            return Result::ERR;                                                         \
+        }                                                                               \
+    } while( 0 )
+
 #define WITH( ... ) [&]( auto& _ ) { __VA_ARGS__; }
 
 namespace Slip::Parse {

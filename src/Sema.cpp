@@ -44,13 +44,12 @@ namespace Slip::Sema {
 
     struct ConstraintBuilder {
         Result operator()( Ast::Node* n, VisitInfo& vi ) {
-            RETURN_ERR_IF( vi.info == nullptr, "Unrecognized node?" );
+            RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc );
             return Result::OK;
         }
 
         Result operator()( Ast::LexNode* n, VisitInfo& vi ) {
-            auto& l = n->m_loc;
-            RETURN_ERR_IF( true, "Unexpanded lex node encountered. %s:%i:%i", l.filename(), l.line(), l.col() );
+            RETURN_ERROR( Error::InternalUnexpandedLexNode, n->m_loc );
             return Result::OK;
         }
 
@@ -131,10 +130,8 @@ namespace Slip::Sema {
                 ai.emplace_back( t );
             }
             if( !fi->func ) {  // TODO extract method
-                auto& loc = n->m_loc;
-                auto text = loc.text();
-                RETURN_ERR_IF( !fi->func, "Cannot call a non-function\n%s:%i:%i:%.*s", loc.filename(), loc.line(), loc.col(), text.size(),
-                               text.begin() );
+                auto text = n->m_loc.text();
+                RETURN_ERROR_IF( !fi->func, Error::CallNonCallable, n->m_loc, "%.*s", text.size(), text.begin() );
             }
             _isApplicable( n->m_func, fi, ai );
             vi.info = fi->get_func()->ret;
@@ -235,7 +232,7 @@ namespace Slip::Sema {
                     yes.emplace_back( i );
                 }
             }
-            RETURN_ERR_IF( yes.size() != 1, "Overload resolution failed for '%s'", n->name().c_str() );
+            RETURN_ERROR_IF( yes.size() != 1, Error::OverloadResolutionFailed, n->m_loc, "'%s'", n->name().c_str() );
             n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
@@ -299,7 +296,7 @@ namespace Slip::Sema {
                     _isConvertible( ft, fi, iv, id );
                 }
             } else {
-                RETURN_ERR_IF( n->m_initializer.size() != 1 );
+                RETURN_ERROR_IF( n->m_initializer.size() != 1, Error::ExpectedOneInitializer, n->m_loc );
                 TypeInfo* ti;
                 RETURN_IF_FAILED( dispatch( n->m_initializer[0], &ti ) );
                 _isConvertible( nullptr, varTypeInfo, n->m_initializer[0], ti );
@@ -366,7 +363,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::Cond* n, VisitInfo& vi ) {
-            RETURN_ERR_IF( n->m_cases.empty() );
+            RETURN_ERROR_IF( n->m_cases.empty(), Error::CondWithNoCases, n->m_loc );
             vi.info = new TypeInfo{};
             for( auto&& c : n->m_cases ) {
                 // conditions are all booleans
@@ -385,12 +382,12 @@ namespace Slip::Sema {
             TypeInfo* lhsi;
             RETURN_IF_FAILED( dispatch( n->m_lhs, &lhsi ) );
             auto type = lhsi->get_type();
-            RETURN_ERR_IF( type->m_struct == nullptr, "Non struct type" );
+            RETURN_ERROR_IF( type->m_struct == nullptr, Error::DotNotSupportedHere, n->m_loc );
             auto rhsi = dynamic_cast<Ast::LexIdent*>( n->m_rhs );
             auto id = istring::make( rhsi->text() );
             auto decl = type->m_struct;
             auto it = std::find_if( decl->m_fields.begin(), decl->m_fields.end(), [id]( auto a ) { return a->name() == id; } );
-            RETURN_ERR_IF( it == decl->m_fields.end(), "Field not found" );
+            RETURN_ERROR_IF( it == decl->m_fields.end(), Error::DottedAttributeNotFound, n->m_loc, "'%s'", id.c_str() );
             vi.info = _internKnownType( ( *it )->m_type );
             return Result::OK;
         }
@@ -399,8 +396,8 @@ namespace Slip::Sema {
             TypeInfo* expri;
             RETURN_IF_FAILED( dispatch( n->m_expr, &expri ) );
             auto type = expri->get_type();
-            RETURN_ERR_IF( type->m_sum.size() != 2 );
-            vi.info = _internKnownType( type->m_sum[0] );//TODO assumes error type@1
+            RETURN_ERROR_IF( type->m_sum.size() != 2, Error::Fixme, n->m_loc, "only support 2 types in sum" );
+            vi.info = _internKnownType( type->m_sum[0] );  // TODO assumes error type@1
 
             TypeInfo* faili{};
             if( n->m_fail ) {
@@ -504,9 +501,9 @@ namespace Slip::Sema {
             // And write our results back into the nodes
             for( auto&& v : m_visited ) {
                 assert( v.node );
-                auto loc = v.node->m_loc;
-                RETURN_ERR_IF( v.info->type == nullptr, "Can't resolve type %s:%i:%i: near \"%.*s\"", loc.filename(), loc.line(), loc.col(),
-                               loc.text().size(), loc.text().begin() );
+                auto& loc = v.node->m_loc;
+                RETURN_ERROR_IF( v.info->type == nullptr, Error::TypeNotDeduced, loc,
+                    "Near '%.*s'", loc.text().size(), loc.text().begin() );
                 if( v.node->m_type ) {
                     assert( v.node->m_type == v.info->type );  // type already assigned, ensure it matches deduced
                 } else {
