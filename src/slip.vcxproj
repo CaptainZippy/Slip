@@ -171,6 +171,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ast.h" />
+    <ClInclude Include="Errors.h" />
     <ClInclude Include="Func.h" />
     <ClInclude Include="Io.h" />
     <ClInclude Include="pch/Pch.h" />

@@ -1,5 +1,6 @@
 #include "pch/Pch.h"
 
+#include "Errors.h"
 #include "Io.h"
 #include "Util.h"
 

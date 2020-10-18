@@ -6,6 +6,7 @@
 
 #include "pch/Pch.h"
 
+#include "Errors.h"
 #include "Ast.h"
 #include "Io.h"
 #include "Slip.h"
