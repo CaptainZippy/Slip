@@ -1,0 +1,11 @@
+; WrongNumberOfArguments
+
+(func ack (m:int n:int):int
+    (cond
+        ((eq? m 0)
+            (add n 1)
+            (add n 1)) ; 3 clauses
+        ((eq? n 0)
+            (ack (sub m 1) 1))
+        (true
+            (ack (sub m 1) (ack m (sub n 1))))))

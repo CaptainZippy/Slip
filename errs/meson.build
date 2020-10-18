@@ -1,6 +1,7 @@
 
 
 slip_errs = [
+    'parse_cond_01',
     'syntax_01',
     'syntax_02',
     'overload_01',
@@ -12,5 +13,6 @@ foreach err : slip_errs
     s = meson.current_source_dir() + '/' + err + '.slip'
     test(err, slipcc,
         args: ['--tap', s],
+        suite: 'errs',
         protocol: 'tap')
 endforeach

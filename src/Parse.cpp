@@ -137,7 +137,7 @@ static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest 
 }
 
 static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
-    RETURN_ERROR_IF( args->size() < 2 || args->size() > 3, Error::WrongNumberArguments, args->m_loc );
+    RETURN_ERROR_IF( args->size() < 2 || args->size() > 3, Error::WrongNumberOfArguments, args->m_loc );
     Ast::LexIdent* larg;
     Ast::LexIdent* lenv = nullptr;
     switch( args->size() ) {
@@ -170,7 +170,7 @@ static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Node
 
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::LexList* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
-    RETURN_ERROR_IF( args.size() != macro->m_params.size(), Error::WrongNumberArguments, list->m_loc, "Got %i, expected %i", args.size(),
+    RETURN_ERROR_IF( args.size() != macro->m_params.size(), Error::WrongNumberOfArguments, list->m_loc, "Got %i, expected %i", args.size(),
                      macro->m_params.size() );
     auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
@@ -353,7 +353,7 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::N
     env->bind( coro->m_name, coro );
     auto inner = new Ast::Environment( env );
     Slip::Parse::addBuiltin( inner, "yield"sv, [coro]( auto env, auto args, auto out ) -> Result {
-        RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberArguments, args->m_loc, "Expected 2, got %i", args->size() );
+        RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, args->m_loc, "Expected 2, got %i", args->size() );
         auto ret = new Ast::CoroutineYield();
         RETURN_IF_FAILED( parse1( env, args->at( 1 ), &ret->m_expr ) );
         ret->m_coro = coro;
@@ -562,7 +562,7 @@ static Result parse_Cond( Ast::Environment* env, Ast::LexList* args, Ast::Node**
     for( auto&& arg : args->items().ltrim( 1 ) ) {
         auto pair = dynamic_cast<Ast::LexList*>( arg );
         RETURN_ERROR_IF( pair == nullptr, Error::ListExpected, arg->m_loc );
-        RETURN_ERROR_IF( pair->size() != 2, Error::WrongNumberArguments, arg->m_loc, "Expected 2, got %i", pair->size() );
+        RETURN_ERROR_IF( pair->size() != 2, Error::WrongNumberOfArguments, arg->m_loc, "Expected 2, got %i", pair->size() );
 
         Ast::Node* cond;
         RETURN_IF_FAILED( parse1( env, pair->at( 0 ), &cond ) );
