@@ -60,7 +60,7 @@
 ;  )
 
 (func main (args:(array_view string)):int
-    (var n (if (lt? (size args) 2) 100 (atoi (at args 1))))
+    (var n (atoi (try (get args 1) "100")))
     (puti n)
     (ary n)
     0)

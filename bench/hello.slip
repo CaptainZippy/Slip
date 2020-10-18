@@ -1,10 +1,8 @@
-; todo iterate
+; TODO formatted IO
 
 (func main (argv:(array_view string)):int
     (puts "hello ")
-    (puts (if (lt? (size argv) 2)
-        "world\n"
-        (at argv 1)
-        ))
+    (puts (try (get argv 2) "world"))
+    (puts "\n")
     0)
 

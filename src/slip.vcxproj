@@ -194,6 +194,8 @@
     <None Include="..\bench\nestedloop.slip" />
     <None Include="..\bench\nsieve.slip" />
     <None Include="..\errs\meson.build" />
+    <None Include="..\errs\overload_01.slip" />
+    <None Include="..\errs\parse_err_01.slip" />
     <None Include="..\errs\syntax_01.slip" />
     <None Include="..\errs\syntax_02.slip" />
     <None Include="..\meson.build" />

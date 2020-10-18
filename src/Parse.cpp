@@ -61,6 +61,7 @@ namespace Slip::Parse {
     struct ArrayView;
     struct ArrayConst;
     struct ResultT;
+    Result ResultT_instantiate( Ast::Type* t, Ast::Type** out );
 
     template <typename... Args>
     static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
@@ -767,24 +768,41 @@ struct Parse::ArrayView {
             auto r = new Ast::Type( name );
             r->m_array = t;
 
-            auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
-            auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
-            fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-            r->m_methods.emplace_back( fdecl );
+            {
+                auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
+                auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
+                fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+                r->m_methods.emplace_back( fdecl );
+            }
 
-            auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
-            auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype ) );
-            atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-            atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
-            r->m_methods.emplace_back( atdecl );
+            {
+                auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
+                auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype ) );
+                atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+                atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+                r->m_methods.emplace_back( atdecl );
+            }
 
-            auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
-                                          &Ast::s_typeInt, t );
-            auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype ) );
-            putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-            putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
-            putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
-            r->m_methods.emplace_back( putdecl );
+            {
+                Ast::Type* resultT;
+                RETURN_IF_FAILED( ResultT_instantiate( t, &resultT ) );
+                auto gettype =
+                    _makeFuncType( string_format( "(%s,int)->result<%s>", name.c_str(), t->name().c_str() ), resultT, r, &Ast::s_typeInt );
+                auto getdecl = new Ast::FunctionDecl( "get", WITH( _.m_type = gettype ) );
+                getdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+                getdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+                r->m_methods.emplace_back( getdecl );
+            }
+
+            {
+                auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
+                                              &Ast::s_typeInt, t );
+                auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype ) );
+                putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+                putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+                putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
+                r->m_methods.emplace_back( putdecl );
+            }
 
             if( _generic_root == "array_heap" ) {
                 auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
@@ -834,7 +852,10 @@ struct Parse::ResultT {
         std::map<std::string, Ast::Type*> types_;
     };
 
+    static Cache _cache;  // FIXME how to allow instatiation elsewhere
+
     static Result parse( Cache* cache, Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+        assert( &_cache == cache );
         *out = nullptr;
         Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
@@ -847,6 +868,12 @@ struct Parse::ResultT {
         return Result::OK;
     }
 };
+Parse::ResultT::Cache Parse::ResultT::_cache;  // FIXME how to allow instatiation elsewhere
+
+Slip::Result Slip::Parse::ResultT_instantiate( Ast::Type* t, Ast::Type** out ) {
+    return Slip::Parse::ResultT::_cache.instantiate( t, out );
+}
+
 
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
@@ -876,8 +903,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addBuiltin( env, "array_heap"sv, [cache = new Parse::ArrayView::Cache( "array_heap" )]( auto e, auto a, auto o ) {
         return ArrayView::parse( cache, e, a, o );
     } );
-    addBuiltin( env, "result"sv,
-                [cache = new Parse::ResultT::Cache()]( auto e, auto a, auto o ) { return ResultT::parse( cache, e, a, o ); } );
+    addBuiltin( env, "result"sv, []( auto e, auto a, auto o ) { return ResultT::parse( &Parse::ResultT::_cache, e, a, o ); } );
 
     env->bind( "int"sv, &Ast::s_typeInt );
     env->bind( "float"sv, &Ast::s_typeFloat );

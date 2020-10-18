@@ -165,6 +165,12 @@
       <Filter>errs</Filter>
     </None>
     <None Include="Errors.inc" />
+    <None Include="..\errs\overload_01.slip">
+      <Filter>errs</Filter>
+    </None>
+    <None Include="..\errs\parse_err_01.slip">
+      <Filter>errs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

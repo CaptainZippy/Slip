@@ -391,6 +391,13 @@ namespace {
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
             out.begin( "namespace XX {" );
+            out.write( "enum Error { failed=1 };\n" );
+            out.write( "template<typename T> struct Result { T ok; int fail;\n" );
+            out.write( "    Result( ) : fail( failed ) {}\n" );
+            out.write( "    Result( const T& t ) : ok( t ), fail(0) {}\n" );
+            out.write( "    Result( Error e ) : fail( e ) {}\n" );
+            out.write( "    void operator=( const T& t ) { ok = t; fail = 0; }\n" );
+            out.write( "    void operator=( Error e ) { fail = e; }\n};\n" );
             out.write(
                 "struct string { std::string m_s; "
                 "string() = default; "
@@ -422,15 +429,20 @@ namespace {
             out.write( "typedef int array_const__int__[];\n" );
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
+            out.write(
+                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( i >= 0 && i < N) return a[i]; return "
+                "failed; }\n" );
             out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
+            out.write(
+                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < size(a)) return a[i]; return "
+                "failed; }\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
             out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
-            out.write( "enum Error { failed=1 };\n" );
-            out.write( "template<typename T> struct Result { T ok; int fail;\n" );
-            out.write( "    void operator=( const T& t ) { ok = t; }\n" );
-            out.write( "    void operator=( Error e ) { fail = e; }\n};\n" );
+            out.write(
+                "template<typename T> inline Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; return "
+                "failed; }\n" );
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
