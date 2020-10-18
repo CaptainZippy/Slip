@@ -90,7 +90,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
 static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Node** out );
 
 static Result matchLex( Ast::Environment* env, Parse::Args& args ) {
-    RETURN_ERR_IF( !args.empty() );
+    RETURN_ERROR_IF( !args.empty(), Error::TooManyArguments, args.cur()->m_loc );
     return Result::OK;
 }
 
@@ -99,8 +99,6 @@ static Result matchLex( Ast::Environment* env, Parse::Args& args, std::vector<As
     if( args.empty() ) {
         return Result::OK;
     }
-    // auto sl = args.cur()->m_loc;
-    // sl.m_end = ( args.end() - 1 )[0]->m_loc.m_end;
     do {
         list->emplace_back( args.cur() );
     } while( args.advance() );
@@ -167,7 +165,8 @@ static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Node
 
 static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::LexList* list, Ast::Node** out ) {
     auto args = list->items().ltrim( 1 );
-    RETURN_ERR_IF( args.size() != macro->m_params.size() );
+    RETURN_ERROR_IF( args.size() != macro->m_params.size(), Error::WrongNumberMacroArguments, list->m_loc,
+        "Got %i, expected %i", args.size(), macro->m_params.size() );
     auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
         localEnv->bind( macro->m_params[i]->name(), args[i] );
@@ -207,12 +206,11 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         }
         return Result::OK;
     } else if( auto list = dynamic_cast<Ast::LexList*>( atom ) ) {
-        RETURN_ERR_IF( !list );
-        RETURN_ERR_IF( list->size() == 0 );
+        RETURN_ERROR_IF( list->size() == 0, Error::UnexpectedEmptyList, atom->m_loc );
         auto items = list->items();
         auto first = items[0];
         auto sym = dynamic_cast<Ast::LexIdent*>( first );
-        RETURN_ERR_IF( !sym, "Symbol expected in first list position" );
+        RETURN_ERROR_IF( !sym, Error::SymbolExpectedAtListHead, list->m_loc );
 
         // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
         Ast::Node* p;
@@ -221,12 +219,12 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         Ast::Environment::LookupIter iter;
         while( env->lookup_iter( isym, &p, iter ) ) {
             if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
-                RETURN_ERR_IF( !candidates.empty(), "Builtins can't be overloaded" );
-                RETURN_ERR_IF( env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
+                RETURN_ERROR_IF( env->lookup_iter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                 return b->parse( env, list, out );
             } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
-                RETURN_ERR_IF( !candidates.empty(), "Builtins can't be overloaded" );
-                RETURN_ERR_IF( env->lookup_iter( isym, &p, iter ), "Builtins can't be overloaded" );
+                RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
+                RETURN_ERROR_IF( env->lookup_iter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
                 return macroExpand( m, env, list, out );
             } else {
                 candidates.emplace_back( p );

@@ -9,7 +9,12 @@ ERROR_CASE(LexPrematureEndOfFile)
 ERROR_CASE(LexSpuriousChars)
 ERROR_CASE(LexMalformedAttribute)
 
+ERROR_CASE(TooManyArguments)
+ERROR_CASE(TooFewArguments)
 ERROR_CASE(CannotOverload)
+ERROR_CASE(WrongNumberMacroArguments)
+ERROR_CASE(UnexpectedEmptyList)
+ERROR_CASE(SymbolExpectedAtListHead)
 
 ERROR_CASE(FileNotFound)
 ERROR_CASE(MissingClosingParen)
