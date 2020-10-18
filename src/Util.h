@@ -34,24 +34,38 @@ namespace Slip {
         static void debugContext( const char* expr, const char* file, int line, const char* fmt, ... );
     };
 
-#define RETURN_IF_FAILED( COND, ... )                                          \
+// If evaluating EXPR fails, return that error code
+#define RETURN_IF_FAILED( EXPR, ... )                                          \
     do {                                                                       \
-        Result res = ( COND );                                                 \
+        Result res = ( EXPR );                                                 \
         if( !res.isOk() ) {                                                    \
-            Result::debugContext( #COND, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            Result::debugContext( #EXPR, __FILE__, __LINE__, "" __VA_ARGS__ ); \
             return res;                                                        \
         }                                                                      \
     } while( 0 )
 
-#define RETURN_ERROR_IF( COND, CODE, LOC, ... )                 \
+// If evaluating EXPR fails, return a different error CODE
+#define RETURN_ERROR_IF_FAILED( EXPR, CODE, LOC, ... )                         \
+    do {                                                                       \
+        Result res = ( EXPR );                                                 \
+        if( !res.isOk() ) {                                                    \
+            Result::failed( CODE, LOC, "" __VA_ARGS__ );                       \
+            Result::debugContext( #EXPR, __FILE__, __LINE__, "" __VA_ARGS__ ); \
+            return CODE;                                                       \
+        }                                                                      \
+    } while( 0 )
+
+// If EXPR is true, return the given error CODE
+#define RETURN_ERROR_IF( EXPR, CODE, LOC, ... )                 \
     do {                                                        \
-        if( ( COND ) ) {                                        \
+        if( ( EXPR ) ) {                                        \
             Result::failed( CODE, LOC, "" __VA_ARGS__ );        \
             Result::debugContext( "", __FILE__, __LINE__, "" ); \
             return CODE;                                        \
         }                                                       \
     } while( 0 )
 
+// Unconditionally return the given error CODE
 #define RETURN_ERROR( CODE, LOC, ... )                      \
     do {                                                    \
         Result::failed( CODE, LOC, "" __VA_ARGS__ );        \

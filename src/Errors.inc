@@ -24,6 +24,7 @@ ERROR_CASE(NotImplemented)
 ERROR_CASE(ListExpected)
 ERROR_CASE(BreakTargetMustBeBlock)
 ERROR_CASE(MacroExpansionError)
+ERROR_CASE(SymbolNotFound)
 
 ERROR_CASE(FileNotFound)
 ERROR_CASE(MissingClosingParen)

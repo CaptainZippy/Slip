@@ -200,7 +200,8 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Node** out
         return Result::OK;
     } else if( auto sym = dynamic_cast<Ast::LexIdent*>( atom ) ) {
         Ast::Node* node;
-        RETURN_IF_FAILED( env->lookup( sym->text(), &node ), "Symbol '%.*s' not found", sym->text().length(), sym->text().data() );
+        RETURN_ERROR_IF_FAILED( env->lookup( sym->text(), &node ), Error::SymbolNotFound, atom->m_loc, "Symbol '%.*s' not found",
+                                sym->text().length(), sym->text().data() );
 
         // TODO: detect symbol is decl or const.
         if( auto ty = dynamic_cast<Ast::Type*>( node ) ) {
@@ -873,7 +874,6 @@ Parse::ResultT::Cache Parse::ResultT::_cache;  // FIXME how to allow instatiatio
 Slip::Result Slip::Parse::ResultT_instantiate( Ast::Type* t, Ast::Type** out ) {
     return Slip::Parse::ResultT::_cache.instantiate( t, out );
 }
-
 
 Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
