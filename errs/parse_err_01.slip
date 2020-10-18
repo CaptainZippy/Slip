@@ -1,0 +1,5 @@
+; LexUnexpected
+
+(func 0():int ; expected ident, not number
+    0)
+

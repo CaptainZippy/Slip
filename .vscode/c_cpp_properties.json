@@ -59,7 +59,8 @@
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
-            }
+            },
+            "compileCommands": "${workspaceFolder}/build/meson/compile_commands.json"
         }
     ],
     "version": 4

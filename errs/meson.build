@@ -4,6 +4,7 @@ slip_errs = [
     'syntax_01',
     'syntax_02',
     'overload_01',
+    'parse_err_01',
 ]
 
 srcs = []
