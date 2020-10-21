@@ -390,7 +390,10 @@ namespace {
             out.write( "#include<string>\n" );
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
-            out.begin( "namespace XX {" );
+            out.write( "struct MainReg {\n");
+            out.write( "    typedef int(*mainfunc)(int argc, const char**);\n");
+            out.write( "    MainReg(const char* n, mainfunc m); const char* name; mainfunc main; const MainReg* next; };\n" );
+            out.begin( string_concat("namespace ", n->m_name, " {") );
             out.write( "enum Error { failed=1 };\n" );
             out.write( "template<typename T> struct Result { T ok; int fail;\n" );
             out.write( "    Result( ) : fail( failed ) {}\n" );
@@ -430,12 +433,12 @@ namespace {
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( i >= 0 && i < N) return a[i]; return "
+                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; return "
                 "failed; }\n" );
             out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < size(a)) return a[i]; return "
+                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; return "
                 "failed; }\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
@@ -457,29 +460,33 @@ namespace {
                     }
                 }
             }
-            out.end( "}\n" );
 
             switch( mainKind ) {
                 case 0:
                     out.write(
-                        "int main(int argc, const char** argv) {\n"
-                        "   return XX::main();\n"
+                        "int main_entry(int argc, const char** argv) {\n"
+                        "   return main();\n"
                         "}" );
                     break;
                 case 1:
                     out.write(
-                        "int main(int argc, const char** argv) {\n"
-                        "   std::vector<XX::string> args;\n"
+                        "int main_entry(int argc, const char** argv) {\n"
+                        "   std::vector<string> args;\n"
                         "   for( int i = 0; i < argc; ++i ) {\n"
                         "       args.emplace_back(argv[i]);\n"
                         "   }\n"
-                        "   XX::array_view<XX::string> view{args.data(), args.size()};\n"
-                        "   return XX::main(view);\n"
+                        "   array_view<string> view{args.data(), args.size()};\n"
+                        "   return main(view);\n"
                         "}" );
                     break;
                 default:
                     break;
             }
+            if( mainKind != -1) {
+                out.write( string_concat( "\nstatic MainReg mainreg(\"", n->m_name, "\", &main_entry );\n" ) );
+            }
+
+            out.end( "}\n" );
 
             return "";
         }

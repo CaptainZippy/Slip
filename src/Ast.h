@@ -334,6 +334,7 @@ namespace Slip::Ast {
     struct Module : Node {
         AST_DECL();
 
+        istring m_name;
         vector<Node*> m_items;
     };
 

@@ -14,12 +14,16 @@ slip_bench = [
 
 # ====
 
-benchmain = static_library('benchmain', 'util/main.cpp')
-
+srcs = []
 foreach t : slip_bench
-    cpp = slip_compile.process('@0@.slip'.format(t))
-    exe = executable(t, cpp, link_with:benchmain )
+    srcs += '@0@.slip'.format(t)
+endforeach
+cpps = slip_compile.process(srcs)
+
+exe = executable('bench', cpps, 'util/main.cpp')
+foreach t : slip_bench
     test(t, exe,
+        args: t,
         suite: 'bench',
         protocol: 'exitcode')
 endforeach

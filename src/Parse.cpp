@@ -875,7 +875,7 @@ Slip::Result Slip::Parse::ResultT_instantiate( Ast::Type* t, Ast::Type** out ) {
     return Slip::Parse::ResultT::_cache.instantiate( t, out );
 }
 
-Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
+Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "coro"sv, &parse_Coroutine );
     addBuiltin( env, "define"sv, &parse_Define );
@@ -947,6 +947,7 @@ Slip::Result Parse::module( Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>
     addIntrinsic( env, "strcat!", v_ss );
 
     auto module = make_unique_del<Ast::Module>();
+    module->m_name = istring::make(name);
     for( auto c : lex.items() ) {
         Ast::Node* n;
         RETURN_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );

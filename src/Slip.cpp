@@ -6,8 +6,8 @@
 
 #include "pch/Pch.h"
 
-#include "Errors.h"
 #include "Ast.h"
+#include "Errors.h"
 #include "Io.h"
 #include "Slip.h"
 
@@ -59,7 +59,8 @@ namespace Slip::Args {
                     }
                     RETURN_ERROR_IF( !found, Error::UnknownCmdlineArgument, Io::SourceLocation(), "%s", key_val.data() );
                 } else {  // positional
-                    RETURN_ERROR_IF( positionals.empty(), Error::ExtraPositionalCmdlineArgument, Io::SourceLocation(), "'%s'", key_val.data() );
+                    RETURN_ERROR_IF( positionals.empty(), Error::ExtraPositionalCmdlineArgument, Io::SourceLocation(), "'%s'",
+                                     key_val.data() );
                     positionals.front().m_action( key_val );
                     // don't consume variadic positionals
                     if( positionals.back().m_meta.find( "..." ) == string_view::npos ) {
@@ -89,6 +90,21 @@ namespace Slip::Args {
     };
 }  // namespace Slip::Args
 
+static std::string modNameFromPath( const char* path ) {
+    const char* s = path;
+    if( auto p = strrchr( path, '/' ) ) {
+        s = p + 1;
+    }
+    if( auto p = strrchr( path, '\\' ); p > s ) {
+        s = p + 1;
+    }
+
+    if( auto e = strrchr( path, '.' ) ) {
+        return {s, size_t( e - s )};
+    }
+    return s;
+}
+
 static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fname ) {
     using namespace Slip;
 
@@ -96,7 +112,8 @@ static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fnam
     RETURN_IF_FAILED( Ast::lex_file( smanager, fname, lex ) );
 
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
-    RETURN_IF_FAILED( Parse::module( *lex, ast ) );
+
+    RETURN_IF_FAILED( Parse::module( modNameFromPath( fname ).c_str(), *lex, ast ) );
     if( Args::dumpParse )
         Ast::print( ast.get() );
     RETURN_IF_FAILED( Sema::type_check( ast.get() ) );
@@ -216,7 +233,6 @@ Slip::Result slip_main( int argc, const char* argv[] ) {
             string_view expected;
             const char* actual = Error::toString( result.code );
             if( Tap::getExpectedError( *smanager, input.c_str(), expected ).isOk() ) {
-
                 if( result.isOk() ) {
                     Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, expected.size(), expected.data(), input.c_str() );
                 } else if( actual != expected ) {

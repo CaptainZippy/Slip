@@ -33,12 +33,16 @@ slip_tests = [
 
 # ====
 
-testmain = static_library('testmain', 'util/main.cpp')
-
+srcs = []
 foreach t : slip_tests
-    cpp = slip_compile.process('@0@.slip'.format(t))
-    exe = executable(t, cpp, link_with:testmain )
+    srcs += '@0@.slip'.format(t)
+endforeach
+cpps = slip_compile.process(srcs)
+
+exe = executable('feature', cpps, 'util/main.cpp')
+foreach t : slip_tests
     test(t, exe,
-        suite: 'test',
+        args: t,
+        suite: 'feature',
         protocol: 'exitcode')
 endforeach
