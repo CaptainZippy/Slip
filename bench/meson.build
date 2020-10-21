@@ -20,7 +20,9 @@ foreach t : slip_bench
 endforeach
 cpps = slip_compile.process(srcs)
 
-exe = executable('bench', cpps, 'util/main.cpp')
+exe = executable('bench', cpps, 'util/main.cpp',
+        cpp_args: '-Wno-unused-but-set-variable')
+
 foreach t : slip_bench
     test(t, exe,
         args: t,
