@@ -20,7 +20,11 @@ namespace Slip {
     int diagnosticv( const char* fmt, va_list args ) { return ( *diagnostic_fn )( fmt, args ); }
 
     void Result::failed( int code, const Io::SourceLocation& loc, const char* fmt, ... ) {
-        diagnostic( "%s:%i:%i: error: E%04i(%s)", loc.filename(), loc.line(), loc.col(), code, Error::toString( code ) );
+        if( code >= 0 ) {
+            diagnostic( "%s:%i:%i: error: E%04i(%s)", loc.filename(), loc.line(), loc.col(), code, Error::toString( code ) );
+        } else {
+            diagnostic( "%s:%i:%i: ", loc.filename(), loc.line(), loc.col() );
+        }
         if( fmt[0] ) {
             diagnostic( ": " );
             va_list ap;
@@ -30,17 +34,6 @@ namespace Slip {
         }
         diagnostic( "\n" );
         return;
-    }
-
-    void Result::failed( int code, const char* what, const char* file, int line, const char* fmt, ... ) {
-        diagnostic( "%s:%i:1: error: E%04i(%s)", file, line, code, Error::toString( code ) );
-        if( fmt && fmt[0] ) {
-            va_list ap;
-            va_start( ap, fmt );
-            diagnosticv( fmt, ap );
-            va_end( ap );
-        }
-        diagnostic( what ? " - '%s'\n" : "\n", what );
     }
 
     void Result::debugContext( const char* expr, const char* file, int line, const char* fmt, ... ) {
@@ -61,7 +54,11 @@ namespace Slip {
 #include "Errors.inc"
 #undef ERROR_CASE
         };
-        return ( code >= 0 && code < int( sizeof( s ) / sizeof( char* ) ) ) ? s[code] : "Unknown error";
+        if( code >= 0 && code < int( sizeof( s ) / sizeof( char* ) ) ) {
+            return s[code];
+        } else {
+            return "Unknown error";
+        }
     }
 
     std::string string_format( const char* fmt, ... ) {

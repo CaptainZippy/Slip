@@ -10,11 +10,10 @@
             (ack (sub m 1) (ack m (sub n 1))))))
 
 
-(func main ():int
-    (puti (ack 3 3))
-    (puti (ack 3 4))
-    (puti (ack 3 5))
-    (puti (ack 3 6))
+(func main (args:(array_view string)):int
+    (var n (atoi (try (get args 1) "6")))
+    (puti n)
+    (puti (ack 3 n))
     0)
 
 

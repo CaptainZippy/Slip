@@ -233,7 +233,30 @@ namespace Slip::Sema {
                     yes.emplace_back( i );
                 }
             }
-            RETURN_ERROR_IF( yes.size() != 1, Error::OverloadResolutionFailed, n->m_loc, "'%s'", n->name().c_str() );
+            if( yes.size() != 1 ) {
+                std::string proto = string_concat( n->name(), "( " );
+                const char* sep = "";
+                for( auto&& a : ai ) {
+                    proto += sep;
+                    proto += a->get_type()->name();
+                    sep = ", ";
+                }
+                Result::failed( Error::OverloadResolutionFailed, n->m_loc, "For function call '%s)", proto.c_str() );
+                Slip::diagnostic( "Candidates are:\n" );
+                for( auto&& c : candidates ) {
+                    auto n = dynamic_cast<Ast::Named*>( c );
+                    auto av = make_array_view( n->m_type->m_callable );
+                    std::string x = string_concat( av[0]->name().c_str(), " ", n ? n->name().c_str() : "?", "(" );
+                    sep = "";
+                    for( auto&& a : av.ltrim(1) ) {
+                        x += string_concat(sep, a->name());
+                        sep = ", ";
+                    }
+                    Result::failed( Error::Continued, c->m_loc, "%s)", x.c_str() );
+                }
+                return Error::OverloadResolutionFailed;
+            }
+            RETURN_ERROR_IF( yes.size() != 1, Error::OverloadResolutionFailed, n->m_loc, "For function '%s'", n->name().c_str() );
             n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
                                                    [&]( auto& _ ) { _.m_loc = n->m_loc; } );
             RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
@@ -611,7 +634,7 @@ namespace Slip::Sema {
             } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
                 std::vector<Ast::Node*> candidates = named->m_candidates;
                 if( candidates.size() != 1 ) {
-                    Result::failed( Error::UnresolvedCall, "unresolved call", 0, 0, named->name().c_str() );
+                    Result::failed( Error::UnresolvedCall, named->m_loc, "%s", named->name().c_str() );
                 }
                 auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] );
                 assert( func );

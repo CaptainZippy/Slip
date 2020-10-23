@@ -29,7 +29,6 @@ namespace Slip {
         Result( int c ) : code( c ) {}
         bool isOk() const { return code == OK; }
         int code;
-        static void failed( int code, const char* what, const char* file, int line, const char* fmt, ... );
         static void failed( int code, const Io::SourceLocation& loc, const char* fmt, ... );
         static void debugContext( const char* expr, const char* file, int line, const char* fmt, ... );
     };
