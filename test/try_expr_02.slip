@@ -5,8 +5,8 @@
         (div num den)))
 
 (func test ():void
-    (var x0 (try (safe_div 100 22) -1))
-    (var x1 (try (safe_div 100 0) -1))
+    (var x0 (catch (safe_div 100 22) -1))
+    (var x1 (catch (safe_div 100 0) -1))
     (puti x0)
     (puti x1))
 

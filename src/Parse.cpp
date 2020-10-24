@@ -688,28 +688,25 @@ static Result parse_Set( Ast::Environment* env, Ast::LexList* args, Ast::Node** 
 static Result parse_Try( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
     *out = nullptr;
     Ast::LexNode* lexpr{};
+    RETURN_ERROR_IF_FAILED( matchLex( env, args, &lexpr ), Error::WrongNumberOfArguments, args->m_loc, "try expects 1 argument" );
+    Ast::Node* expr;
+    RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
+    *out = new Ast::TryExpr( expr, WITH( _.m_loc = lexpr->m_loc ) );
+    return Result::OK;
+}
+
+static Result parse_Catch( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    *out = nullptr;
+    Ast::LexNode* lexpr{};
     Ast::LexNode* lfail{};
-    switch( args->size() ) {
-        default:
-        case 0:
-        case 1:
-            RETURN_ERROR( Result::ERR, args->m_loc, "try expects 1 or 2 args" );
-        case 2:
-            RETURN_IF_FAILED( matchLex( env, args, &lexpr ) );
-            break;
-        case 3:
-            RETURN_IF_FAILED( matchLex( env, args, &lexpr, &lfail ) );
-            break;
-    }
+    RETURN_ERROR_IF_FAILED( matchLex( env, args, &lexpr, &lfail ), Error::WrongNumberOfArguments, args->m_loc, "try expects 1 argument" );
 
     Ast::Node* expr;
     RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
     Ast::Node* fail{};
-    if( lfail ) {
-        RETURN_IF_FAILED( parse1( env, lfail, &fail ) );
-    }
+    RETURN_IF_FAILED( parse1( env, lfail, &fail ) );
 
-    *out = new Ast::TryExpr( expr, fail, WITH( _.m_loc = lexpr->m_loc ) );
+    *out = new Ast::CatchExpr( expr, fail, WITH( _.m_loc = lexpr->m_loc ) );
     return Result::OK;
 }
 
@@ -891,6 +888,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     addBuiltin( env, "const"sv, &parse_Const );
     addBuiltin( env, "set!"sv, &parse_Set );
     addBuiltin( env, "try"sv, &parse_Try );
+    addBuiltin( env, "catch"sv, &parse_Catch );
     addBuiltin( env, "scope"sv, &parse_Scope );
     addBuiltin( env, "macro"sv, &parse_Macro );
     addBuiltin( env, "struct"sv, &parse_Struct );
@@ -947,7 +945,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     addIntrinsic( env, "strcat!", v_ss );
 
     auto module = make_unique_del<Ast::Module>();
-    module->m_name = istring::make(name);
+    module->m_name = istring::make( name );
     for( auto c : lex.items() ) {
         Ast::Node* n;
         RETURN_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );

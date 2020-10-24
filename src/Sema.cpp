@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 
-#include "Errors.h"
 #include "Ast.h"
+#include "Errors.h"
 #include "Io.h"
 
 namespace Slip::Sema {
@@ -51,6 +51,20 @@ namespace Slip::Sema {
 
         Result operator()( Ast::LexNode* n, VisitInfo& vi ) {
             RETURN_ERROR( Error::InternalUnexpandedLexNode, n->m_loc );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::CatchExpr* n, VisitInfo& vi ) {
+            TypeInfo* expri;
+            RETURN_IF_FAILED( dispatch( n->m_expr, &expri ) );
+            auto type = expri->get_type();
+            RETURN_ERROR_IF( type->m_sum.size() != 2, Error::Fixme, n->m_loc, "only support 2 types in sum" );
+            vi.info = _internKnownType( type->m_sum[0] );  // TODO assumes error type@1
+            TypeInfo* faili;
+            RETURN_IF_FAILED( dispatch( n->m_fail, &faili ) );
+            _isConvertible( n, vi.info, n->m_fail, faili );
+            m_tryExprActive.pop_back();
+
             return Result::OK;
         }
 
@@ -248,8 +262,8 @@ namespace Slip::Sema {
                     auto av = make_array_view( n->m_type->m_callable );
                     std::string x = string_concat( av[0]->name().c_str(), " ", n ? n->name().c_str() : "?", "(" );
                     sep = "";
-                    for( auto&& a : av.ltrim(1) ) {
-                        x += string_concat(sep, a->name());
+                    for( auto&& a : av.ltrim( 1 ) ) {
+                        x += string_concat( sep, a->name() );
                         sep = ", ";
                     }
                     Result::failed( Error::Continued, c->m_loc, "%s)", x.c_str() );
@@ -264,6 +278,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
+            m_tryExprActive.push_back( false );
             if( n->m_type ) {  // intrinsic?
                 vi.info = _internKnownType( n->m_type );
             } else {
@@ -282,6 +297,7 @@ namespace Slip::Sema {
                     _isConvertible( n, ret, n->m_body, bt );
                 }
             }
+            m_tryExprActive.pop_back();
             return Result::OK;
         }
 
@@ -417,17 +433,13 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::TryExpr* n, VisitInfo& vi ) {
+            m_tryExprActive.push_back( true );
             TypeInfo* expri;
             RETURN_IF_FAILED( dispatch( n->m_expr, &expri ) );
             auto type = expri->get_type();
-            RETURN_ERROR_IF( type->m_sum.size() != 2, Error::Fixme, n->m_loc, "only support 2 types in sum" );
+            RETURN_ERROR_IF( type->m_sum.size() != 2, Error::Fixme, n->m_loc, "Try requires an error sum type" );
             vi.info = _internKnownType( type->m_sum[0] );  // TODO assumes error type@1
-
-            TypeInfo* faili{};
-            if( n->m_fail ) {
-                RETURN_IF_FAILED( dispatch( n->m_fail, &faili ) );
-                _isConvertible( n, vi.info, n->m_fail, faili );
-            }
+            m_tryExprActive.pop_back();
 
             return Result::OK;
         }
@@ -449,6 +461,7 @@ namespace Slip::Sema {
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         vector<Convertible> m_convertible;
+        std::vector<bool> m_tryExprActive{false};
 
         Result build( Ast::Node* node ) {
             TypeInfo* t;
@@ -526,8 +539,8 @@ namespace Slip::Sema {
             for( auto&& v : m_visited ) {
                 assert( v.node );
                 auto& loc = v.node->m_loc;
-                RETURN_ERROR_IF( v.info->type == nullptr, Error::TypeNotDeduced, loc,
-                    "Near '%.*s'", loc.text().size(), loc.text().begin() );
+                RETURN_ERROR_IF( v.info->type == nullptr, Error::TypeNotDeduced, loc, "Near '%.*s'", loc.text().size(),
+                                 loc.text().begin() );
                 if( v.node->m_type ) {
                     assert( v.node->m_type == v.info->type );  // type already assigned, ensure it matches deduced
                 } else {

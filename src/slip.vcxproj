@@ -198,6 +198,7 @@
     <None Include="..\errs\parse_err_01.slip" />
     <None Include="..\errs\syntax_01.slip" />
     <None Include="..\errs\syntax_02.slip" />
+    <None Include="..\errs\try_err_01.slip" />
     <None Include="..\meson.build" />
     <None Include="..\stl.natjmc" />
     <None Include="..\test\array_type_02.slip" />

@@ -1,0 +1,9 @@
+; OverloadResolutionFailed
+
+(func test():int
+    0)
+
+(func main (args:(array_view string)):int
+    (puts (try (get args 1)))
+    (puxti (atoi (try (get args 1))))
+    0)

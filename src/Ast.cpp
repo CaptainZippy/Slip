@@ -34,6 +34,12 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_value, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( CatchExpr )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_expr, Flags::Child )
+    REFLECT_FIELD2( m_fail, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( CoroutineDecl )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_params, Flags::Child )
@@ -178,7 +184,6 @@ namespace Slip::Ast {
     REFLECT_BEGIN( TryExpr )
     REFLECT_PARENT( Node )
     REFLECT_FIELD2( m_expr, Flags::Child )
-    REFLECT_FIELD2( m_fail, Flags::Child )
     REFLECT_END()
 }  // namespace Slip::Ast
 

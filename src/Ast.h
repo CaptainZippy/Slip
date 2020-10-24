@@ -153,6 +153,18 @@ namespace Slip::Ast {
         ParseFunc m_func;
     };
 
+    struct CatchExpr : Node {
+        AST_DECL();
+
+        template <typename With>
+        CatchExpr( Ast::Node* expr, Ast::Node* fail, With&& with ) : m_expr( expr ), m_fail( fail ) {
+            with( *this );
+        }
+
+        Ast::Node* m_expr;
+        Ast::Node* m_fail;
+    };
+
     struct Cond : Node {
         AST_DECL();
         vector<pair<Node*, Node*> > m_cases;
@@ -471,12 +483,11 @@ namespace Slip::Ast {
         AST_DECL();
 
         template <typename With>
-        TryExpr( Ast::Node* expr, Ast::Node* fail, With&& with ) : m_expr( expr ), m_fail( fail ) {
+        TryExpr( Ast::Node* expr, With&& with ) : m_expr( expr ) {
             with( *this );
         }
 
         Ast::Node* m_expr;
-        Ast::Node* m_fail;
     };
 
     struct VariableDecl : Named {

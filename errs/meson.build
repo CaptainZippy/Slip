@@ -4,7 +4,7 @@ slip_errs = [
     'parse_cond_01',
     'syntax_01',
     'syntax_02',
-    'try_expr_01',
+    'try_err_01',
     'overload_01',
     'parse_err_01',
 ]

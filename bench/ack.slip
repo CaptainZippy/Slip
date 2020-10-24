@@ -11,7 +11,7 @@
 
 
 (func main (args:(array_view string)):int
-    (var n (atoi (try (get args 1) "6")))
+    (var n (atoi (catch (get args 1) "6")))
     (puti n)
     (puti (ack 3 n))
     0)

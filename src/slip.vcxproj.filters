@@ -171,6 +171,9 @@
     <None Include="..\errs\parse_err_01.slip">
       <Filter>errs</Filter>
     </None>
+    <None Include="..\errs\try_err_01.slip">
+      <Filter>errs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="bench">

@@ -2,7 +2,7 @@
 
 (func main (argv:(array_view string)):int
     (puts "hello ")
-    (puts (try (get argv 2) "world"))
+    (puts (catch (get argv 2) "world"))
     (puts "\n")
     0)
 
