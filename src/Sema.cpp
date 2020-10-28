@@ -245,7 +245,7 @@ namespace Slip::Sema {
                         auto paramType = f->params[i]->type;
                         auto argType = args[i]->type;
                         // TODO order of overload resolution vs inference
-                        if( argType && paramType != argType ) { 
+                        if( argType && paramType != argType ) {
                             c.score += WrongType;
                         }
                     }
@@ -257,18 +257,10 @@ namespace Slip::Sema {
                     bestScore = c.score;
                 }
             }
-            RETURN_ERROR_IF( bestCandidate == nullptr || bestCandidate->score >= WrongType, Error::OverloadResolutionFailed, n->m_loc, "%s",
-                             n->name().c_str() );
-
-            auto fargs = n->m_args;
-            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( bestCandidate->node ), std::move( fargs ),
-                                                   [&]( auto& _ ) { _.m_loc = n->m_loc; } );
-            RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
-#if 0
-            if( yes.size() != 1 ) {
+            if( bestCandidate == nullptr || bestCandidate->score >= WrongType ) {
                 std::string proto = string_concat( n->name(), "( " );
                 const char* sep = "";
-                for( auto&& a : ai ) {
+                for( auto&& a : args ) {
                     proto += sep;
                     proto += a->get_type()->name();
                     sep = ", ";
@@ -284,12 +276,15 @@ namespace Slip::Sema {
                         x += string_concat( sep, a->name() );
                         sep = ", ";
                     }
-                    Result::failed( Error::Continued, c->m_loc, "%s)", x.c_str() );
+                    Result::failed( Error::Continued, c.node->m_loc, "%s)", x.c_str() );
                 }
                 return Error::OverloadResolutionFailed;
             }
 
-#endif
+            auto fargs = n->m_args;
+            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( bestCandidate->node ), std::move( fargs ),
+                                                   [&]( auto& _ ) { _.m_loc = n->m_loc; } );
+            RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
             return Result::OK;
         }
 
@@ -473,7 +468,6 @@ namespace Slip::Sema {
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         vector<Convertible> m_convertible;
-        std::vector<bool> m_tryExprActive{false};
 
         Result build( Ast::Node* node ) {
             TypeInfo* t;
