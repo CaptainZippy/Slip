@@ -37,5 +37,6 @@ ERROR_CASE(DottedAttributeNotFound)
 ERROR_CASE(TypeNotDeduced)
 ERROR_CASE(CondWithNoCases)
 
+ERROR_CASE(InternalTypeConstraintFailed)
 ERROR_CASE(InternalUnknownSemantic)
 ERROR_CASE(InternalUnexpandedLexNode)

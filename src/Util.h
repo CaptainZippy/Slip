@@ -215,6 +215,7 @@ namespace Slip {
         range() : begin{}, end{} {}
         range( Iter b, Iter e ) : begin( b ), end( e ) {}
         bool empty() const { return begin == end; }
+        explicit operator bool() const { return begin != end; }
         Iter begin;
         Iter end;
     };
@@ -268,6 +269,10 @@ namespace Slip {
         const char* m_str;
     };
 
+    template<typename T>
+    inline T min2( T&& a, T&& b ) {
+        return a <= b ? a : b;
+    }
     inline bool operator<( istring a, istring b ) { return a.view() < b.view(); }
 
     inline bool operator==( istring a, istring b ) { return a.c_str() == b.c_str(); }

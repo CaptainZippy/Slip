@@ -699,7 +699,8 @@ static Result parse_Catch( Ast::Environment* env, Ast::LexList* args, Ast::Node*
     *out = nullptr;
     Ast::LexNode* lexpr{};
     Ast::LexNode* lfail{};
-    RETURN_ERROR_IF_FAILED( matchLex( env, args, &lexpr, &lfail ), Error::WrongNumberOfArguments, args->m_loc, "try expects 1 argument" );
+    RETURN_ERROR_IF_FAILED( matchLex( env, args, &lexpr, &lfail ), Error::WrongNumberOfArguments, args->m_loc,
+                            "catch expects 2 arguments" );
 
     Ast::Node* expr;
     RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
@@ -925,6 +926,9 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
+    Ast::Type* Ri;
+    RETURN_IF_FAILED( ResultT_instantiate( &Ast::s_typeInt, &Ri ) );
+    auto Ri_s = _makeFuncType( "(string)->Result<int>", Ri, &Ast::s_typeString );
 
     addIntrinsic( env, "eq?", b_ii );
     addIntrinsic( env, "lt?", b_ii );
@@ -942,6 +946,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     addIntrinsic( env, "divd", d_dd );
     addIntrinsic( env, "dfromi", d_i );
     addIntrinsic( env, "atoi", i_s );
+    addIntrinsic( env, "parsei", Ri_s );
     addIntrinsic( env, "strcat!", v_ss );
 
     auto module = make_unique_del<Ast::Module>();

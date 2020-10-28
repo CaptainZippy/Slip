@@ -63,7 +63,6 @@ namespace Slip::Sema {
             TypeInfo* faili;
             RETURN_IF_FAILED( dispatch( n->m_fail, &faili ) );
             _isConvertible( n, vi.info, n->m_fail, faili );
-            m_tryExprActive.pop_back();
 
             return Result::OK;
         }
@@ -138,11 +137,11 @@ namespace Slip::Sema {
         Result operator()( Ast::FunctionCall* n, VisitInfo& vi ) {
             TypeInfo* fi;
             RETURN_IF_FAILED( dispatch( n->m_func, &fi ) );
-            std::vector<TypeInfo*> ai;
+            std::vector<VisitInfo> ai;
             for( auto&& a : n->m_args ) {
                 TypeInfo* t;
                 RETURN_IF_FAILED( dispatch( a, &t ) );
-                ai.emplace_back( t );
+                ai.emplace_back( a, t );
             }
             if( !fi->func ) {  // TODO extract method
                 auto text = n->m_loc.text();
@@ -198,16 +197,27 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::NamedFunctionCall* n, VisitInfo& vi ) {
-            std::vector<TypeInfo*> ai;
+            // dispatch to arguments
+            std::vector<TypeInfo*> args;
             for( auto&& a : n->m_args ) {
                 TypeInfo* t;
                 RETURN_IF_FAILED( dispatch( a, &t ) );
-                ai.emplace_back( t );
+                args.emplace_back( t );
             }
+            struct Candidate {
+                Candidate( Ast::Node* n ) : node( n ) {}
+                Ast::Node* node;
+                TypeInfo* info{};
+                int score{};
+            };
 
-            std::vector<Ast::Node*> candidates = n->m_candidates;
-            if( ai.empty() == false ) {
-                if( auto ty = ai[0]->type ) {  // TODO move
+            std::vector<Candidate> candidates;
+            for( auto&& n : n->m_candidates ) {
+                candidates.emplace_back( n );
+            }
+            // add extra candidates from arg[0] if it exists
+            if( args.empty() == false && args[0] ) {
+                if( auto ty = args[0]->type ) {  // TODO move
                     for( auto&& f : ty->m_methods ) {
                         if( f->m_name == n->m_name ) {
                             candidates.emplace_back( f );
@@ -216,37 +226,45 @@ namespace Slip::Sema {
                 }
             }
 
-            std::vector<FuncInfo*> fi;
-            std::vector<TypeInfo*> ci;
+            enum Penalty {
+                NotCallable = 100000,
+                WrongNumArgs = 10000,
+                WrongType = 1000,
+            };
 
-            for( auto&& c : candidates ) {
-                TypeInfo* ti;
-                RETURN_IF_FAILED( dispatch( c, &ti ) );
-                ci.emplace_back( ti );
-                fi.emplace_back( ti->func );
-            }
-
-            auto isCompatible = []( array_view<TypeInfo*> proto, array_view<TypeInfo*> args ) {
-                if( proto.size() != args.size() ) {
-                    return false;
-                }
-                for( unsigned i = 0; i < args.size(); ++i ) {
-                    if( proto[i]->type && args[i]->type && proto[i]->type != args[i]->type ) {
-                        auto sa = proto[i]->type->m_struct;
-                        auto sb = args[i]->type->m_struct;
-                        if( sa == nullptr || sb == nullptr || sa != sb ) {  // TODO non-exact
-                            return false;
+            Candidate* bestCandidate = nullptr;
+            int bestScore = 100000 + 1;
+            for( auto& c : candidates ) {
+                RETURN_IF_FAILED( dispatch( c.node, &c.info ) );
+                if( auto f = c.info->func ) {
+                    if( f->params.size() != args.size() ) {
+                        c.score += WrongNumArgs;
+                    }
+                    auto narg = min2( f->params.size(), args.size() );
+                    for( size_t i = 0; i < narg; ++i ) {
+                        auto paramType = f->params[i]->type;
+                        auto argType = args[i]->type;
+                        // TODO order of overload resolution vs inference
+                        if( argType && paramType != argType ) { 
+                            c.score += WrongType;
                         }
                     }
+                } else {
+                    c.score += NotCallable;
                 }
-                return true;
-            };
-            std::vector<unsigned> yes;
-            for( unsigned i = 0; i < candidates.size(); ++i ) {
-                if( isCompatible( fi[i]->params, ai ) ) {
-                    yes.emplace_back( i );
+                if( c.score < bestScore ) {
+                    bestCandidate = &c;
+                    bestScore = c.score;
                 }
             }
+            RETURN_ERROR_IF( bestCandidate == nullptr || bestCandidate->score >= WrongType, Error::OverloadResolutionFailed, n->m_loc, "%s",
+                             n->name().c_str() );
+
+            auto fargs = n->m_args;
+            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( bestCandidate->node ), std::move( fargs ),
+                                                   [&]( auto& _ ) { _.m_loc = n->m_loc; } );
+            RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
+#if 0
             if( yes.size() != 1 ) {
                 std::string proto = string_concat( n->name(), "( " );
                 const char* sep = "";
@@ -258,7 +276,7 @@ namespace Slip::Sema {
                 Result::failed( Error::OverloadResolutionFailed, n->m_loc, "For function call '%s)", proto.c_str() );
                 Slip::diagnostic( "Candidates are:\n" );
                 for( auto&& c : candidates ) {
-                    auto n = dynamic_cast<Ast::Named*>( c );
+                    auto n = dynamic_cast<Ast::Named*>( c.node );
                     auto av = make_array_view( n->m_type->m_callable );
                     std::string x = string_concat( av[0]->name().c_str(), " ", n ? n->name().c_str() : "?", "(" );
                     sep = "";
@@ -270,15 +288,12 @@ namespace Slip::Sema {
                 }
                 return Error::OverloadResolutionFailed;
             }
-            RETURN_ERROR_IF( yes.size() != 1, Error::OverloadResolutionFailed, n->m_loc, "For function '%s'", n->name().c_str() );
-            n->m_resolved = new Ast::FunctionCall( new Ast::Reference( candidates[yes[0]] ), std::move( n->m_args ),
-                                                   [&]( auto& _ ) { _.m_loc = n->m_loc; } );
-            RETURN_IF_FAILED( dispatch( n->m_resolved, &vi.info ) );
+
+#endif
             return Result::OK;
         }
 
         Result operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
-            m_tryExprActive.push_back( false );
             if( n->m_type ) {  // intrinsic?
                 vi.info = _internKnownType( n->m_type );
             } else {
@@ -297,7 +312,6 @@ namespace Slip::Sema {
                     _isConvertible( n, ret, n->m_body, bt );
                 }
             }
-            m_tryExprActive.pop_back();
             return Result::OK;
         }
 
@@ -339,7 +353,7 @@ namespace Slip::Sema {
                 RETURN_ERROR_IF( n->m_initializer.size() != 1, Error::ExpectedOneInitializer, n->m_loc );
                 TypeInfo* ti;
                 RETURN_IF_FAILED( dispatch( n->m_initializer[0], &ti ) );
-                _isConvertible( nullptr, varTypeInfo, n->m_initializer[0], ti );
+                _isConvertible( n, varTypeInfo, n->m_initializer[0], ti );
             }
             return Result::OK;
         }
@@ -433,13 +447,11 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::TryExpr* n, VisitInfo& vi ) {
-            m_tryExprActive.push_back( true );
             TypeInfo* expri;
             RETURN_IF_FAILED( dispatch( n->m_expr, &expri ) );
             auto type = expri->get_type();
             RETURN_ERROR_IF( type->m_sum.size() != 2, Error::Fixme, n->m_loc, "Try requires an error sum type" );
             vi.info = _internKnownType( type->m_sum[0] );  // TODO assumes error type@1
-            m_tryExprActive.pop_back();
 
             return Result::OK;
         }
@@ -532,7 +544,7 @@ namespace Slip::Sema {
             for( auto i = 0ul; i < m_convertible.size(); ++i ) {
                 auto& c = m_convertible[i];
                 for( auto&& r : c.rhs ) {
-                    assert( canImplicitlyConvert( c.lhs.type(), r.type() ) );
+                    RETURN_ERROR_IF( !canImplicitlyConvert( c.lhs.type(), r.type() ), Error::InternalTypeConstraintFailed, r.node->m_loc );
                 }
             }
             // And write our results back into the nodes
@@ -571,6 +583,8 @@ namespace Slip::Sema {
                 top->m_userData = m_visited.size();
                 auto& vi = m_visited.emplace_back( top, (TypeInfo*)nullptr );
                 RETURN_IF_FAILED( Ast::dispatch<Result>( top, *this, vi ) );
+                assert( vi.node );
+                assert( vi.info );
             }
             *out = m_visited[i].info;
             return Result::OK;
@@ -593,9 +607,15 @@ namespace Slip::Sema {
         }
 
         void _isConvertible( Ast::Node* bnode, TypeInfo* base, Ast::Node* dnode, TypeInfo* derived ) {
+            assert( bnode );
+            assert( dnode );
             m_convertible.emplace_back( bnode, base, dnode, derived );
         }
         void _isConvertible( Ast::Node* bnode, TypeInfo* base, std::initializer_list<Convertible::Pair> rhs ) {
+            assert( bnode );
+            for( auto&& a : rhs ) {
+                assert( a.node );
+            }
             m_convertible.emplace_back( bnode, base, rhs );
         }
 
@@ -712,12 +732,12 @@ namespace Slip::Sema {
             }
         }
 
-        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<TypeInfo*> args ) {
+        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<VisitInfo> args ) {
             auto f = ti->get_func();
             assert( f );
             assert( f->params.size() == args.size() );
             for( unsigned i = 0; i < args.size(); ++i ) {
-                _isConvertible( callable, f->params[i], nullptr, args[i] );
+                _isConvertible( callable, f->params[i], args[i].node, args[i].info );
             }
         }
     };  // namespace Slip::Sema
