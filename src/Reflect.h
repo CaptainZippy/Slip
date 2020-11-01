@@ -160,12 +160,12 @@ namespace Slip::Reflect {
 #define PP_FOREACH( MACRO, ... ) PP_PASTE( PP_FOR_, PP_NARG( __VA_ARGS__ ) )( MACRO, __VA_ARGS__ )
 #endif
 
-#define REFLECT_DECL()                                                           \
-    struct _Auto;                                                                \
-    friend struct _Auto;                                                         \
-    static Reflect::Type s_reflectType;                                          \
-    static const Reflect::Type* staticType() { return &s_reflectType; }          \
-    const Reflect::Type* dynamicType() const override { return &s_reflectType; } \
+#define REFLECT_DECL()                                                  \
+    struct _Auto;                                                       \
+    friend struct _Auto;                                                \
+    static Reflect::Type s_reflectType;                                 \
+    static const Reflect::Type* staticType() { return &s_reflectType; } \
+    const Reflect::Type* dynamicType() const { return &s_reflectType; } \
     struct Terminator
 
 #define REFLECT_BEGIN( NAME )                                \

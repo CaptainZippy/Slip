@@ -731,6 +731,20 @@ static Result parse_Macro( Ast::Environment* env, Ast::LexList* args, Ast::Node*
     return Result::OK;
 }
 
+static Result parse_Pipe( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
+    *out = nullptr;
+    std::vector<Ast::LexNode*> lparts;
+    RETURN_IF_FAILED( matchLex( env, args, &lparts, Ellipsis::OneOrMore ) );
+    auto pipe = new Ast::PipelineExpr( WITH( _.m_loc = args->m_loc ) );
+    for( auto&& p : lparts ) {
+        Ast::Node* n;
+        RETURN_IF_FAILED( parse1( env, p, &n ) );
+        pipe->addStage( n );
+    }
+    *out = pipe;
+    return Result::OK;
+}
+
 static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Node** out ) {
     *out = nullptr;
     Ast::LexIdent* lname;
@@ -893,6 +907,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     addBuiltin( env, "scope"sv, &parse_Scope );
     addBuiltin( env, "macro"sv, &parse_Macro );
     addBuiltin( env, "struct"sv, &parse_Struct );
+    addBuiltin( env, "pipe"sv, &parse_Pipe );
     addBuiltin( env, "array_view"sv, [cache = new Parse::ArrayView::Cache( "array_view" )]( auto e, auto a, auto o ) {
         return ArrayView::parse( cache, e, a, o );
     } );

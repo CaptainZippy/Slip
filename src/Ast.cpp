@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 
-#include "Errors.h"
 #include "Ast.h"
+#include "Errors.h"
 #include "Io.h"
 
 namespace Slip::Ast {
@@ -151,6 +151,15 @@ namespace Slip::Ast {
     REFLECT_PARENT( Named )
     REFLECT_END()
 
+    REFLECT_BEGIN( PipelineExpr )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_stages, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( PipelineExpr::Stage )
+    REFLECT_FIELD2( expr, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( Reference )
     REFLECT_PARENT( Node )
     REFLECT_FIELD2( m_target, Flags::Abbrev )
@@ -185,6 +194,11 @@ namespace Slip::Ast {
     REFLECT_PARENT( Node )
     REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_END()
+
+    REFLECT_BEGIN( UnwrapResult )
+    REFLECT_PARENT( Node )
+    REFLECT_FIELD2( m_src, Flags::Child )
+    REFLECT_END()
 }  // namespace Slip::Ast
 
 using namespace Slip;
@@ -204,9 +218,9 @@ Result Ast::Environment::bind( istring sym, Node* value ) {
     auto fdCur = dynamic_cast<Ast::FunctionDecl*>( it->second );
     auto& loc = it->second->m_loc;
     RETURN_ERROR_IF( fdVal == nullptr || fdCur == nullptr, Error::CannotOverload, value->m_loc,
-                   "Only functions can be overloaded. '%s' is already defined\n"
-                   "%s:%i:%i: Previously defined here",
-                   sym.c_str(), loc.filename(), loc.line(), loc.col() );
+                     "Only functions can be overloaded. '%s' is already defined\n"
+                     "%s:%i:%i: Previously defined here",
+                     sym.c_str(), loc.filename(), loc.line(), loc.col() );
     syms_.emplace_hint( it, sym, value );
     return Result::OK;
 }

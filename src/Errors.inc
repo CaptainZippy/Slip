@@ -36,6 +36,7 @@ ERROR_CASE(DotNotSupportedHere)
 ERROR_CASE(DottedAttributeNotFound)
 ERROR_CASE(TypeNotDeduced)
 ERROR_CASE(CondWithNoCases)
+ERROR_CASE(PipeWithNoStages)
 
 ERROR_CASE(InternalTypeConstraintFailed)
 ERROR_CASE(InternalUnknownSemantic)

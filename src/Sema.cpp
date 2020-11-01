@@ -4,6 +4,10 @@
 #include "Errors.h"
 #include "Io.h"
 
+namespace Slip::Parse {
+    extern Slip::Result ResultT_instantiate( Ast::Type* t, Ast::Type** out );
+}
+
 namespace Slip::Sema {
 
     struct TypeInfo;
@@ -45,7 +49,8 @@ namespace Slip::Sema {
 
     struct ConstraintBuilder {
         Result operator()( Ast::Node* n, VisitInfo& vi ) {
-            RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc );
+            RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc, "Expression is of kind '%s'",
+                             n->dynamicType()->name );
             return Result::OK;
         }
 
@@ -230,6 +235,7 @@ namespace Slip::Sema {
                 NotCallable = 100000,
                 WrongNumArgs = 10000,
                 WrongType = 1000,
+                NeedsUnwrap = 10,
             };
 
             Candidate* bestCandidate = nullptr;
@@ -246,7 +252,11 @@ namespace Slip::Sema {
                         auto argType = args[i]->type;
                         // TODO order of overload resolution vs inference
                         if( argType && paramType != argType ) {
-                            c.score += WrongType;
+                            if( m_autoUnwrap.back() && argType->m_sum.size() && argType->m_sum[0] == paramType ) {
+                                c.score += NeedsUnwrap;
+                            } else {
+                                c.score += WrongType;
+                            }
                         }
                     }
                 } else {
@@ -427,6 +437,47 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::PipelineExpr* n, VisitInfo& vi ) {
+            RETURN_ERROR_IF( n->m_stages.empty(), Error::PipeWithNoStages, n->m_loc );
+            Ast::Node* prev{nullptr};
+            m_autoUnwrap.push_back( true );
+            bool usedUnwrap{false};
+            TypeInfo* ti;
+            for( auto&& stage : n->m_stages ) {
+                Ast::NamedFunctionCall* nf;
+                if( prev ) {
+                    RETURN_IF_FAILED( dynCast( stage.expr, &nf ) );
+                    nf->m_args.push_back( prev );
+                }
+                RETURN_IF_FAILED( dispatch( stage.expr, &ti ) );
+                if( ti->get_type()->m_sum.empty() ) {
+                    prev = stage.expr;
+                } else {
+                    stage.canFail = true;
+                    prev = new Ast::UnwrapResult( stage.expr );
+                    prev->m_type = ti->get_type()->m_sum[0];
+                    TypeInfo* t;
+                    RETURN_IF_FAILED( dispatch( prev, &t ) );
+                    usedUnwrap = true;
+                }
+            }
+            m_autoUnwrap.pop_back();
+            if( usedUnwrap ) {
+                auto origT = ti->get_type();
+                Ast::Type* thisT;
+                if( origT->m_sum.empty() ) {
+                    RETURN_IF_FAILED( Slip::Parse::ResultT_instantiate( origT, &thisT ) );
+                } else {
+                    // TODO assert ResultT
+                    thisT = origT;
+                }
+                vi.info = _internKnownType( thisT );
+            } else {
+                vi.info = ti;
+            }
+            return Result::OK;
+        }
+
         Result operator()( Ast::Selector* n, VisitInfo& vi ) {
             TypeInfo* lhsi;
             RETURN_IF_FAILED( dispatch( n->m_lhs, &lhsi ) );
@@ -451,6 +502,11 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::UnwrapResult* n, VisitInfo& vi ) {
+            vi.info = _internKnownType( n->m_type );
+            return Result::OK;
+        }
+
        public:
         struct Convertible {
             struct Pair {
@@ -468,6 +524,7 @@ namespace Slip::Sema {
         unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         vector<Convertible> m_convertible;
+        std::vector<bool> m_autoUnwrap{false};
 
         Result build( Ast::Node* node ) {
             TypeInfo* t;
@@ -614,6 +671,7 @@ namespace Slip::Sema {
         }
 
         TypeInfo* _internKnownType( Ast::Type* t ) {
+            assert( t );
             auto it = m_knownTypes.emplace( t, nullptr );
             if( it.second ) {
                 auto ti = new TypeInfo;

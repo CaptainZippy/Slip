@@ -102,7 +102,9 @@ namespace Slip::Ast {
         LexList( const SourceLocation& loc ) : LexNode( loc ) {}
         size_t size() const { return m_items.size(); }
         LexNode* at( int i ) const { return m_items[i]; }
+        LexNode* at( size_t i ) const { return m_items[i]; }
         void append( LexNode* a ) { m_items.push_back( a ); }
+        void insertAt( int idx, LexNode* a ) { m_items.insert( m_items.begin() + idx, a ); }
         array_view<LexNode*> items() { return m_items; }
         vector<LexNode*> m_items;
     };
@@ -388,6 +390,22 @@ namespace Slip::Ast {
         }
     };
 
+    struct PipelineExpr : Node {
+        AST_DECL();
+        template <typename With>
+        PipelineExpr( With&& with ) {
+            with( *this );
+        }
+        struct Stage {
+            REFLECT_DECL();
+            Stage( Ast::Node* e ) : expr( e ) {}
+            Ast::Node* expr;
+            bool canFail{false};
+        };
+        void addStage( Ast::Node* e ) { m_stages.emplace_back( e ); }
+        std::vector<Stage> m_stages;
+    };
+
     struct Reference : public Node {
         AST_DECL();
         Reference( Node* s ) : m_target( s ) {}
@@ -449,6 +467,12 @@ namespace Slip::Ast {
         StructField( string_view n, With&& with ) : Named( n ) {
             with( *this );
         }
+    };
+
+    struct UnwrapResult : Node {
+        AST_DECL();
+        Node* m_src;
+        UnwrapResult( Node* src ) : m_src( src ) {}
     };
 
     extern Ast::Type s_typeType;

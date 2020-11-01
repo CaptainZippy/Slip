@@ -41,7 +41,17 @@ namespace {
             assert( it.second );  // assert we inserted a new
         }
 
-        string dispatch( Ast::Node* n ) { return Ast::dispatch<string>( n, *this ); }
+        string dispatch( Ast::Node* n ) {
+            auto it = dispatched.find( n );
+            if( it != dispatched.end() ) {
+                return it->second.std_str();
+            }
+            auto s = Ast::dispatch<string>( n, *this );
+            if( s.size() ) {
+                dispatched.emplace( n, istring::make( s ) );
+            }
+            return s;
+        }
 
         string operator()( Ast::Node* n ) {
             assert( 0 );
@@ -367,6 +377,28 @@ namespace {
             return dispatch( n->m_resolved );
         }
 
+        string operator()( Ast::PipelineExpr* n ) {
+            string ret = newVarId();
+            out.write( string_concat( n->m_type->m_name, " ", ret, ";\n" ) );
+            string cur;
+            string closing = "";
+            for( auto&& stage : n->m_stages ) {
+                cur = dispatch( stage.expr );
+                if( stage.canFail ) {
+                    out.write( string_concat( "if(", cur, ".fail) { ", ret, ".setFail(", cur, ".fail); } else {\n" ) );
+                    closing += "}";
+                }
+            }
+            out.write( string_concat( ret, " = ", cur, ".ok;\n", closing, "\n" ) );
+
+            return ret;
+        }
+
+        string operator()( Ast::UnwrapResult* n ) {
+            auto c = dispatch( n->m_src );
+            return string_concat( c, ".ok" );
+        }
+
         string operator()( Ast::Selector* n ) {
             auto lhs = dispatch( n->m_lhs );
             return string_concat( lhs.c_str(), ".", n->m_rhs->text() );
@@ -394,15 +426,16 @@ namespace {
             out.write( "#include<string>\n" );
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
-            out.write( "struct MainReg {\n");
-            out.write( "    typedef int(*mainfunc)(int argc, const char**);\n");
+            out.write( "struct MainReg {\n" );
+            out.write( "    typedef int(*mainfunc)(int argc, const char**);\n" );
             out.write( "    MainReg(const char* n, mainfunc m); const char* name; mainfunc main; const MainReg* next; };\n" );
-            out.begin( string_concat("namespace ", n->m_name, " {") );
+            out.begin( string_concat( "namespace ", n->m_name, " {" ) );
             out.write( "enum Error { failed=1 };\n" );
             out.write( "template<typename T> struct Result { T ok; int fail;\n" );
             out.write( "    Result( ) : fail( failed ) {}\n" );
             out.write( "    Result( const T& t ) : ok( t ), fail(0) {}\n" );
             out.write( "    Result( Error e ) : fail( e ) {}\n" );
+            out.write( "    void setFail( int f ) { fail = f; }\n" );
             out.write( "    void operator=( const T& t ) { ok = t; fail = 0; }\n" );
             out.write( "    void operator=( Error e ) { fail = e; }\n};\n" );
             out.write(
@@ -424,6 +457,9 @@ namespace {
             out.write( "inline int mod(int a, int b) { return a%b; }\n" );
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
             out.write( "inline int atoi(const string& s) { return ::atoi(s.m_s.data()); }\n" );
+            out.write(
+                "inline Result<int> parsei(const string& s) { int r = ::strtod(s.m_s.data(), nullptr); if(r) return r; return failed; "
+                "}\n" );
             out.write( "inline double muld(double a, double b) { return a*b; }\n" );
             out.write( "inline double divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double addd(double a, double b) { return a+b; }\n" );
@@ -437,12 +473,14 @@ namespace {
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; return "
+                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
+                "return "
                 "failed; }\n" );
             out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
             out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; return "
+                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; "
+                "return "
                 "failed; }\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
@@ -486,7 +524,7 @@ namespace {
                 default:
                     break;
             }
-            if( mainKind != -1) {
+            if( mainKind != -1 ) {
                 out.write( string_concat( "\nstatic MainReg mainreg(\"", n->m_name, "\", &main_entry );\n" ) );
             }
 

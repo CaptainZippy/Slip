@@ -9,9 +9,8 @@
         (true
             (ack (sub m 1) (ack m (sub n 1))))))
 
-
 (func main (args:(array_view string)):int
-    (var n (atoi (catch (get args 1) "6")))
+    (var n (catch (pipe (get args 1) (parsei)) 6))
     (puti n)
     (puti (ack 3 n))
     0)
