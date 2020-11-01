@@ -56,9 +56,9 @@ namespace {
 
         std::map<Ast::FunctionDecl*, std::vector<OpCode> > funcs_;
 
-        Result dispatch( Ast::Node* n, Ast::Environment* env ) { return Ast::dispatch<Result>( n, *this, env ); }
+        Result dispatch( Ast::Expr* n, Ast::Environment* env ) { return Ast::dispatch<Result>( n, *this, env ); }
 
-        Result operator()( Ast::Node* n, Ast::Environment* env ) {
+        Result operator()( Ast::Expr* n, Ast::Environment* env ) {
             assert( false );
             return Result::OK;
         }
@@ -116,7 +116,7 @@ namespace {
 
 #define WITH( ... ) [&]( auto& _ ) { __VA_ARGS__; }
 
-Result Eval::evaluate( Ast::Environment* env, Ast::Node* node, Ast::Node** out ) {
+Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out ) {
     *out = nullptr;
     Sema::type_check( node );
 

@@ -42,13 +42,13 @@ namespace Slip::Sema {
 
     struct VisitInfo {
         VisitInfo() = delete;
-        VisitInfo( Ast::Node* n, TypeInfo* t ) : node( n ), info( t ) {}
-        Ast::Node* node{nullptr};
+        VisitInfo( Ast::Expr* n, TypeInfo* t ) : node( n ), info( t ) {}
+        Ast::Expr* node{nullptr};
         TypeInfo* info{nullptr};
     };
 
     struct ConstraintBuilder {
-        Result operator()( Ast::Node* n, VisitInfo& vi ) {
+        Result operator()( Ast::Expr* n, VisitInfo& vi ) {
             RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc, "Expression is of kind '%s'",
                              n->dynamicType()->name );
             return Result::OK;
@@ -210,8 +210,8 @@ namespace Slip::Sema {
                 args.emplace_back( t );
             }
             struct Candidate {
-                Candidate( Ast::Node* n ) : node( n ) {}
-                Ast::Node* node;
+                Candidate( Ast::Expr* n ) : node( n ) {}
+                Ast::Expr* node;
                 TypeInfo* info{};
                 int score{};
             };
@@ -439,7 +439,7 @@ namespace Slip::Sema {
 
         Result operator()( Ast::PipelineExpr* n, VisitInfo& vi ) {
             RETURN_ERROR_IF( n->m_stages.empty(), Error::PipeWithNoStages, n->m_loc );
-            Ast::Node* prev{nullptr};
+            Ast::Expr* prev{nullptr};
             m_autoUnwrap.push_back( true );
             bool usedUnwrap{false};
             TypeInfo* ti;
@@ -510,12 +510,12 @@ namespace Slip::Sema {
        public:
         struct Convertible {
             struct Pair {
-                Ast::Node* node;
+                Ast::Expr* node;
                 TypeInfo* info;
                 Ast::Type* type() const { return info->type; }
             };
-            Convertible( Ast::Node* ln, TypeInfo* li, Ast::Node* rn, TypeInfo* ri ) : lhs{ln, li} { rhs.push_back( {rn, ri} ); }
-            Convertible( Ast::Node* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ln, li}, rhs( rl ) {}
+            Convertible( Ast::Expr* ln, TypeInfo* li, Ast::Expr* rn, TypeInfo* ri ) : lhs{ln, li} { rhs.push_back( {rn, ri} ); }
+            Convertible( Ast::Expr* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ln, li}, rhs( rl ) {}
             Pair lhs;
             std::vector<Pair> rhs;
             bool todo{true};
@@ -526,7 +526,7 @@ namespace Slip::Sema {
         vector<Convertible> m_convertible;
         std::vector<bool> m_autoUnwrap{false};
 
-        Result build( Ast::Node* node ) {
+        Result build( Ast::Expr* node ) {
             TypeInfo* t;
             RETURN_IF_FAILED( dispatch( node, &t ) );
             return Result::OK;
@@ -628,7 +628,7 @@ namespace Slip::Sema {
             return false;
         }
 
-        Result dispatch( Ast::Node* top, TypeInfo** out ) {
+        Result dispatch( Ast::Expr* top, TypeInfo** out ) {
             auto& i = top->m_userData;
             if( i >= m_visited.size() || m_visited[i].node != top ) {
                 top->m_userData = m_visited.size();
@@ -657,12 +657,12 @@ namespace Slip::Sema {
             }
         }
 
-        void _isConvertible( Ast::Node* bnode, TypeInfo* base, Ast::Node* dnode, TypeInfo* derived ) {
+        void _isConvertible( Ast::Expr* bnode, TypeInfo* base, Ast::Expr* dnode, TypeInfo* derived ) {
             assert( bnode );
             assert( dnode );
             m_convertible.emplace_back( bnode, base, dnode, derived );
         }
-        void _isConvertible( Ast::Node* bnode, TypeInfo* base, std::initializer_list<Convertible::Pair> rhs ) {
+        void _isConvertible( Ast::Expr* bnode, TypeInfo* base, std::initializer_list<Convertible::Pair> rhs ) {
             assert( bnode );
             for( auto&& a : rhs ) {
                 assert( a.node );
@@ -690,7 +690,7 @@ namespace Slip::Sema {
             return it.first->second;
         }
 
-        TypeInfo* _evalTypeExpr( Ast::Node* te ) {
+        TypeInfo* _evalTypeExpr( Ast::Expr* te ) {
             if( !te ) {
                 return new TypeInfo{};
             }
@@ -711,19 +711,19 @@ namespace Slip::Sema {
                 }
                 auto func = dynamic_cast<Ast::FunctionDecl*>( fnode );
                 assert( func );
-                Ast::Node* ret;
+                Ast::Expr* ret;
                 ( func->m_intrinsic )( call->m_args, &ret );
                 auto type = dynamic_cast<Ast::Type*>( ret );
                 assert( type );
                 return _internKnownType( type );
             } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
-                std::vector<Ast::Node*> candidates = named->m_candidates;
+                std::vector<Ast::Expr*> candidates = named->m_candidates;
                 if( candidates.size() != 1 ) {
                     Result::failed( Error::UnresolvedCall, named->m_loc, "%s", named->name().c_str() );
                 }
                 auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] );
                 assert( func );
-                Ast::Node* ret;
+                Ast::Expr* ret;
                 ( func->m_intrinsic )( named->m_args, &ret );
                 auto type = dynamic_cast<Ast::Type*>( ret );
                 assert( type );
@@ -784,7 +784,7 @@ namespace Slip::Sema {
             }
         }
 
-        void _isApplicable( Ast::Node* callable, TypeInfo* ti, array_view<VisitInfo> args ) {
+        void _isApplicable( Ast::Expr* callable, TypeInfo* ti, array_view<VisitInfo> args ) {
             auto f = ti->get_func();
             assert( f );
             assert( f->params.size() == args.size() );
@@ -875,7 +875,7 @@ namespace Slip::Sema {
             io.begin("<DirectedGraph xmlns=\"http://schemas.microsoft.com/vs/2009/dgml\">\n");
             io.begin("<Nodes>\n");
             for (auto&& src : builder.m_targets) {
-                io.write(string_format("<Node Id='0x%p' Category='Node' Label='", src));
+                io.write(string_format("<Expr Id='0x%p' Category='Expr' Label='", src));
                 io.write(src->node->dynamicType()->name);
                 Ast::print(src->type, io);
                 io.write("' />\n");
@@ -912,7 +912,7 @@ namespace Slip::Sema {
 #endif
 }  // namespace Slip::Sema
 
-Slip::Result Slip::Sema::type_check( Slip::Ast::Node* node ) {
+Slip::Result Slip::Sema::type_check( Slip::Ast::Expr* node ) {
     ConstraintBuilder builder;
     // RETURN_IF_FAILED(
     RETURN_IF_FAILED( builder.build( node ) );

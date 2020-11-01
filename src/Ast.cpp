@@ -10,7 +10,7 @@ namespace Slip::Ast {
 #include "Ast.inc"
 #undef AST_NODE
 
-    REFLECT_BEGIN( Node )
+    REFLECT_BEGIN( Expr )
     // REFLECT_FIELD2(m_declTypeExpr, Flags::Abbrev)
     REFLECT_END()
 
@@ -20,7 +20,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Decl )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_END()
 
     REFLECT_BEGIN( Block )
@@ -29,13 +29,13 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Break )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_target, Flags::Abbrev )
     REFLECT_FIELD2( m_value, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( CatchExpr )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_FIELD2( m_fail, Flags::Child )
     REFLECT_END()
@@ -48,51 +48,51 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( CoroutineYield )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( Number )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_num, Flags::Abbrev )
     REFLECT_END()
 
     REFLECT_BEGIN( String )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_str, Flags::Abbrev )
     REFLECT_END()
 
     REFLECT_BEGIN( Module )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( FunctionCall )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_func, Flags::Child )
     REFLECT_FIELD2( m_args, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( Named )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_name, Flags::Abbrev )
     REFLECT_END()
 
     REFLECT_BEGIN( If )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_cond, Flags::Child )
     REFLECT_FIELD2( m_true, Flags::Child )
     REFLECT_FIELD2( m_false, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( While )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_cond, Flags::Child )
     REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( Cond )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_cases, Flags::Child )
     REFLECT_END()
 
@@ -104,11 +104,11 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Builtin )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_END()
 
     REFLECT_BEGIN( Environment )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_END()
 
     REFLECT_BEGIN( MacroDecl )
@@ -118,7 +118,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( MacroExpansion )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_expansion, Flags::Child )
     REFLECT_FIELD2( m_macro, Flags::Child )
     REFLECT_FIELD2( m_args, Flags::Child )
@@ -137,13 +137,13 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Assignment )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_lhs, Flags::Child )
     REFLECT_FIELD2( m_rhs, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( Sequence )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 
@@ -152,7 +152,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( PipelineExpr )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_stages, Flags::Child )
     REFLECT_END()
 
@@ -161,17 +161,17 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Reference )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_target, Flags::Abbrev )
     REFLECT_END()
 
     REFLECT_BEGIN( Scope )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_child, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( Selector )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_lhs, Flags::Child )
     REFLECT_FIELD2( m_rhs, Flags::Child )
     REFLECT_END()
@@ -191,23 +191,23 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( TryExpr )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( UnwrapResult )
-    REFLECT_PARENT( Node )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_src, Flags::Child )
     REFLECT_END()
 }  // namespace Slip::Ast
 
 using namespace Slip;
 
-size_t Ast::Node::s_serial;
+size_t Ast::Expr::s_serial;
 
-Ast::Node* Ast::Node::resolve() { return this; }
+Ast::Expr* Ast::Expr::resolve() { return this; }
 
-Result Ast::Environment::bind( istring sym, Node* value ) {
+Result Ast::Environment::bind( istring sym, Expr* value ) {
     auto it = syms_.lower_bound( sym );
     if( it == syms_.end() || it->first != sym ) {  // new element
         syms_.emplace( sym, value );
@@ -225,28 +225,28 @@ Result Ast::Environment::bind( istring sym, Node* value ) {
     return Result::OK;
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret ) {
+Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Expr* ret ) {
     auto f = new FunctionDecl( name );
     f->m_declReturnTypeExpr = ret;
-    f->m_body = new Node();
+    f->m_body = new Expr();
     f->m_body->m_declTypeExpr = ret;
     f->m_params.push_back( a );
     f->m_params.push_back( b );
     return f;
 }
 
-Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Node* ret,
+Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Expr* ret,
                                                      std::initializer_list<Parameter*> params ) {
     auto f = new FunctionDecl( name );
     f->m_intrinsic = std::move( intrin );
     f->m_declReturnTypeExpr = ret;
-    f->m_body = new Node();
+    f->m_body = new Expr();
     f->m_body->m_declTypeExpr = ret;
     f->m_params = params;
     return f;
 }
 
-Ast::Node* Ast::Reference::resolve() { return m_target; }
+Ast::Expr* Ast::Reference::resolve() { return m_target; }
 
 Ast::Type Ast::s_typeType( "Type"sv );
 Ast::Type Ast::s_typeInt( "int"sv );
@@ -341,14 +341,14 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
     }
 }
 
-void Ast::print( Node* node ) {
+void Ast::print( Expr* node ) {
     Io::TextOutput out;
     Reflect::Var top{node};
     ::print( top, out, false );
     out.nl();
 }
 
-void Ast::print( Node* node, Io::TextOutput& out ) {
+void Ast::print( Expr* node, Io::TextOutput& out ) {
     if( !node )
         return;
     Reflect::Var top{node};

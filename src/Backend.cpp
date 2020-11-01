@@ -26,7 +26,7 @@ namespace {
     };
     struct Generator {
         Io::TextOutput& out;
-        std::unordered_map<Ast::Node*, istring> dispatched;
+        std::unordered_map<Ast::Expr*, istring> dispatched;
         int m_counter = 1;
         TriBool m_outerFuncCanFail;
 
@@ -36,12 +36,12 @@ namespace {
 
         string newVarId() { return string_format( "_%i", m_counter++ ); }
 
-        void addName( Ast::Node* n, istring name ) {
+        void addName( Ast::Expr* n, istring name ) {
             auto it = dispatched.emplace( n, name );
             assert( it.second );  // assert we inserted a new
         }
 
-        string dispatch( Ast::Node* n ) {
+        string dispatch( Ast::Expr* n ) {
             auto it = dispatched.find( n );
             if( it != dispatched.end() ) {
                 return it->second.std_str();
@@ -53,7 +53,7 @@ namespace {
             return s;
         }
 
-        string operator()( Ast::Node* n ) {
+        string operator()( Ast::Expr* n ) {
             assert( 0 );
             return "";
         }

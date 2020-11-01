@@ -20,8 +20,8 @@ namespace Slip {
         Result lex_input( Io::TextInput& input, unique_ptr_del<LexList>& lex );
         Result lex_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<LexList>& lex );
 
-        void print( Node* node );
-        void print( Node* node, Io::TextOutput& output );
+        void print( Expr* node );
+        void print( Expr* node, Io::TextOutput& output );
     }  // namespace Ast
 
     namespace Parse {
@@ -33,11 +33,11 @@ namespace Slip {
 
     namespace Sema {
         /// Check types
-        Result type_check( Ast::Node* node );
+        Result type_check( Ast::Expr* node );
     }  // namespace Sema
 
     namespace Eval {
-        Result evaluate( Ast::Environment* env, Ast::Node* node, Ast::Node** out );
+        Result evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out );
     }
 
     namespace Backend {

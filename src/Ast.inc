@@ -1,4 +1,4 @@
-AST_NODE(Node)
+AST_NODE(Expr)
 AST_NODE(Named)
 
 AST_NODE(Assignment)

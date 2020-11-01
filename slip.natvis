@@ -30,7 +30,7 @@
     <Type Name="Slip::Io::SourceLocation">
         <DisplayString>file={m_file->m_name} near={m_file->m_contents._Mypair._Myval2._Bx._Ptr+m_start,[m_end-m_start]s8}</DisplayString>
     </Type>
-    <Type Name="Slip::Ast::Node">
+    <Type Name="Slip::Ast::Expr">
         <Expand>
             <ExpandedItem Condition="m_loc.m_file">m_loc</ExpandedItem>
         </Expand>

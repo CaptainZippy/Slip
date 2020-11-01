@@ -21,7 +21,7 @@ namespace Slip::Ast {
 
     using SourceLocation = Io::SourceLocation;
 
-    struct Node : Reflect::AbstractReflected {
+    struct Expr : Reflect::AbstractReflected {
         REFLECT_DECL();
 
        private:
@@ -30,27 +30,27 @@ namespace Slip::Ast {
        public:
         virtual int tag() const;
 
-        Node() = default;
-        Node( const SourceLocation& loc ) : m_loc( loc ) {}
+        Expr() = default;
+        Expr( const SourceLocation& loc ) : m_loc( loc ) {}
 
         template <typename With>
-        Node( With&& w ) {
+        Expr( With&& w ) {
             w( *this );
         }
 
-        virtual Node* resolve();
+        virtual Expr* resolve();
 
         size_t m_userData;
         Ast::Type* m_type{nullptr};
-        Ast::Node* m_declTypeExpr{nullptr};
+        Ast::Expr* m_declTypeExpr{nullptr};
         SourceLocation m_loc;
         size_t m_serial{s_serial++};
     };
 
-    struct LexNode : public Node {
+    struct LexNode : public Expr {
        public:
         AST_DECL();
-        LexNode( const SourceLocation& loc ) : Node( loc ) {}
+        LexNode( const SourceLocation& loc ) : Expr( loc ) {}
 
         LexNode* m_decltype = nullptr;
         vector<LexNode*> m_attrs;
@@ -109,7 +109,7 @@ namespace Slip::Ast {
         vector<LexNode*> m_items;
     };
 
-    struct Named : Node {
+    struct Named : Expr {
         AST_DECL();
         istring m_name{};
 
@@ -119,57 +119,57 @@ namespace Slip::Ast {
         istring name() { return m_name; }
     };
 
-    struct Assignment : Node {
+    struct Assignment : Expr {
         AST_DECL();
-        Node* m_lhs{nullptr};
-        Node* m_rhs{nullptr};
+        Expr* m_lhs{nullptr};
+        Expr* m_rhs{nullptr};
 
         template <typename With>
-        Assignment( Node* lhs, Node* rhs, With&& with ) : m_lhs( lhs ), m_rhs( rhs ) {
+        Assignment( Expr* lhs, Expr* rhs, With&& with ) : m_lhs( lhs ), m_rhs( rhs ) {
             with( *this );
         }
     };
 
     struct Block : Named {
         AST_DECL();
-        Block( istring name, Ast::Node* contents ) : Named( name ), m_contents( contents ) {}
-        Ast::Node* m_contents;
+        Block( istring name, Ast::Expr* contents ) : Named( name ), m_contents( contents ) {}
+        Ast::Expr* m_contents;
     };
 
-    struct Break : Node {
+    struct Break : Expr {
         AST_DECL();
-        Break( Ast::Block* target, Ast::Node* value ) : m_target( target ), m_value( value ) {}
+        Break( Ast::Block* target, Ast::Expr* value ) : m_target( target ), m_value( value ) {}
         Ast::Block* m_target;
-        Ast::Node* m_value;
+        Ast::Expr* m_value;
     };
 
     struct Builtin : Named {
         AST_DECL();
-        using ParseProto = Result( Ast::Environment* env, LexList* list, Ast::Node** out );
+        using ParseProto = Result( Ast::Environment* env, LexList* list, Ast::Expr** out );
         using ParseFunc = Func<ParseProto>;
 
         Builtin( string_view name, ParseFunc&& func ) : Named( name ), m_func( std::move( func ) ) {}
 
-        Result parse( Ast::Environment* env, LexList* list, Ast::Node** out ) { return m_func( env, list, out ); }
+        Result parse( Ast::Environment* env, LexList* list, Ast::Expr** out ) { return m_func( env, list, out ); }
 
         ParseFunc m_func;
     };
 
-    struct CatchExpr : Node {
+    struct CatchExpr : Expr {
         AST_DECL();
 
         template <typename With>
-        CatchExpr( Ast::Node* expr, Ast::Node* fail, With&& with ) : m_expr( expr ), m_fail( fail ) {
+        CatchExpr( Ast::Expr* expr, Ast::Expr* fail, With&& with ) : m_expr( expr ), m_fail( fail ) {
             with( *this );
         }
 
-        Ast::Node* m_expr;
-        Ast::Node* m_fail;
+        Ast::Expr* m_expr;
+        Ast::Expr* m_fail;
     };
 
-    struct Cond : Node {
+    struct Cond : Expr {
         AST_DECL();
-        vector<pair<Node*, Node*> > m_cases;
+        vector<pair<Expr*, Expr*> > m_cases;
 
         template <typename With>
         Cond( With&& with ) {
@@ -181,8 +181,8 @@ namespace Slip::Ast {
         AST_DECL();
 
         vector<Parameter*> m_params;
-        Ast::Node* m_declReturnTypeExpr{nullptr};
-        Node* m_body{nullptr};
+        Ast::Expr* m_declReturnTypeExpr{nullptr};
+        Expr* m_body{nullptr};
 
         CoroutineDecl( string_view name ) : Named( name ) {}
 
@@ -192,36 +192,36 @@ namespace Slip::Ast {
         }
     };
 
-    struct CoroutineYield : Node {
+    struct CoroutineYield : Expr {
         AST_DECL();
-        Node* m_expr{nullptr};
+        Expr* m_expr{nullptr};
         CoroutineDecl* m_coro{nullptr};
     };
 
-    struct Decl : Node {
+    struct Decl : Expr {
         AST_DECL();
     };
 
     struct Definition : public Named {
         AST_DECL();
 
-        Node* m_value = nullptr;
+        Expr* m_value = nullptr;
 
         template <typename With>
-        Definition( string_view sym, Node* value, With&& with ) : Named( sym ), m_value( value ) {
+        Definition( string_view sym, Expr* value, With&& with ) : Named( sym ), m_value( value ) {
             with( *this );
         }
     };
 
-    struct Environment : Node {
+    struct Environment : Expr {
         AST_DECL();
 
         Environment( Environment* parent ) : parent_( parent ) {}
         struct LookupIter {
             const Environment* env{nullptr};
-            std::multimap<istring, Node*>::const_iterator it;
+            std::multimap<istring, Expr*>::const_iterator it;
         };
-        bool lookup_iter( istring sym, Node** out, LookupIter& iter ) const {
+        bool lookup_iter( istring sym, Expr** out, LookupIter& iter ) const {
             *out = nullptr;
             // iter is null first time, or the env of the previous find.
             if( iter.env == nullptr ) {
@@ -241,7 +241,7 @@ namespace Slip::Ast {
             return true;
         }
 
-        Result lookup( string_view sym, Node** out ) const {
+        Result lookup( string_view sym, Expr** out ) const {
             *out = nullptr;
             auto s = istring::make( sym );
             LookupIter iter;
@@ -251,44 +251,44 @@ namespace Slip::Ast {
             return Result::OK;
         }
 
-        Node* lookup( istring sym ) const {
-            Node* ret;
+        Expr* lookup( istring sym ) const {
+            Expr* ret;
             auto res = lookup( sym, &ret );
             assert( res.isOk() );
             return ret;
         }
-        Node* lookup( string_view sym ) const {
-            Node* ret;
+        Expr* lookup( string_view sym ) const {
+            Expr* ret;
             auto res = lookup( sym, &ret );
             assert( res.isOk() );
             return ret;
         }
 
-        Result bind( istring sym, Node* value );
-        auto bind( string_view sym, Node* value ) { return bind( istring::make( sym ), value ); }
+        Result bind( istring sym, Expr* value );
+        auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
 
         Environment* parent_;
-        std::multimap<istring, Node*> syms_;
+        std::multimap<istring, Expr*> syms_;
     };
 
-    struct FunctionCall : Node {
+    struct FunctionCall : Expr {
         AST_DECL();
-        Node* m_func{nullptr};
-        vector<Node*> m_args;
+        Expr* m_func{nullptr};
+        vector<Expr*> m_args;
 
         template <typename With>
-        FunctionCall( Node* func, vector<Node*>&& args, With&& with ) : m_func( func ), m_args( args ) {
+        FunctionCall( Expr* func, vector<Expr*>&& args, With&& with ) : m_func( func ), m_args( args ) {
             with( *this );
         }
     };
 
     struct FunctionDecl : Named {
         AST_DECL();
-        using IntrinsicProto = Result( array_view<Node*> args, Ast::Node** out );
+        using IntrinsicProto = Result( array_view<Expr*> args, Ast::Expr** out );
 
         vector<Parameter*> m_params;
-        Ast::Node* m_declReturnTypeExpr{nullptr};
-        Node* m_body{nullptr};
+        Ast::Expr* m_declReturnTypeExpr{nullptr};
+        Expr* m_body{nullptr};
         Func<IntrinsicProto> m_intrinsic;
 
         FunctionDecl( string_view name ) : Named( name ) {}
@@ -299,21 +299,21 @@ namespace Slip::Ast {
         }
 
         /// Create a named function of two parameters.
-        static FunctionDecl* makeBinaryOp( string_view name, Parameter* a, Parameter* b, Node* ret );
+        static FunctionDecl* makeBinaryOp( string_view name, Parameter* a, Parameter* b, Expr* ret );
 
         /// Create a named intrinsic function.
-        static FunctionDecl* makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Node* ret,
+        static FunctionDecl* makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Expr* ret,
                                             initializer_list<Parameter*> params );
     };
 
-    struct If : Node {
+    struct If : Expr {
         AST_DECL();
-        Node* m_cond;
-        Node* m_true;
-        Node* m_false;
+        Expr* m_cond;
+        Expr* m_true;
+        Expr* m_false;
 
         template <typename With>
-        If( Node* c, Node* t, Node* f, With&& with ) : m_cond( c ), m_true( t ), m_false( f ) {
+        If( Expr* c, Expr* t, Expr* f, With&& with ) : m_cond( c ), m_true( t ), m_false( f ) {
             with( *this );
         }
     };
@@ -333,23 +333,23 @@ namespace Slip::Ast {
         }
     };
 
-    struct MacroExpansion : Node {
+    struct MacroExpansion : Expr {
         AST_DECL();
-        Node* m_expansion{nullptr};
+        Expr* m_expansion{nullptr};
         MacroDecl* m_macro{nullptr};
-        vector<Node*> m_args;
-        MacroExpansion( MacroDecl* macro, vector<Node*>&& args ) : m_macro( macro ), m_args( args ) {}
+        vector<Expr*> m_args;
+        MacroExpansion( MacroDecl* macro, vector<Expr*>&& args ) : m_macro( macro ), m_args( args ) {}
         template <typename With>
-        MacroExpansion( MacroDecl* macro, vector<Node*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
+        MacroExpansion( MacroDecl* macro, vector<Expr*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
             with( *this );
         }
     };
 
-    struct Module : Node {
+    struct Module : Expr {
         AST_DECL();
 
         istring m_name;
-        vector<Node*> m_items;
+        vector<Expr*> m_items;
     };
 
     // We may not be able to tell which overload is chosen until after type inference.
@@ -357,17 +357,17 @@ namespace Slip::Ast {
         AST_DECL();
 
         template <typename With>
-        NamedFunctionCall( istring name, std::vector<Node*>&& candidates, std::vector<Node*>&& args, With&& with )
+        NamedFunctionCall( istring name, std::vector<Expr*>&& candidates, std::vector<Expr*>&& args, With&& with )
             : Named( name ), m_candidates( candidates ), m_args( args ) {
             with( *this );
         }
 
-        Node* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
-        std::vector<Node*> m_candidates;
-        std::vector<Node*> m_args;
+        Expr* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
+        std::vector<Expr*> m_candidates;
+        std::vector<Expr*> m_args;
     };
 
-    struct Number : Node {
+    struct Number : Expr {
         AST_DECL();
         template <typename With>
         Number( string_view n, With&& with ) : m_num( n ) {
@@ -390,7 +390,7 @@ namespace Slip::Ast {
         }
     };
 
-    struct PipelineExpr : Node {
+    struct PipelineExpr : Expr {
         AST_DECL();
         template <typename With>
         PipelineExpr( With&& with ) {
@@ -398,47 +398,47 @@ namespace Slip::Ast {
         }
         struct Stage {
             REFLECT_DECL();
-            Stage( Ast::Node* e ) : expr( e ) {}
-            Ast::Node* expr;
+            Stage( Ast::Expr* e ) : expr( e ) {}
+            Ast::Expr* expr;
             bool canFail{false};
         };
-        void addStage( Ast::Node* e ) { m_stages.emplace_back( e ); }
+        void addStage( Ast::Expr* e ) { m_stages.emplace_back( e ); }
         std::vector<Stage> m_stages;
     };
 
-    struct Reference : public Node {
+    struct Reference : public Expr {
         AST_DECL();
-        Reference( Node* s ) : m_target( s ) {}
-        Node* resolve() override;
+        Reference( Expr* s ) : m_target( s ) {}
+        Expr* resolve() override;
 
-        Node* m_target;
+        Expr* m_target;
     };
 
-    struct Scope : public Node {
+    struct Scope : public Expr {
         AST_DECL();
-        Scope( Node* c ) : m_child( c ) {}
-        Node* m_child{nullptr};
+        Scope( Expr* c ) : m_child( c ) {}
+        Expr* m_child{nullptr};
     };
 
-    struct Selector : public Node {
+    struct Selector : public Expr {
         AST_DECL();
         template <typename With>
-        Selector( Node* l, LexIdent* r, With&& with ) : m_lhs( l ), m_rhs( r ) {
+        Selector( Expr* l, LexIdent* r, With&& with ) : m_lhs( l ), m_rhs( r ) {
             with( *this );
         }
-        Node* m_lhs{nullptr};
+        Expr* m_lhs{nullptr};
         LexIdent* m_rhs{nullptr};
     };
 
-    struct Sequence : Node {
+    struct Sequence : Expr {
         AST_DECL();
         Sequence() = default;
-        Sequence( std::vector<Node*>&& items ) : m_items( items ) {}
-        array_view<Node*> items() { return m_items; }
-        vector<Node*> m_items;
+        Sequence( std::vector<Expr*>&& items ) : m_items( items ) {}
+        array_view<Expr*> items() { return m_items; }
+        vector<Expr*> m_items;
     };
 
-    struct String : Node {
+    struct String : Expr {
         AST_DECL();
         template <typename With>
         String( string_view n, With&& with ) : m_str( n ) {
@@ -469,10 +469,10 @@ namespace Slip::Ast {
         }
     };
 
-    struct UnwrapResult : Node {
+    struct UnwrapResult : Expr {
         AST_DECL();
-        Node* m_src;
-        UnwrapResult( Node* src ) : m_src( src ) {}
+        Expr* m_src;
+        UnwrapResult( Expr* src ) : m_src( src ) {}
     };
 
     extern Ast::Type s_typeType;
@@ -503,15 +503,15 @@ namespace Slip::Ast {
         std::vector<Ast::Type*> m_sum;
     };
 
-    struct TryExpr : Node {
+    struct TryExpr : Expr {
         AST_DECL();
 
         template <typename With>
-        TryExpr( Ast::Node* expr, With&& with ) : m_expr( expr ) {
+        TryExpr( Ast::Expr* expr, With&& with ) : m_expr( expr ) {
             with( *this );
         }
 
-        Ast::Node* m_expr;
+        Ast::Expr* m_expr;
     };
 
     struct VariableDecl : Named {
@@ -520,7 +520,7 @@ namespace Slip::Ast {
         VariableDecl( istring name, With&& with ) : Named( name ) {
             with( *this );
         }
-        std::vector<Node*> m_initializer;
+        std::vector<Expr*> m_initializer;
         enum class Kind {
             Immutable,  // can't change beyond initialization
             Mutable,    // can change
@@ -529,19 +529,19 @@ namespace Slip::Ast {
         Kind m_kind{Kind::Immutable};
     };
 
-    struct While : Node {
+    struct While : Expr {
         AST_DECL();
-        Node* m_cond;
-        Node* m_body;
+        Expr* m_cond;
+        Expr* m_body;
 
         template <typename With>
-        While( Node* c, Node* b, With&& with ) : m_cond( c ), m_body( b ) {
+        While( Expr* c, Expr* b, With&& with ) : m_cond( c ), m_body( b ) {
             with( *this );
         }
     };
 
-    void print( Node* node );
-    void print( Node* node, Io::TextOutput& out );
+    void print( Expr* node );
+    void print( Expr* node, Io::TextOutput& out );
 
     namespace Detail {
         template <typename T>
@@ -556,7 +556,7 @@ namespace Slip::Ast {
     }  // namespace Detail
 
     template <typename RetType, typename Handler, typename... Args>
-    auto dispatch( Node* n, Handler&& handler, Args&&... args ) -> RetType {
+    auto dispatch( Expr* n, Handler&& handler, Args&&... args ) -> RetType {
         switch( n->tag() ) {
 #define AST_NODE( X )           \
     case Detail::TagOf<X>::Tag: \
@@ -568,7 +568,7 @@ namespace Slip::Ast {
     }
 
     template <typename RetType, typename Handler>
-    auto dispatch( Node* n, Handler&& handler ) -> RetType {
+    auto dispatch( Expr* n, Handler&& handler ) -> RetType {
         switch( n->tag() ) {
 #define AST_NODE( X )           \
     case Detail::TagOf<X>::Tag: \
