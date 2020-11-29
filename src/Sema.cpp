@@ -114,6 +114,11 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::Nop* n, VisitInfo& vi ) {
+            vi.info = _internKnownType( &Ast::s_typeVoid );
+            return Result::OK;
+        }
+
         Result operator()( Ast::Number* n, VisitInfo& vi ) {
             if( auto t = n->m_type ) {
                 vi.info = _internKnownType( t );

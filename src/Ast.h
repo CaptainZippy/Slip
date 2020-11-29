@@ -367,6 +367,11 @@ namespace Slip::Ast {
         std::vector<Expr*> m_args;
     };
 
+    struct Nop : Expr {
+        AST_DECL();
+        Nop() {}
+    };
+
     struct Number : Expr {
         AST_DECL();
         template <typename With>

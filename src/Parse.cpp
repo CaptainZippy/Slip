@@ -209,6 +209,25 @@ static Result parse_Stringize( Ast::Environment* env, Ast::LexList* args, Ast::E
     return Result::OK;
 }
 
+static Result parse_Bind( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+    Ast::LexIdent* lenv;
+    Ast::LexIdent* lname;
+    Ast::LexIdent* lval;
+    RETURN_IF_FAILED( matchLex( env, args, &lenv, &lname, &lval ) );
+    Ast::Expr* nenv;
+    RETURN_IF_FAILED( env->lookup( lenv->text(), &nenv ) );
+    auto env2 = dynamic_cast<Ast::Environment*>( nenv );
+
+    Ast::Expr* nname;
+    RETURN_IF_FAILED( env->lookup( lname->text(), &nname ) );
+    Ast::Expr* nval;
+    RETURN_IF_FAILED( env->lookup( lval->text(), &nval ) );
+    RETURN_IF_FAILED( env2->bind( dynamic_cast<Ast::LexIdent*>( nname )->text(), nval ) );
+
+    *out = new Ast::Nop();
+    return Result::OK;
+}
+
 static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out ) {
     *out = nullptr;
     if( atom == nullptr ) {
@@ -285,79 +304,13 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto inner = new Ast::Environment( env );
         Slip::Parse::addBuiltin( inner, "stringize"sv, &parse_Stringize );
+        Slip::Parse::addBuiltin( inner, "bind"sv, &parse_Bind );
         Ast::Expr* parsed;
         RETURN_IF_FAILED( parse1( inner, now->m_expr, &parsed ) );
         Ast::Expr* replacement = nullptr;
         RETURN_IF_FAILED( Eval::evaluate( env, parsed, &replacement ) );
         *out = replacement;
         return Result::OK;
-#if false
-        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at( 0 ) );
-        if( expr0->text() == "env" ) {
-            RETURN_ERROR_IF( expr->size() != 2, Error::Failed, expr->m_loc );
-            Ast::Expr* node0;
-            RETURN_IF_FAILED( env->lookup( expr0->text(), &node0 ) );
-            auto env0 = dynamic_cast<Ast::Environment*>( node0 );
-
-            auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
-            Ast::Expr* node1;
-            RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
-            auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
-            RETURN_IF_FAILED( parse1( env0, lex1, &replacement ) );
-        } else if( expr0->text() == "stringize" ) {
-            RETURN_ERROR_IF( expr->size() != 2, Error::Failed, expr->m_loc );
-            auto expr1 = dynamic_cast<Ast::LexIdent*>( expr->at( 1 ) );
-            Ast::Expr* node1;
-            RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
-            auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
-
-            std::vector<char> txt;
-            Io::TextOutput out( &txt );
-            Ast::print( lex1, out );
-            replacement = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
-        } else if( expr0->text() == "with_env" ) {
-            Ast::LexIdent* lname;
-            Ast::LexIdent* lparent;
-            std::vector<Ast::LexNode*> lbody;
-            RETURN_IF_FAILED( matchLex( env, expr, &lname, &lparent, &lbody, Ellipsis::OneOrMore ) );
-            Ast::Expr* parent;
-            RETURN_IF_FAILED( env->lookup( lparent->text(), &parent ) );
-            auto parentEnv = dynamic_cast<Ast::Environment*>( parent );
-            auto inner = new Ast::Environment( parentEnv );
-            env->bind( lname->text(), inner );
-            if( lbody.size() == 1 ) {
-                RETURN_IF_FAILED( parse1( env, lbody[0], &replacement ) );
-            } else {
-                auto bd = new Ast::Sequence();
-                for( auto&& l : lbody ) {
-                    Ast::Expr* b;
-                    RETURN_IF_FAILED( parse1( env, l, &b ) );
-                    if( b )
-                        bd->m_items.emplace_back( b );
-                }
-                replacement = bd;
-            }
-        } else if( expr0->text() == "expand" ) {
-            Ast::Expr* n;
-            RETURN_IF_FAILED( macroExpand1( env, expr, &n ) );
-        } else if( expr0->text() == "bind" ) {
-            Ast::LexIdent* lenv;
-            Ast::LexIdent* lname;
-            Ast::LexIdent* lval;
-            RETURN_IF_FAILED( matchLex( env, expr, &lenv, &lname, &lval ) );
-            Ast::Expr* nenv;
-            RETURN_IF_FAILED( env->lookup( lenv->text(), &nenv ) );
-            auto env2 = dynamic_cast<Ast::Environment*>( nenv );
-
-            Ast::Expr* nname;
-            RETURN_IF_FAILED( env->lookup( lname->text(), &nname ) );
-            Ast::Expr* nval;
-            RETURN_IF_FAILED( env->lookup( lval->text(), &nval ) );
-            RETURN_IF_FAILED( env2->bind( dynamic_cast<Ast::LexIdent*>( nname )->text(), nval ) );
-        } else {
-            RETURN_ERROR( Error::NotImplemented, expr0->m_loc, "%s", expr0->text() );
-        }
-#endif
     }
     RETURN_ERROR( Error::NotImplemented, atom->m_loc );
 }

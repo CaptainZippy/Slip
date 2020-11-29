@@ -70,6 +70,8 @@ namespace {
             return Result::OK;
         }
 
+        Result operator()( Ast::Nop* n, Ast::Environment* env ) { return Result::OK; }
+
         Result operator()( Ast::Number* n, Ast::Environment* env ) {
             assert( n->m_type == &Ast::s_typeInt );
             auto s = n->m_num.data();
@@ -130,6 +132,10 @@ Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out )
     Evaluator ev;
     // Evaluator::Value val;
     ev.dispatch( node, env );
+    if( ev.stack_.size() == 0 ) {
+        *out = new Ast::Nop();
+        return Result::OK;
+    }
     assert( ev.stack_.size() == 1 );
     switch( ev.stack_.at( 0 ).kind_ ) {
         case Evaluator::Stack::Kind::Int: {
@@ -140,7 +146,7 @@ Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out )
             return Result::OK;
         }
         case Evaluator::Stack::Kind::String: {
-            auto s = bit_cast<istring>(ev.stack_.at( 0 ).val_);
+            auto s = bit_cast<istring>( ev.stack_.at( 0 ).val_ );
             *out = new Ast::String( s, WITH( _.m_type = &Ast::s_typeString ) );
             return Result::OK;
         }

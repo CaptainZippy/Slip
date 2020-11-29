@@ -139,6 +139,9 @@ namespace {
             addName( n, n->name() );
             return n->m_name.std_str();
         }
+
+        string operator()( Ast::Nop* n ) { return ""; }
+
         string operator()( Ast::Number* n ) { return string_format( "(%s)%s", n->m_type->name().c_str(), n->m_num.c_str() ); }
         string operator()( Ast::String* n ) {
             string s = n->m_str;

@@ -52,6 +52,10 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( Nop )
+    REFLECT_PARENT( Expr )
+    REFLECT_END()
+
     REFLECT_BEGIN( Number )
     REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_num, Flags::Abbrev )

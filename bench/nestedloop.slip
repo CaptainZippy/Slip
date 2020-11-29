@@ -1,12 +1,11 @@
 
-(macro dotimes (vname count body) caller_env
-    #(with_env env caller_env
-        (let end #(env count))
-        (var cur 0)
-        #(bind env vname cur)
-        (while (lt? cur end)
-            #(env body)
-            (set! cur (add cur 1)))))
+(macro dotimes (vname count body) env
+    (let end (expand count env))
+    (var cur 0)
+    #(bind env vname cur)
+    (while (lt? cur end)
+        (expand body env)
+        (set! cur (add cur 1))))
 
 (func main (args:(array_view string)):int
     (var n (if (lt? (size args) 2) 1 (atoi (at args 1))))
