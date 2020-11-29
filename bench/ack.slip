@@ -14,5 +14,3 @@
     (puti n)
     (puti (ack 3 n))
     0)
-
-

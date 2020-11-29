@@ -931,7 +931,6 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     addIntrinsic( env, "modd", d_dd );
     addIntrinsic( env, "divd", d_dd );
     addIntrinsic( env, "dfromi", d_i );
-    addIntrinsic( env, "atoi", i_s );
     addIntrinsic( env, "parsei", Ri_s );
     addIntrinsic( env, "strcat!", v_ss );
 

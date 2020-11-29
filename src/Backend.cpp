@@ -459,7 +459,6 @@ namespace {
             out.write( "inline int div( int a, int b ) { return a / b; }\n" );
             out.write( "inline int mod(int a, int b) { return a%b; }\n" );
             out.write( "inline double dfromi(int a) { return (double)a; }\n" );
-            out.write( "inline int atoi(const string& s) { return ::atoi(s.m_s.data()); }\n" );
             out.write(
                 "inline Result<int> parsei(const string& s) { int r = ::strtod(s.m_s.data(), nullptr); if(r) return r; return failed; "
                 "}\n" );

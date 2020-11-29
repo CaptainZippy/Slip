@@ -5,5 +5,5 @@
 
 (func main (args:(array_view string)):int
     (puts (try (get args 1)))
-    (puxti (atoi (try (get args 1))))
+    (puti (atoi (try (get args 1)))) ; atoi is not defined
     0)
