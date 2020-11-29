@@ -194,6 +194,21 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
     return Result::OK;
 }
 
+static Result parse_Stringize( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+    *out = nullptr;
+    RETURN_ERROR_IF( args->size() != 2, Error::Failed, args->m_loc );
+    auto expr1 = dynamic_cast<Ast::LexIdent*>( args->at( 1 ) );
+    Ast::Expr* node1;
+    RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
+    auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
+
+    std::vector<char> txt;
+    Io::TextOutput txtout( &txt );
+    Ast::print( lex1, txtout );
+    *out = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
+    return Result::OK;
+}
+
 static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out ) {
     *out = nullptr;
     if( atom == nullptr ) {
@@ -268,11 +283,16 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
         *out = r;
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
-        auto expr = dynamic_cast<Ast::LexList*>( now->m_expr );
-        RETURN_ERROR_IF( expr == nullptr || expr->size() < 1, Error::Failed, atom->m_loc );
-        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at( 0 ) );
+        auto inner = new Ast::Environment( env );
+        Slip::Parse::addBuiltin( inner, "stringize"sv, &parse_Stringize );
+        Ast::Expr* parsed;
+        RETURN_IF_FAILED( parse1( inner, now->m_expr, &parsed ) );
         Ast::Expr* replacement = nullptr;
-
+        RETURN_IF_FAILED( Eval::evaluate( env, parsed, &replacement ) );
+        *out = replacement;
+        return Result::OK;
+#if false
+        auto expr0 = dynamic_cast<Ast::LexIdent*>( expr->at( 0 ) );
         if( expr0->text() == "env" ) {
             RETURN_ERROR_IF( expr->size() != 2, Error::Failed, expr->m_loc );
             Ast::Expr* node0;
@@ -337,9 +357,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
         } else {
             RETURN_ERROR( Error::NotImplemented, expr0->m_loc, "%s", expr0->text() );
         }
-
-        *out = replacement;
-        return Result::OK;
+#endif
     }
     RETURN_ERROR( Error::NotImplemented, atom->m_loc );
 }

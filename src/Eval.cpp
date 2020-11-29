@@ -1,7 +1,7 @@
 #include "pch/Pch.h"
 
-#include "Errors.h"
 #include "Ast.h"
+#include "Errors.h"
 #include "Slip.h"
 
 using namespace Slip;
@@ -13,7 +13,7 @@ namespace {
         enum class OpCode { Add };
 
         struct Stack {
-            enum class Kind { Invalid = 0, Code, Int };
+            enum class Kind { Invalid = 0, Code, Int, String };
             struct Value {
                 Value( Kind k, intptr_t v ) : kind_( k ), val_( v ) {}
                 Kind kind_;
@@ -24,6 +24,7 @@ namespace {
             size_t size() const { return vals_.size(); }
 
             void pushInt( intptr_t l ) { vals_.emplace_back( Kind::Int, l ); }
+            void pushString( const char* s ) { vals_.emplace_back( Kind::String, bit_cast<intptr_t>( istring::make( s ) ) ); }
             void pushCode( const ByteCode* l ) { vals_.emplace_back( Kind::Code, (intptr_t)l ); }
 
             // const ByteCode* toByteCode( int idx ) { vals_.emplace_back( Kind::Code, (intptr_t)l ); }
@@ -60,6 +61,12 @@ namespace {
 
         Result operator()( Ast::Expr* n, Ast::Environment* env ) {
             assert( false );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::String* n, Ast::Environment* env ) {
+            assert( n->m_type == &Ast::s_typeString );
+            stack_.pushString( n->m_str.c_str() );
             return Result::OK;
         }
 
@@ -131,8 +138,13 @@ Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out )
             auto v = istring::make( foo, n );
             *out = new Ast::Number( v, WITH( _.m_type = &Ast::s_typeInt ) );
             return Result::OK;
-            break;
         }
+        case Evaluator::Stack::Kind::String: {
+            auto s = bit_cast<istring>(ev.stack_.at( 0 ).val_);
+            *out = new Ast::String( s, WITH( _.m_type = &Ast::s_typeString ) );
+            return Result::OK;
+        }
+
         default:
             assert( false );
             break;

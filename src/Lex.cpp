@@ -40,6 +40,7 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( LexList )
     REFLECT_PARENT( LexNode )
+    REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexList*>( arg )->m_loc.text(); } )
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 

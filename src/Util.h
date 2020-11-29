@@ -154,6 +154,14 @@ namespace Slip {
         return safe_cast_t<T>( t );
     };
 
+    template <typename D, typename S>
+    D bit_cast( const S& s ) {
+        static_assert( sizeof( D ) == sizeof( s ) );
+        D d;
+        memcpy( &d, &s, sizeof( s ) );
+        return d;
+    };
+
     template <typename T>
     struct Optional {
         Optional() : m_ptr( nullptr ) {}
@@ -269,7 +277,7 @@ namespace Slip {
         const char* m_str;
     };
 
-    template<typename T>
+    template <typename T>
     inline T min2( T&& a, T&& b ) {
         return a <= b ? a : b;
     }
