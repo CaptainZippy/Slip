@@ -165,6 +165,9 @@ static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Expr
         xenv = env;
     }
 
+    // run macros in a sub environment
+    xenv = new Ast::Environment( xenv );
+
     RETURN_IF_FAILED( parse1( xenv, text, out ) );
     return Result::OK;
 }
@@ -918,6 +921,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
 
     addIntrinsic( env, "eq?", b_ii );
     addIntrinsic( env, "lt?", b_ii );
+    addIntrinsic( env, "ge?", b_ii );
     addIntrinsic( env, "add", i_ii );
     addIntrinsic( env, "mod", i_ii );
     addIntrinsic( env, "mul", i_ii );

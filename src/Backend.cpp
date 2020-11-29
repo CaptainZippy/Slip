@@ -453,6 +453,7 @@ namespace {
                 "T operator[](int i) { return m_data[i]; } };\n" );
             out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
             out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
+            out.write( "inline bool ge_(int a, int b) { return a>=b; }\n" );
             out.write( "inline int add(int a, int b) { return a+b; }\n" );
             out.write( "inline int sub(int a, int b) { return a-b; }\n" );
             out.write( "inline int mul(int a, int b) { return a*b; }\n" );

@@ -7,44 +7,38 @@
 ;      (yield cur)
 ;      (set! cur (sub cur step))))
 
-(macro for2 (it iterable body) caller_env
-    #(with_env env caller_env
-        (var state #(env iterable))
-        (while false                        ;(advance state)
-            (var cur 0:int)                 ;(current state))
-            #(bind env it cur)
-            #(env body) )))
 
-(macro for (init cond update body) caller_env
-    #(with_env env caller_env
-        #(env init)
-        (while #(env cond)
-            #(env body)
-            #(env update))))
+(macro for_up (it lo hi body) env
+    (var cur (expand lo env))
+    (var end (expand hi env))
+    #(bind env it cur)
+    (while (lt? cur end)
+        (expand body env)
+        (set! cur (add cur 1))))
 
-(macro for_range (it lo hi body) caller_env
-    #(with_env env caller_env
-        (var cur #(env lo))
-        (var end #(env hi))
-        #(bind env it cur)
-        (while (lt? cur end)
-            #(env body)
-            (set! cur (add #(env it) 1)))))
+(macro for_down (it lo hi body) env
+    (var cur (sub (expand hi env) 1))
+    (var end (expand lo env))
+    #(bind env it cur)
+    (while (ge? cur end)
+        (expand body env)
+        (set! cur (sub cur 1))))
 
 (func ary (n:int): void ;(tuple int int)
   (var x:(array_heap int))
   (resize x n)
-  ;(for2 i (countup 0 n 1)
-  ;  (put! x i (add i 1)))
-  ;(for_range i 0 n
-  ;  (put! x i (add i 1)))
+  (for_up j 0 n
+    (put! x j (add j 1)))
+
   (var y:(array_heap int))
   (resize y n)
-  (for_range i 0 n
+  (for_up i 0 n
     (put! y i 0))
-  (for_range k 0 1000
-    (for (var i (sub n 1)) (lt? -1 i) (set! i (sub i 1))
+
+  (for_up k 0 1000
+    (for_down i n 0
       (put! y i (add (at y i) (at x i)))))
+
   (puti (at y 0))
   (puti (at y (sub n 1)))
   )
