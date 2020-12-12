@@ -68,9 +68,6 @@
     <None Include="..\test\array_type_02.slip">
       <Filter>test</Filter>
     </None>
-    <None Include="..\bench\ack.slip">
-      <Filter>bench</Filter>
-    </None>
     <None Include="..\bench\ary.slip">
       <Filter>bench</Filter>
     </None>
@@ -173,6 +170,9 @@
     </None>
     <None Include="..\errs\try_err_01.slip">
       <Filter>errs</Filter>
+    </None>
+    <None Include="..\bench\ackermann.slip">
+      <Filter>bench</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

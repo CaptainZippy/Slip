@@ -16,11 +16,20 @@
 ;                         (vec_set! is_prime k false)))
 ;                 0))
 ;         count)))))
-; 
-; (define main (lambda (argv) (begin
-;     (define n (cond ((le_i? (vec_size argv) 0) 1) (true (vec_idx argv 0)) ))
-;     (for i (range 3)
-;         (let ((m (lsh 2 (sub_i n i))))
-;             (print "Primes up to " m (nsieve m))))
-;     )))
-; ; 
+;
+
+(macro for_up (it lo hi body) env
+    (var cur (expand lo env))
+    (var end (expand hi env))
+    #(bind env it cur)
+    (while (lt? cur end)
+        (expand body env)
+        (set! cur (add cur 1))))
+
+(func main (args:(array_view string)) : int
+    (let m (catch (pipe (get args 1) (parsei)) 100))
+    (for_up i 0 3 (begin
+        (let n (lshift 10000 (sub m i)))
+        (puti m)
+        (puti (nsieve n)))))
+;        (print #(fmt "Primes up to {m} {nsieve n}")))))

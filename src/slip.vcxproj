@@ -182,7 +182,7 @@
   <ItemGroup>
     <None Include="..\.clang-format" />
     <None Include="..\.gitignore" />
-    <None Include="..\bench\ack.slip" />
+    <None Include="..\bench\ackermann.slip" />
     <None Include="..\bench\ary.slip" />
     <None Include="..\bench\fibo.slip" />
     <None Include="..\bench\harmonic.slip" />
