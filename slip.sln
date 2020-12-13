@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.1209
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "slip", "src\slip.vcxproj", "{62613C17-252F-4CAB-9BC6-5E6FE949A93F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "slipcc", "examples\slipcc\slipcc.vcxproj", "{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x64.Build.0 = Release|x64
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x86.ActiveCfg = Release|Win32
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x86.Build.0 = Release|Win32
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Debug|x64.ActiveCfg = Debug|x64
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Debug|x64.Build.0 = Debug|x64
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Debug|x86.ActiveCfg = Debug|Win32
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Debug|x86.Build.0 = Debug|Win32
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Release|x64.ActiveCfg = Release|x64
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Release|x64.Build.0 = Release|x64
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Release|x86.ActiveCfg = Release|Win32
+		{DFA63608-ED47-4A8A-B4DD-F03D7EBFA9E0}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

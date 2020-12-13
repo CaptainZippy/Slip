@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pch/Pch.h"
+
 namespace Slip {
 
     namespace Io {
@@ -44,5 +46,10 @@ namespace Slip {
         /// Generate output
         Result generate( Ast::Module& mod, Io::TextOutput& out );
     }  // namespace Backend
+
+    namespace Main {
+        /// Sample driver main
+        Result main(int argc, const char* argv[]);
+    }  // namespace Main
 
 }  // namespace Slip

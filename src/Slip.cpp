@@ -203,7 +203,7 @@ namespace Tap {
 
 };  // namespace Tap
 
-Slip::Result slip_main( int argc, const char* argv[] ) {
+Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
     parser.add( "--dump-parse"sv, "Debug print each module after parsing"sv, []( string_view v ) { Args::dumpParse = true; } );
@@ -250,9 +250,3 @@ Slip::Result slip_main( int argc, const char* argv[] ) {
     return Result::OK;
 }
 
-int main( int argc, const char* argv[] ) {
-    if( slip_main( argc, argv ).isOk() ) {
-        return 0;
-    }
-    return 1;
-}
