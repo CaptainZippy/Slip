@@ -120,20 +120,7 @@ namespace {
         string operator()( Ast::MacroExpansion* n ) { return dispatch( n->m_expansion ); }
 
         string operator()( Ast::Reference* n ) {
-            auto it = dispatched.find( n->m_target );
-            if( it == dispatched.end() ) {
-                if( auto t = dynamic_cast<Ast::Named*>( n->m_target ) ) {  // TODO: hack
-                    return sanitize( t->name() );
-                }
-                assert( false );
-            }
-            return it->second.std_str();
-#if 0
-            if( auto t = dynamic_cast<Ast::Named*>( n->m_target ) ) {
-                return sanitize(t->name());
-            }
-            return "??";
-#endif
+            return dispatch( n->m_target );
         }
         string operator()( Ast::Parameter* n ) {
             addName( n, n->name() );
@@ -274,6 +261,9 @@ namespace {
 
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
+            if( n->m_intrinsic ) {
+                return sanitize( symbol );
+            }
             if( symbol != "main" ) {
                 for( auto p : n->m_params ) {
                     assert( p->m_type );

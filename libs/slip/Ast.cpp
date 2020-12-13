@@ -229,6 +229,8 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
     return Result::OK;
 }
 
+Result Ast::FunctionDecl::NotImplemented( array_view<Ast::Expr*> args, Ast::Expr** out ) { return Error::NotImplemented; }
+
 Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Expr* ret ) {
     auto f = new FunctionDecl( name );
     f->m_declReturnTypeExpr = ret;

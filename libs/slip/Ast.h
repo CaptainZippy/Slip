@@ -285,6 +285,7 @@ namespace Slip::Ast {
     struct FunctionDecl : Named {
         AST_DECL();
         using IntrinsicProto = Result( array_view<Expr*> args, Ast::Expr** out );
+        static Result NotImplemented( array_view<Expr*> args, Ast::Expr** out );
 
         vector<Parameter*> m_params;
         Ast::Expr* m_declReturnTypeExpr{nullptr};

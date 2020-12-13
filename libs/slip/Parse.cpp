@@ -76,7 +76,7 @@ namespace Slip::Parse {
 
     static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
         auto n = istring::make( name );
-        auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type ) );
+        auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
         char pname[2] = {'a', 0};
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
             auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
@@ -86,12 +86,14 @@ namespace Slip::Parse {
         env->bind( n, f );
         return f;
     }
+
+    enum class Flags { None, LValue, RValue };
 }  // namespace Slip::Parse
 
 using namespace Slip;
 enum class Ellipsis { ZeroOrMore, OneOrMore };
 
-static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out );
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out );
 static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out );
 
 static Result matchLex( Ast::Environment* env, Parse::Args& args ) {
@@ -118,7 +120,7 @@ static Result matchLex( Ast::Environment* env, Parse::Args& args, HEAD** head, R
     if( !h ) {
         if( auto now = dynamic_cast<Ast::LexNowExpr*>( args.cur() ) ) {
             Ast::Expr* n;
-            RETURN_IF_FAILED( parse1( env, now, &n ) );
+            RETURN_IF_FAILED( parse1( env, now, Parse::Flags::None, &n ) );
             h = dynamic_cast<HEAD*>( args.cur() );
         }
     }
@@ -168,7 +170,7 @@ static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Expr
     // run macros in a sub environment
     xenv = new Ast::Environment( xenv );
 
-    RETURN_IF_FAILED( parse1( xenv, text, out ) );
+    RETURN_IF_FAILED( parse1( xenv, text, Parse::Flags::None, out ) );
     return Result::OK;
 }
 
@@ -186,7 +188,7 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
     std::vector<Ast::Expr*> body;
     for( auto&& b : macro->m_body ) {
         Ast::Expr* p;
-        RETURN_IF_FAILED( parse1( localEnv, b, &p ) );
+        RETURN_IF_FAILED( parse1( localEnv, b, Parse::Flags::None, &p ) );
         body.push_back( p );
     }
     if( body.size() == 1 ) {
@@ -231,7 +233,7 @@ static Result parse_Bind( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     return Result::OK;
 }
 
-static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out ) {
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out ) {
     *out = nullptr;
     if( atom == nullptr ) {
         return Result::OK;
@@ -239,14 +241,14 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
         Ast::Expr* node;
         RETURN_ERROR_IF_FAILED( env->lookup( sym->text(), &node ), Error::SymbolNotFound, atom->m_loc, "Symbol '%.*s' not found",
                                 sym->text().length(), sym->text().data() );
-
-        // TODO: detect symbol is decl or const.
-        if( auto ty = dynamic_cast<Ast::Type*>( node ) ) {
-            *out = ty;
-        } else if( auto nu = dynamic_cast<Ast::Number*>( node ) ) {
-            *out = nu;
-        } else {
-            *out = new Ast::Reference( node );
+        switch( flags ) {
+            case Parse::Flags::None:
+                *out = node;
+                break;
+            case Parse::Flags::LValue:
+            case Parse::Flags::RValue:
+                *out = new Ast::Reference( node );
+                break;
         }
         return Result::OK;
     } else if( auto list = dynamic_cast<Ast::LexList*>( atom ) ) {
@@ -279,26 +281,26 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
         vector<Ast::Expr*> fa;
         for( auto a : list->items().ltrim( 1 ) ) {
             Ast::Expr* n;
-            RETURN_IF_FAILED( parse1( env, a, &n ) );
+            RETURN_IF_FAILED( parse1( env, a, Parse::Flags::RValue, &n ) );
             fa.push_back( n );
         }
         *out = new Ast::NamedFunctionCall( isym, std::move( candidates ), std::move( fa ), WITH( _.m_loc = list->m_loc ) );
         return Result::OK;
     } else if( auto num = dynamic_cast<Ast::LexNumber*>( atom ) ) {
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( env, num->m_decltype, &te ) );
+        RETURN_IF_FAILED( parse1( env, num->m_decltype, Parse::Flags::None, &te ) );
         auto r = new Ast::Number( num->text(), WITH( _.m_loc = num->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
     } else if( auto str = dynamic_cast<Ast::LexString*>( atom ) ) {
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( env, str->m_decltype, &te ) );
+        RETURN_IF_FAILED( parse1( env, str->m_decltype, Parse::Flags::None, &te ) );
         auto r = new Ast::String( str->text(), WITH( _.m_loc = str->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
     } else if( auto dot = dynamic_cast<Ast::LexDot*>( atom ) ) {
         Ast::Expr* lhs;
-        RETURN_IF_FAILED( parse1( env, dot->m_lhs, &lhs ) );
+        RETURN_IF_FAILED( parse1( env, dot->m_lhs, Parse::Flags::None, &lhs ) );
         auto rhs = dynamic_cast<Ast::LexIdent*>( dot->m_rhs );
         RETURN_ERROR_IF( !rhs, Error::SymbolExpectedAfterDot, dot->m_rhs->m_loc );  // todo:now
         auto r = new Ast::Selector( lhs, rhs, WITH( _.m_loc = dot->m_loc ) );
@@ -306,10 +308,10 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto inner = new Ast::Environment( env );
-        Slip::Parse::addBuiltin( inner, "stringize"sv, &parse_Stringize );
-        Slip::Parse::addBuiltin( inner, "bind"sv, &parse_Bind );
+        Parse::addBuiltin( inner, "stringize"sv, &parse_Stringize );
+        Parse::addBuiltin( inner, "bind"sv, &parse_Bind );
         Ast::Expr* parsed;
-        RETURN_IF_FAILED( parse1( inner, now->m_expr, &parsed ) );
+        RETURN_IF_FAILED( parse1( inner, now->m_expr, Parse::Flags::None, &parsed ) );
         Ast::Expr* replacement = nullptr;
         RETURN_IF_FAILED( Eval::evaluate( env, parsed, &replacement ) );
         *out = replacement;
@@ -328,10 +330,10 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
     auto coro = new Ast::CoroutineDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
     env->bind( coro->m_name, coro );
     auto inner = new Ast::Environment( env );
-    Slip::Parse::addBuiltin( inner, "yield"sv, [coro]( auto env, auto args, auto out ) -> Result {
+    Parse::addBuiltin( inner, "yield"sv, [coro]( auto env, auto args, auto out ) -> Result {
         RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, args->m_loc, "Expected 2, got %i", args->size() );
         auto ret = new Ast::CoroutineYield();
-        RETURN_IF_FAILED( parse1( env, args->at( 1 ), &ret->m_expr ) );
+        RETURN_IF_FAILED( parse1( env, args->at( 1 ), Parse::Flags::RValue, &ret->m_expr ) );
         ret->m_coro = coro;
         *out = ret;
         return Result::OK;
@@ -339,14 +341,14 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
 
     if( auto a = largs->m_decltype ) {
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( inner, a, &te ) );
+        RETURN_IF_FAILED( parse1( inner, a, Parse::Flags::None, &te ) );
         coro->m_declReturnTypeExpr = te;
     }
     for( auto item : largs->items() ) {
         auto sym = dynamic_cast<Ast::LexIdent*>( item );
         RETURN_ERROR_IF( sym == nullptr, Error::ParameterIdentifierExpected, item->m_loc );
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
+        RETURN_IF_FAILED( parse1( inner, item->m_decltype, Parse::Flags::None, &te ) );
         auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
         coro->m_params.push_back( param );
     }
@@ -356,12 +358,12 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
     }
     Ast::Expr* body;
     if( lbody.size() == 1 ) {
-        RETURN_IF_FAILED( parse1( inner, lbody[0], &body ) );
+        RETURN_IF_FAILED( parse1( inner, lbody[0], Parse::Flags::None, &body ) );
     } else {
         auto bd = new Ast::Sequence();
         for( auto&& l : lbody ) {
             Ast::Expr* b;
-            RETURN_IF_FAILED( parse1( inner, l, &b ) );
+            RETURN_IF_FAILED( parse1( inner, l, Parse::Flags::None, &b ) );
             bd->m_items.emplace_back( b );
         }
         body = bd;
@@ -376,7 +378,7 @@ static Result parse_Define( Ast::Environment* env, Ast::LexList* args, Ast::Expr
     Ast::LexNode* lval;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &lval ) );
     Ast::Expr* nval;
-    RETURN_IF_FAILED( parse1( env, lval, &nval ) );
+    RETURN_IF_FAILED( parse1( env, lval, Parse::Flags::RValue, &nval ) );
 
     auto ret = new Ast::Definition( lname->text(), nval, WITH( _.m_loc = lname->m_loc ) );
     env->bind( lname->text(), ret );
@@ -397,14 +399,14 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     auto inner = new Ast::Environment( env );
     if( auto a = largs->m_decltype ) {
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( inner, a, &te ) );
+        RETURN_IF_FAILED( parse1( inner, a, Parse::Flags::None, &te ) );
         func->m_declReturnTypeExpr = te;
     }
     for( auto item : largs->items() ) {
         auto sym = dynamic_cast<Ast::LexIdent*>( item );
         RETURN_ERROR_IF( sym == nullptr, Error::ParameterIdentifierExpected, item->m_loc );
         Ast::Expr* te;
-        RETURN_IF_FAILED( parse1( inner, item->m_decltype, &te ) );
+        RETURN_IF_FAILED( parse1( inner, item->m_decltype, Parse::Flags::None, &te ) );
         auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
         auto it = find_if( item->m_decltype->m_attrs, []( Ast::LexNode* n ) {
             if( auto i = dynamic_cast<Ast::LexIdent*>( n ) ) {
@@ -423,12 +425,12 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     }
     Ast::Expr* body;
     if( lbody.size() == 1 ) {
-        RETURN_IF_FAILED( parse1( inner, lbody[0], &body ) );
+        RETURN_IF_FAILED( parse1( inner, lbody[0], Parse::Flags::RValue, &body ) );
     } else {
         auto bd = new Ast::Sequence();
         for( auto&& l : lbody ) {
             Ast::Expr* b;
-            RETURN_IF_FAILED( parse1( inner, l, &b ) );
+            RETURN_IF_FAILED( parse1( inner, l, Parse::Flags::RValue, &b ) );
             bd->m_items.emplace_back( b );
         }
         body = bd;
@@ -500,9 +502,9 @@ static Result parse_If( Ast::Environment* env, Ast::LexList* args, Ast::Expr** o
     Ast::Expr* ncond;
     Ast::Expr* ntrue;
     Ast::Expr* nfalse;
-    RETURN_IF_FAILED( parse1( env, lcond, &ncond ) );
-    RETURN_IF_FAILED( parse1( env, ltrue, &ntrue ) );
-    RETURN_IF_FAILED( parse1( env, lfalse, &nfalse ) );
+    RETURN_IF_FAILED( parse1( env, lcond, Parse::Flags::RValue, &ncond ) );
+    RETURN_IF_FAILED( parse1( env, ltrue, Parse::Flags::RValue, &ntrue ) );
+    RETURN_IF_FAILED( parse1( env, lfalse, Parse::Flags::RValue, &nfalse ) );
 
     *out = new Ast::If( ncond, ntrue, nfalse, WITH( _.m_loc = lcond->m_loc ) );
     return Result::OK;
@@ -513,15 +515,15 @@ static Result parse_While( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     std::vector<Ast::LexNode*> lbody;
     RETURN_IF_FAILED( matchLex( env, args, &lcond, &lbody, Ellipsis::OneOrMore ) );
     Ast::Expr* ncond;
-    RETURN_IF_FAILED( parse1( env, lcond, &ncond ) );
+    RETURN_IF_FAILED( parse1( env, lcond, Parse::Flags::RValue, &ncond ) );
     Ast::Expr* nbody;
     if( lbody.size() == 1 ) {
-        RETURN_IF_FAILED( parse1( env, lbody[0], &nbody ) );
+        RETURN_IF_FAILED( parse1( env, lbody[0], Parse::Flags::RValue, &nbody ) );
     } else {
         auto bd = new Ast::Sequence();
         for( auto&& l : lbody ) {
             Ast::Expr* b;
-            RETURN_IF_FAILED( parse1( env, l, &b ) );
+            RETURN_IF_FAILED( parse1( env, l, Parse::Flags::RValue, &b ) );
             if( b )
                 bd->m_items.emplace_back( b );
         }
@@ -541,9 +543,9 @@ static Result parse_Cond( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
         RETURN_ERROR_IF( pair->size() != 2, Error::WrongNumberOfArguments, arg->m_loc, "Expected 2, got %i", pair->size() );
 
         Ast::Expr* cond;
-        RETURN_IF_FAILED( parse1( env, pair->at( 0 ), &cond ) );
+        RETURN_IF_FAILED( parse1( env, pair->at( 0 ), Parse::Flags::RValue, &cond ) );
         Ast::Expr* iftrue;
-        RETURN_IF_FAILED( parse1( env, pair->at( 1 ), &iftrue ) );
+        RETURN_IF_FAILED( parse1( env, pair->at( 1 ), Parse::Flags::RValue, &iftrue ) );
         cases.emplace_back( cond, iftrue );
     }
     auto cond = new Ast::Cond( WITH( /*TODO loc*/ ) );
@@ -557,7 +559,7 @@ static Result parse_Begin( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     auto ret = new Ast::Sequence;
     for( auto arg : args->items().ltrim( 1 ) ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( env, arg, &n ) );
+        RETURN_IF_FAILED( parse1( env, arg, Parse::Flags::RValue, &n ) );
         ret->m_items.push_back( n );
     }
     *out = ret;
@@ -570,7 +572,7 @@ static Result parse_Scope( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     auto inner = new Ast::Environment( env );
     for( auto arg : args->items().ltrim( 1 ) ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( inner, arg, &n ) );
+        RETURN_IF_FAILED( parse1( inner, arg, Parse::Flags::RValue, &n ) );
         ret->m_items.push_back( n );
     }
     *out = new Ast::Scope( ret );
@@ -588,7 +590,7 @@ static Result parse_Block( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     inner->bind( name->text(), ret );
     for( auto c : contents ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( inner, c, &n ) );
+        RETURN_IF_FAILED( parse1( inner, c, Parse::Flags::RValue, &n ) );
         seq->m_items.push_back( n );
     }
     *out = ret;
@@ -601,12 +603,12 @@ static Result parse_Break( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     Ast::LexNode* lval;
     RETURN_IF_FAILED( matchLex( env, args, &llabel, &lval ) );
     Ast::Expr* nlabel;
-    RETURN_IF_FAILED( parse1( env, llabel, &nlabel ) );
+    RETURN_IF_FAILED( parse1( env, llabel, Parse::Flags::RValue, &nlabel ) );
     auto blockr = dynamic_cast<Ast::Reference*>( nlabel );  // TODO tidy
     auto blocka = dynamic_cast<Ast::Block*>( blockr->m_target );
     RETURN_ERROR_IF( blocka == nullptr, Error::BreakTargetMustBeBlock, llabel->m_loc );
     Ast::Expr* nval;
-    RETURN_IF_FAILED( parse1( env, lval, &nval ) );
+    RETURN_IF_FAILED( parse1( env, lval, Parse::Flags::RValue, &nval ) );
     *out = new Ast::Break( blocka, nval );
     return Result::OK;
 }
@@ -619,12 +621,12 @@ static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
     RETURN_IF_FAILED( matchLex( env, args, &sym, &inits, Ellipsis::ZeroOrMore ) );
 
     Ast::Expr* varType;
-    RETURN_IF_FAILED( parse1( env, sym->m_decltype, &varType ) );
+    RETURN_IF_FAILED( parse1( env, sym->m_decltype, Parse::Flags::None, &varType ) );
 
     std::vector<Ast::Expr*> vals;
     for( auto&& i : inits ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( env, i, &n ) );
+        RETURN_IF_FAILED( parse1( env, i, Parse::Flags::RValue, &n ) );
         vals.emplace_back( n );
     }
 
@@ -652,9 +654,9 @@ static Result parse_Set( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
     Ast::LexNode* lex_src;
     RETURN_IF_FAILED( matchLex( env, args, &lex_dst, &lex_src ) );
     Ast::Expr* dst;
-    RETURN_IF_FAILED( parse1( env, lex_dst, &dst ) );
+    RETURN_IF_FAILED( parse1( env, lex_dst, Parse::Flags::LValue, &dst ) );
     Ast::Expr* src;
-    RETURN_IF_FAILED( parse1( env, lex_src, &src ) );
+    RETURN_IF_FAILED( parse1( env, lex_src, Parse::Flags::RValue, &src ) );
     *out = new Ast::Assignment( dst, src, WITH( _.m_loc = lex_src->m_loc ) );
     return Result::OK;
 }
@@ -664,7 +666,7 @@ static Result parse_Try( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
     Ast::LexNode* lexpr{};
     RETURN_ERROR_IF_FAILED( matchLex( env, args, &lexpr ), Error::WrongNumberOfArguments, args->m_loc, "try expects 1 argument" );
     Ast::Expr* expr;
-    RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
+    RETURN_IF_FAILED( parse1( env, lexpr, Parse::Flags::RValue, &expr ) );
     *out = new Ast::TryExpr( expr, WITH( _.m_loc = lexpr->m_loc ) );
     return Result::OK;
 }
@@ -677,9 +679,9 @@ static Result parse_Catch( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
                             "catch expects 2 arguments" );
 
     Ast::Expr* expr;
-    RETURN_IF_FAILED( parse1( env, lexpr, &expr ) );
+    RETURN_IF_FAILED( parse1( env, lexpr, Parse::Flags::RValue, &expr ) );
     Ast::Expr* fail{};
-    RETURN_IF_FAILED( parse1( env, lfail, &fail ) );
+    RETURN_IF_FAILED( parse1( env, lfail, Parse::Flags::RValue, &fail ) );
 
     *out = new Ast::CatchExpr( expr, fail, WITH( _.m_loc = lexpr->m_loc ) );
     return Result::OK;
@@ -712,7 +714,7 @@ static Result parse_Pipe( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     auto pipe = new Ast::PipelineExpr( WITH( _.m_loc = args->m_loc ) );
     for( auto&& p : lparts ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( env, p, &n ) );
+        RETURN_IF_FAILED( parse1( env, p, Parse::Flags::RValue, &n ) );
         pipe->addStage( n );
     }
     *out = pipe;
@@ -733,7 +735,7 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr
         RETURN_ERROR_IF( li == nullptr, Error::FieldIdentifierExpected, lf->m_loc );
         RETURN_ERROR_IF( li->m_decltype == nullptr, Error::FieldTypeExpected, lf->m_loc );
         Ast::Expr* ft;
-        RETURN_IF_FAILED( parse1( env, li->m_decltype, &ft ) );
+        RETURN_IF_FAILED( parse1( env, li->m_decltype, Parse::Flags::None, &ft ) );
         decl->m_fields.emplace_back( new Ast::StructField( li->text(), WITH( _.m_loc = li->m_loc; _.m_declTypeExpr = ft; ) ) );
     }
     *out = decl;
@@ -757,14 +759,14 @@ struct Parse::ArrayView {
 
             {
                 auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
-                auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype ) );
+                auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
                 fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
                 r->m_methods.emplace_back( fdecl );
             }
 
             {
                 auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
-                auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype ) );
+                auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
                 atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
                 atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
                 r->m_methods.emplace_back( atdecl );
@@ -775,7 +777,8 @@ struct Parse::ArrayView {
                 RETURN_IF_FAILED( ResultT_instantiate( t, &resultT ) );
                 auto gettype =
                     _makeFuncType( string_format( "(%s,int)->result<%s>", name.c_str(), t->name().c_str() ), resultT, r, &Ast::s_typeInt );
-                auto getdecl = new Ast::FunctionDecl( "get", WITH( _.m_type = gettype ) );
+                auto getdecl =
+                    new Ast::FunctionDecl( "get", WITH( _.m_type = gettype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
                 getdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
                 getdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
                 r->m_methods.emplace_back( getdecl );
@@ -784,7 +787,8 @@ struct Parse::ArrayView {
             {
                 auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
                                               &Ast::s_typeInt, t );
-                auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype ) );
+                auto putdecl =
+                    new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
                 putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
                 putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
                 putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
@@ -793,7 +797,8 @@ struct Parse::ArrayView {
 
             if( _generic_root == "array_heap" ) {
                 auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
-                auto redecl = new Ast::FunctionDecl( "resize", WITH( _.m_type = retype ) );
+                auto redecl =
+                    new Ast::FunctionDecl( "resize", WITH( _.m_type = retype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
                 redecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
                 redecl->m_params.emplace_back( new Ast::Parameter( "size", WITH( _.m_type = &Ast::s_typeInt ) ) );
                 r->m_methods.emplace_back( redecl );
@@ -942,7 +947,7 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     module->m_name = istring::make( name );
     for( auto c : lex.items() ) {
         Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( env, c, &n ), "Failed to parse" );
+        RETURN_IF_FAILED( parse1( env, c, Parse::Flags::RValue, &n ), "Failed to parse" );
         module->m_items.push_back( n );
     }
     mod = std::move( module );
