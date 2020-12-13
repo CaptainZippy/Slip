@@ -7,4 +7,125 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="errors">
+      <UniqueIdentifier>{0203c9bd-9190-4f8f-8576-e102e4ed3ad6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="feature">
+      <UniqueIdentifier>{ca4892ef-b825-4e68-b6ac-f4b9e605b0fb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="feature\meson.build">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\tests.inc">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\array_type_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\array_type_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\attr_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\cond_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\coro_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\function_overload_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\intrinsic_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\let_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\loop_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\macro_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\macro_expr_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\macro_expr_03.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\now_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\now_expr_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\recursive_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\string_type_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\struct_type_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\struct_type_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\struct_type_03.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\struct_type_04.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\try_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\try_expr_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\type_infer_00.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\type_infer_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\type_infer_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\type_infer_03.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\var_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="errors\meson.build">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\parse_cond_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\parse_err_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\syntax_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\syntax_02.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\tests.inc">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\try_err_01.slip">
+      <Filter>errors</Filter>
+    </None>
+  </ItemGroup>
 </Project>

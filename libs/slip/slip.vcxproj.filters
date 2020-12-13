@@ -29,174 +29,33 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Ast.inc" />
-    <None Include="..\test\type_infer_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\type_infer_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\type_infer_03.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\let_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\type_infer_00.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\cond_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\intrinsic_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\var_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\string_type_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\array_type_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\function_overload_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\recursive_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\array_type_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\bench\ary.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\fibo.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\harmonic.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\hello.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\moments.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\nestedloop.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\nsieve.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\stl.natjmc">
-      <Filter>other</Filter>
-    </None>
-    <None Include="..\.clang-format">
-      <Filter>other</Filter>
-    </None>
-    <None Include="..\test\macro_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\macro_expr_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\bench\meson.build">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\.gitignore">
-      <Filter>other</Filter>
-    </None>
-    <None Include="..\test\now_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\now_expr_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\meson.build">
-      <Filter>other</Filter>
-    </None>
-    <None Include="..\test\meson.build">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\macro_expr_03.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\struct_type_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\struct_type_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\struct_type_03.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\struct_type_04.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\attr_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\bench\hash.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\bench\heapsort.slip">
-      <Filter>bench</Filter>
-    </None>
-    <None Include="..\test\coro_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\try_expr_01.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\test\try_expr_02.slip">
-      <Filter>test</Filter>
-    </None>
-    <None Include="..\errs\meson.build">
-      <Filter>errs</Filter>
-    </None>
-    <None Include="..\errs\syntax_01.slip">
-      <Filter>errs</Filter>
-    </None>
-    <None Include="..\errs\syntax_02.slip">
-      <Filter>errs</Filter>
-    </None>
     <None Include="Errors.inc" />
-    <None Include="..\errs\overload_01.slip">
-      <Filter>errs</Filter>
+    <None Include="..\..\.clang-format">
+      <Filter>other</Filter>
     </None>
-    <None Include="..\errs\parse_err_01.slip">
-      <Filter>errs</Filter>
+    <None Include="..\..\.gitignore">
+      <Filter>other</Filter>
     </None>
-    <None Include="..\errs\try_err_01.slip">
-      <Filter>errs</Filter>
+    <None Include="..\..\meson.build">
+      <Filter>other</Filter>
     </None>
-    <None Include="..\bench\ackermann.slip">
-      <Filter>bench</Filter>
+    <None Include="..\..\stl.natjmc">
+      <Filter>other</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="bench">
-      <UniqueIdentifier>{20f4cd82-ed0c-4ef2-ad8e-b39e2ba77a1c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="other">
       <UniqueIdentifier>{3731e926-9eb2-4810-97ba-fc8ca4e6400d}</UniqueIdentifier>
     </Filter>
     <Filter Include="pch">
       <UniqueIdentifier>{77bc5d13-8bc0-40ff-9c79-346407c60d08}</UniqueIdentifier>
     </Filter>
-    <Filter Include="test">
-      <UniqueIdentifier>{800e09ae-c469-4745-b6df-7b36c828860a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="errs">
-      <UniqueIdentifier>{34bffb7d-422a-45c3-9e2a-131ce073b214}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis">
       <Filter>other</Filter>
     </Natvis>
-    <Natvis Include="..\slip.natvis">
+    <Natvis Include="..\..\slip.natvis">
       <Filter>other</Filter>
     </Natvis>
   </ItemGroup>

@@ -178,60 +178,16 @@
     <ClInclude Include="Util.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.clang-format" />
-    <None Include="..\.gitignore" />
-    <None Include="..\bench\ackermann.slip" />
-    <None Include="..\bench\ary.slip" />
-    <None Include="..\bench\fibo.slip" />
-    <None Include="..\bench\harmonic.slip" />
-    <None Include="..\bench\hash.slip" />
-    <None Include="..\bench\heapsort.slip" />
-    <None Include="..\bench\hello.slip" />
-    <None Include="..\bench\meson.build" />
-    <None Include="..\bench\moments.slip" />
-    <None Include="..\bench\nestedloop.slip" />
-    <None Include="..\bench\nsieve.slip" />
-    <None Include="..\errs\meson.build" />
-    <None Include="..\errs\overload_01.slip" />
-    <None Include="..\errs\parse_err_01.slip" />
-    <None Include="..\errs\syntax_01.slip" />
-    <None Include="..\errs\syntax_02.slip" />
-    <None Include="..\errs\try_err_01.slip" />
-    <None Include="..\meson.build" />
-    <None Include="..\stl.natjmc" />
-    <None Include="..\test\array_type_02.slip" />
-    <None Include="..\test\attr_expr_01.slip" />
-    <None Include="..\test\coro_expr_01.slip" />
-    <None Include="..\test\macro_expr_01.slip" />
-    <None Include="..\test\macro_expr_02.slip" />
-    <None Include="..\test\macro_expr_03.slip" />
-    <None Include="..\test\meson.build" />
-    <None Include="..\test\now_expr_01.slip" />
-    <None Include="..\test\now_expr_02.slip" />
-    <None Include="..\test\struct_type_01.slip" />
-    <None Include="..\test\struct_type_02.slip" />
-    <None Include="..\test\struct_type_03.slip" />
-    <None Include="..\test\struct_type_04.slip" />
-    <None Include="..\test\try_expr_01.slip" />
-    <None Include="..\test\try_expr_02.slip" />
+    <None Include="..\..\.clang-format" />
+    <None Include="..\..\.gitignore" />
+    <None Include="..\..\meson.build" />
+    <None Include="..\..\stl.natjmc" />
     <None Include="Ast.inc" />
-    <None Include="..\test\array_type_01.slip" />
-    <None Include="..\test\cond_expr_01.slip" />
-    <None Include="..\test\function_overload_01.slip" />
-    <None Include="..\test\intrinsic_01.slip" />
-    <None Include="..\test\let_expr_01.slip" />
-    <None Include="..\test\recursive_01.slip" />
-    <None Include="..\test\string_type_01.slip" />
-    <None Include="..\test\type_infer_00.slip" />
-    <None Include="..\test\type_infer_01.slip" />
-    <None Include="..\test\type_infer_02.slip" />
-    <None Include="..\test\type_infer_03.slip" />
-    <None Include="..\test\var_expr_01.slip" />
     <None Include="Errors.inc" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis" />
-    <Natvis Include="..\slip.natvis" />
+    <Natvis Include="..\..\slip.natvis" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

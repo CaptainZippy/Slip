@@ -180,6 +180,45 @@
       <Project>{62613c17-252f-4cab-9bc6-5e6fe949a93f}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="errors\meson.build" />
+    <None Include="errors\overload_01.slip" />
+    <None Include="errors\parse_cond_01.slip" />
+    <None Include="errors\parse_err_01.slip" />
+    <None Include="errors\syntax_01.slip" />
+    <None Include="errors\syntax_02.slip" />
+    <None Include="errors\tests.inc" />
+    <None Include="errors\try_err_01.slip" />
+    <None Include="feature\array_type_01.slip" />
+    <None Include="feature\array_type_02.slip" />
+    <None Include="feature\attr_expr_01.slip" />
+    <None Include="feature\cond_expr_01.slip" />
+    <None Include="feature\coro_expr_01.slip" />
+    <None Include="feature\function_overload_01.slip" />
+    <None Include="feature\intrinsic_01.slip" />
+    <None Include="feature\let_expr_01.slip" />
+    <None Include="feature\loop_expr_01.slip" />
+    <None Include="feature\macro_expr_01.slip" />
+    <None Include="feature\macro_expr_02.slip" />
+    <None Include="feature\macro_expr_03.slip" />
+    <None Include="feature\meson.build" />
+    <None Include="feature\now_expr_01.slip" />
+    <None Include="feature\now_expr_02.slip" />
+    <None Include="feature\recursive_01.slip" />
+    <None Include="feature\string_type_01.slip" />
+    <None Include="feature\struct_type_01.slip" />
+    <None Include="feature\struct_type_02.slip" />
+    <None Include="feature\struct_type_03.slip" />
+    <None Include="feature\struct_type_04.slip" />
+    <None Include="feature\tests.inc" />
+    <None Include="feature\try_expr_01.slip" />
+    <None Include="feature\try_expr_02.slip" />
+    <None Include="feature\type_infer_00.slip" />
+    <None Include="feature\type_infer_01.slip" />
+    <None Include="feature\type_infer_02.slip" />
+    <None Include="feature\type_infer_03.slip" />
+    <None Include="feature\var_expr_01.slip" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
