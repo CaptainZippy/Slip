@@ -4,7 +4,7 @@
 // 3. Lex basics
 // 4. Lex
 
-#include "pch/Pch.h"
+#include "slip/pch/Pch.h"
 
 #include "Ast.h"
 #include "Errors.h"

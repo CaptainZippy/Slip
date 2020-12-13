@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pch/Pch.h"
+#include "slip/pch/Pch.h"
 
 namespace Slip {
 
@@ -15,7 +15,7 @@ namespace Slip {
 
     namespace Ast {
 #define AST_NODE( X ) struct X;
-#include "Ast.inc"
+#include "slip/Ast.inc"
 #undef AST_NODE
 
         /// Lex an input

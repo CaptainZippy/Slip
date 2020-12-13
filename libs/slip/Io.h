@@ -1,5 +1,5 @@
 #pragma once
-#include "Slip.h"
+#include "slip/Slip.h"
 
 namespace Slip::Io {
     struct TextOutput {

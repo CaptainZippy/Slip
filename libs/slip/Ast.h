@@ -1,12 +1,12 @@
 #pragma once
-#include "Io.h"
-#include "Reflect.h"
-#include "Slip.h"
+#include "slip/Io.h"
+#include "slip/Reflect.h"
+#include "slip/Slip.h"
 
 namespace Slip::Ast {
     using namespace std;
 #define AST_NODE( X ) struct X;
-#include "Ast.inc"
+#include "slip/Ast.inc"
 #undef AST_NODE
 
 #define AST_DECL()  \
@@ -556,7 +556,7 @@ namespace Slip::Ast {
     struct TagOf<X> {            \
         enum { Tag = __LINE__ }; \
     };
-#include "Ast.inc"
+#include "slip/Ast.inc"
 #undef AST_NODE
     }  // namespace Detail
 
@@ -567,7 +567,7 @@ namespace Slip::Ast {
     case Detail::TagOf<X>::Tag: \
         return handler( static_cast<X*>( n ), std::forward<Args>( args )... );
             default:
-#include "Ast.inc"
+#include "slip/Ast.inc"
 #undef AST_NODE
         }
     }
@@ -579,7 +579,7 @@ namespace Slip::Ast {
     case Detail::TagOf<X>::Tag: \
         return handler( static_cast<X*>( n ) );
             default:
-#include "Ast.inc"
+#include "slip/Ast.inc"
 #undef AST_NODE
         }
     }
