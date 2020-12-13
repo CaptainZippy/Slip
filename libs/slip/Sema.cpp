@@ -747,7 +747,7 @@ namespace Slip::Sema {
                 args.emplace_back( a->get_type() );
             }
             for( auto&& ft : m_functionTypes ) {
-                if( std::equal( ft->m_callable.begin() + 1, ft->m_callable.end() + 1, args.begin(), args.end() ) ) {
+                if( std::equal( ft->m_callable.begin() + 1, ft->m_callable.end(), args.begin(), args.end() ) ) {
                     ti->type = ft;
                     return;
                 }

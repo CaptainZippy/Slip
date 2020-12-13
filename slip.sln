@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "slipcc", "examples\slipcc\s
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "slip", "libs\slip\slip.vcxproj", "{62613C17-252F-4CAB-9BC6-5E6FE949A93F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sliptest", "test\sliptest.vcxproj", "{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x64.Build.0 = Release|x64
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x86.ActiveCfg = Release|Win32
 		{62613C17-252F-4CAB-9BC6-5E6FE949A93F}.Release|x86.Build.0 = Release|Win32
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Debug|x64.ActiveCfg = Debug|x64
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Debug|x64.Build.0 = Debug|x64
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Debug|x86.ActiveCfg = Debug|Win32
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Debug|x86.Build.0 = Debug|Win32
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Release|x64.ActiveCfg = Release|x64
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Release|x64.Build.0 = Release|x64
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Release|x86.ActiveCfg = Release|Win32
+		{8E9E70C1-6031-485A-BD17-3FE6A02E9D72}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

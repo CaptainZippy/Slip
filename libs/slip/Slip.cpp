@@ -12,11 +12,6 @@
 #include "Slip.h"
 
 namespace Slip::Args {
-    bool dumpParse{false};
-    bool dumpInfer{false};
-    bool tapTest{false};
-    vector<string> inputs;
-    string outputDir{"."};
 
     struct Parser {
         using Action = function<void( string_view )>;
@@ -88,6 +83,14 @@ namespace Slip::Args {
             }
         }
     };
+
+    struct Args {
+        bool dumpParse{false};
+        bool dumpInfer{false};
+        bool tapTest{false};
+        vector<string> inputs;
+        string outputDir{"."};
+    };
 }  // namespace Slip::Args
 
 static std::string modNameFromPath( const char* path ) {
@@ -105,7 +108,7 @@ static std::string modNameFromPath( const char* path ) {
     return s;
 }
 
-static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fname ) {
+static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManager& smanager, const char* fname ) {
     using namespace Slip;
 
     unique_ptr_del<Ast::LexList> lex{nullptr, nullptr};
@@ -114,10 +117,10 @@ static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fnam
     Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
 
     RETURN_IF_FAILED( Parse::module( modNameFromPath( fname ).c_str(), *lex, ast ) );
-    if( Args::dumpParse )
+    if( args.dumpParse )
         Ast::print( ast.get() );
     RETURN_IF_FAILED( Sema::type_check( ast.get() ) );
-    if( Args::dumpInfer )
+    if( args.dumpInfer )
         Ast::print( ast.get() );
 
     string_view path{fname};
@@ -129,7 +132,7 @@ static Slip::Result compile( Slip::Io::SourceManager& smanager, const char* fnam
     if( suff != string::npos ) {
         path.remove_suffix( path.size() - suff );
     }
-    Io::TextOutput out{string_concat( Args::outputDir, "/", path, ".cpp" ).c_str()};
+    Io::TextOutput out{string_concat( args.outputDir, "/", path, ".cpp" ).c_str()};
     RETURN_IF_FAILED( Backend::generate( *ast, out ) );
     return Result::OK;
 }
@@ -139,18 +142,16 @@ namespace Tap {
     static State state{at_start};
 
     static int header( const char* fmt, ... ) {
-        if( Slip::Args::tapTest ) {
-            va_list ap;
-            va_start( ap, fmt );
-            auto s = Slip::string_formatv( fmt, ap );
-            va_end( ap );
-            if( !s.empty() ) {
-                if( state == in_diag ) {
-                    fwrite( "\n", 1, 1, stdout );
-                }
-                fwrite( s.c_str(), 1, s.size(), stdout );
-                state = s.back() == '\n' ? at_start : in_header;
+        va_list ap;
+        va_start( ap, fmt );
+        auto s = Slip::string_formatv( fmt, ap );
+        va_end( ap );
+        if( !s.empty() ) {
+            if( state == in_diag ) {
+                fwrite( "\n", 1, 1, stdout );
             }
+            fwrite( s.c_str(), 1, s.size(), stdout );
+            state = s.back() == '\n' ? at_start : in_header;
         }
         return 0;
     }
@@ -206,30 +207,31 @@ namespace Tap {
 Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
-    parser.add( "--dump-parse"sv, "Debug print each module after parsing"sv, []( string_view v ) { Args::dumpParse = true; } );
-    parser.add( "--dump-infer", "Debug print each module after type inference"sv, []( string_view v ) { Args::dumpInfer = true; } );
+    auto args = Args::Args();
+    parser.add( "--dump-parse"sv, "Debug print each module after parsing"sv, [&args]( string_view v ) { args.dumpParse = true; } );
+    parser.add( "--dump-infer", "Debug print each module after type inference"sv, [&args]( string_view v ) { args.dumpInfer = true; } );
     parser.add( "-h", "Show help"sv, [&parser]( string_view v ) { parser.help(); } );
     parser.add( "--help", "Show help"sv, [&parser]( string_view v ) { parser.help(); } );
     parser.add( "--nop[=ignored]", "Ignore this argument", []( string_view v ) { /*ignore arg*/ } );
-    parser.add( "--output-dir=dir", "Output to specified directory", []( string_view v ) { Args::outputDir = v; } );
-    parser.add( "--tap", "Use TAP test mode", []( string_view v ) {
-        Args::tapTest = true;
+    parser.add( "--output-dir=dir", "Output to specified directory", [&args]( string_view v ) { args.outputDir = v; } );
+    parser.add( "--tap", "Use TAP test mode", [&args]( string_view v ) {
+        args.tapTest = true;
         set_diagnostic_fn( &Tap::diagnosticv );
     } );
-    parser.add( "input...", "Input files to compile", []( string_view v ) { Args::inputs.emplace_back( v ); } );
+    parser.add( "input...", "Input files to compile", [&args]( string_view v ) { args.inputs.emplace_back( v ); } );
     RETURN_IF_FAILED( parser.parse( make_array_view( argv + 1, argc - 1 ) ) );
 
     auto smanager = Io::makeSourceManager();
 
-    if( Args::tapTest == false ) {
-        for( auto input : Args::inputs ) {
-            RETURN_IF_FAILED( compile( *smanager, input.c_str() ) );
+    if( args.tapTest == false ) {
+        for( auto input : args.inputs ) {
+            RETURN_IF_FAILED( compile( args, *smanager, input.c_str() ) );
         }
     } else {
-        Tap::header( "1..%i\n", Args::inputs.size() );
+        Tap::header( "1..%i\n", args.inputs.size() );
         int i = 0;
-        for( auto input : Args::inputs ) {
-            auto result = compile( *smanager, input.c_str() );
+        for( auto input : args.inputs ) {
+            auto result = compile( args, *smanager, input.c_str() );
             string_view expected;
             const char* actual = Error::toString( result.code );
             if( Tap::getExpectedError( *smanager, input.c_str(), expected ).isOk() ) {

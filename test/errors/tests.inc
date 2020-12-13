@@ -1,0 +1,6 @@
+TEST(parse_cond_01)
+TEST(syntax_01)
+TEST(syntax_02)
+TEST(try_err_01)
+TEST(overload_01)
+TEST(parse_err_01)

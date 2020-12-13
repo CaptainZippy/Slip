@@ -13,3 +13,4 @@ DerivePointerAlignment: false
 PointerBindsToType : true
 BreakConstructorInitializersBeforeComma: true
 IncludeBlocks: Preserve
+ForEachMacros: [TEST_CLASS, TEST_METHOD]
