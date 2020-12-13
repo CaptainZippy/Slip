@@ -3,7 +3,9 @@
 ; (define if (vau (c t f) e
 ;     (cond ((evsym c e) (evsym t e))
 ;         (true (evsym f e)))))
-; 
+;
+(func nsieve (n:int):int n )
+
 ; (define nsieve (lambda (m) (begin
 ;     (let ((is_prime (vec_new m))
 ;           (count (add_i 0 0))) (begin
@@ -29,7 +31,7 @@
 (func main (args:(array_view string)) : int
     (let m (catch (pipe (get args 1) (parsei)) 100))
     (for_up i 0 3 (begin
-        (let n (lshift 10000 (sub m i)))
+        (let n 1) ; (lshift 10000 (sub m i)))
         (puti m)
         (puti (nsieve n)))))
 ;        (print #(fmt "Primes up to {m} {nsieve n}")))))

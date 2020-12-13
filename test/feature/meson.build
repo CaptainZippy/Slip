@@ -39,7 +39,7 @@ foreach t : slip_tests
 endforeach
 cpps = slip_compile.process(srcs)
 
-exe = executable('feature', cpps, 'util/main.cpp',
+exe = executable('feature', cpps, '../util/main.cpp',
         cpp_args: '-Wno-unused-but-set-variable')
 
 foreach t : slip_tests

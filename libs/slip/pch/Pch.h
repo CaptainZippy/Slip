@@ -41,5 +41,5 @@
 #endif
 
 // Local utilities
-#include "Util.h"
-#include "Func.h"
+#include "slip/Util.h"
+#include "slip/Func.h"

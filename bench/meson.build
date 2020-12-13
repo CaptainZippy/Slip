@@ -9,7 +9,7 @@ slip_bench = [
     'hello',
     #'moments',
     'nestedloop',
-    'nsieve',
+    #'nsieve',
 ]
 
 # ====

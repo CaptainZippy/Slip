@@ -1,4 +1,4 @@
-#include "../../src/Slip.h"
+#include "slip/Slip.h"
 
 int main( int argc, const char* argv[] ) {
     if( Slip::Main::main( argc, argv ).isOk() ) {

@@ -158,7 +158,7 @@ namespace Slip {
     D bit_cast( const S& s ) {
         static_assert( sizeof( D ) == sizeof( s ) );
         D d;
-        memcpy( &d, &s, sizeof( s ) );
+        memcpy( (void*)&d, (void*)&s, sizeof( s ) );
         return d;
     };
 
