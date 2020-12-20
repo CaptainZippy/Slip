@@ -213,49 +213,22 @@ namespace Slip::Ast {
         }
     };
 
-    struct Environment : Expr {
+    struct Dictlike {
+        struct LookupIter {
+            intptr_t storage[4]{0};
+        };
+        virtual ~Dictlike() = default;
+        virtual bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const = 0;
+        virtual Result lookup( string_view sym, Expr** out ) const = 0;
+    };
+
+    struct Environment : Expr, Dictlike {
         AST_DECL();
 
         Environment( Environment* parent ) : parent_( parent ) {}
-        struct LookupIter {
-            const Environment* env{nullptr};
-            std::multimap<istring, Expr*>::const_iterator it;
-        };
-        bool lookup_iter( istring sym, Expr** out, LookupIter& iter ) const {
-            *out = nullptr;
-            // iter is null first time, or the env of the previous find.
-            if( iter.env == nullptr ) {
-                iter.env = this;
-                iter.it = iter.env->syms_.lower_bound( sym );
-            }
-            while( iter.it == iter.env->syms_.end() || iter.it->first != sym ) {
-                if( auto p = iter.env->parent_ ) {
-                    iter.env = p;
-                    iter.it = iter.env->syms_.lower_bound( sym );
-                } else {
-                    return false;
-                }
-            }
-            *out = iter.it->second;
-            ++iter.it;
-            return true;
-        }
 
-        Result lookup( string_view sym, Expr** out ) const {
-            *out = nullptr;
-            auto s = istring::make( sym );
-            LookupIter iter;
-            if( lookup_iter( s, out, iter ) == false ) {
-                return Result::ERR;
-            }
-            if( iter.it != iter.env->syms_.end() && iter.it->first == s ) {
-                // This api expects only 1 match
-                // If overloads are OK, the caller should use lookup_iter
-                return Result::ERR;
-            }
-            return Result::OK;
-        }
-
+        bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const override;
+        Result lookup( string_view sym, Expr** out ) const override;
         Result bind( istring sym, Expr* value );
         auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
 
@@ -338,10 +311,19 @@ namespace Slip::Ast {
         }
     };
 
-    struct Module : Expr {
+    struct Module : Environment {
         AST_DECL();
 
+        Module() : Environment( nullptr ) {}
+
         istring m_name;
+        array_view<Expr*> items() { return m_items; }
+        void add( istring n, Expr* e ) {
+            m_items.push_back( e );
+            this->bind( n, e );
+        }
+
+       protected:
         vector<Expr*> m_items;
     };
 

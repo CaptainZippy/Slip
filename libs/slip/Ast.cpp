@@ -211,6 +211,51 @@ size_t Ast::Expr::s_serial;
 
 Ast::Expr* Ast::Expr::resolve() { return this; }
 
+namespace {
+    struct EnvLookupIter {
+        const Ast::Environment* env{nullptr};
+        std::multimap<istring, Ast::Expr*>::const_iterator it;
+    };
+    static_assert( sizeof( EnvLookupIter ) <= sizeof( Ast::Dictlike::LookupIter ) );
+}
+
+bool Ast::Environment::lookupIter( istring sym, Expr** out, LookupIter& iterIn ) const {
+    auto& iter = reinterpret_cast<EnvLookupIter&>( iterIn );
+    *out = nullptr;
+    // iter is null first time, or the env of the previous find.
+    if( iter.env == nullptr ) {
+        iter.env = this;
+        iter.it = iter.env->syms_.lower_bound( sym );
+    }
+    while( iter.it == iter.env->syms_.end() || iter.it->first != sym ) {
+        if( auto p = iter.env->parent_ ) {
+            iter.env = p;
+            iter.it = iter.env->syms_.lower_bound( sym );
+        } else {
+            return false;
+        }
+    }
+    *out = iter.it->second;
+    ++iter.it;
+    return true;
+}
+
+Result Ast::Environment::lookup( string_view sym, Expr** out ) const {
+    *out = nullptr;
+    auto s = istring::make( sym );
+    LookupIter iterBase;
+    if( lookupIter( s, out, iterBase ) == false ) {
+        return Result::ERR;
+    }
+    EnvLookupIter& iter = reinterpret_cast<EnvLookupIter&>( iterBase );
+    if( iter.it != iter.env->syms_.end() && iter.it->first == s ) {
+        // This api expects only 1 match
+        // If overloads are OK, the caller should use lookup_iter
+        return Result::ERR;
+    }
+    return Result::OK;
+}
+
 Result Ast::Environment::bind( istring sym, Expr* value ) {
     auto it = syms_.lower_bound( sym );
     if( it == syms_.end() || it->first != sym ) {  // new element

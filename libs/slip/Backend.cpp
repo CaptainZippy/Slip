@@ -487,7 +487,7 @@ namespace {
 
             istring mainStr = istring::make( "main" );
             int mainKind = -1;
-            for( auto n : n->m_items ) {
+            for( auto n : n->items() ) {
                 dispatch( n );
                 if( auto fd = dynamic_cast<Ast::FunctionDecl*>( n ) ) {
                     if( fd->name() == mainStr ) {

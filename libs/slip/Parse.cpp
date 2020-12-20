@@ -263,14 +263,14 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         auto isym = istring::make( sym->text() );
         std::vector<Ast::Expr*> candidates;
         Ast::Environment::LookupIter iter;
-        while( env->lookup_iter( isym, &p, iter ) ) {
+        while( env->lookupIter( isym, &p, iter ) ) {
             if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
                 RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
-                RETURN_ERROR_IF( env->lookup_iter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
+                RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                 return b->parse( env, list, out );
             } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
                 RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
-                RETURN_ERROR_IF( env->lookup_iter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
+                RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
                 return macroExpand( m, env, list, out );
             } else {
                 candidates.emplace_back( p );
@@ -948,9 +948,11 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     auto module = make_unique_del<Ast::Module>();
     module->m_name = istring::make( name );
     for( auto c : lex.items() ) {
-        Ast::Expr* n;
-        RETURN_IF_FAILED( parse1( env, c, Parse::Flags::RValue, &n ), "Failed to parse" );
-        module->m_items.push_back( n );
+        Ast::Expr* e;
+        RETURN_IF_FAILED( parse1( env, c, Parse::Flags::RValue, &e ), "Failed to parse" );
+        Ast::Named* n;
+        RETURN_IF_FAILED( dynCast(e, &n) );
+        module->add( n->name(), n );
     }
     mod = std::move( module );
     return Result::OK;

@@ -107,7 +107,7 @@ namespace Slip::Sema {
 
         Result operator()( Ast::Module* n, VisitInfo& vi ) {
             vi.info = _internKnownType( &Ast::s_typeVoid );  // Todo: proper type
-            for( auto i : n->m_items ) {
+            for( auto i : n->items() ) {
                 TypeInfo* t;
                 RETURN_IF_FAILED( dispatch( i, &t ) );
             }
