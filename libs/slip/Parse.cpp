@@ -815,7 +815,8 @@ struct Parse::ArrayView {
         *out = nullptr;
         Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
-        Ast::Expr* param = env->lookup( lparam->text() );  // TODO
+        Ast::Expr* param;
+        RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
         auto type = dynamic_cast<Ast::Type*>( param );
         assert( type );
         Ast::Type* r;
@@ -851,7 +852,8 @@ struct Parse::ResultT {
         *out = nullptr;
         Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
-        Ast::Expr* param = env->lookup( lparam->text() );  // TODO
+        Ast::Expr* param;
+        RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
         auto type = dynamic_cast<Ast::Type*>( param );
         assert( type );
         Ast::Type* r;

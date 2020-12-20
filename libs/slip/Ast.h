@@ -248,20 +248,12 @@ namespace Slip::Ast {
             if( lookup_iter( s, out, iter ) == false ) {
                 return Result::ERR;
             }
+            if( iter.it != iter.env->syms_.end() && iter.it->first == s ) {
+                // This api expects only 1 match
+                // If overloads are OK, the caller should use lookup_iter
+                return Result::ERR;
+            }
             return Result::OK;
-        }
-
-        Expr* lookup( istring sym ) const {
-            Expr* ret;
-            auto res = lookup( sym, &ret );
-            assert( res.isOk() );
-            return ret;
-        }
-        Expr* lookup( string_view sym ) const {
-            Expr* ret;
-            auto res = lookup( sym, &ret );
-            assert( res.isOk() );
-            return ret;
         }
 
         Result bind( istring sym, Expr* value );
