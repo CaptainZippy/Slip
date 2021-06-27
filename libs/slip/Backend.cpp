@@ -133,7 +133,7 @@ namespace {
         string operator()( Ast::String* n ) {
             string s = n->m_str;
             std::replace( s.begin(), s.end(), '\n', ' ' );
-            return string_concat( "\"", s, "\"_str" );
+            return string_concat( "\"", s, "\"_builtin_str" );
         }
         string operator()( Ast::Definition* n ) {
             auto val = dispatch( n->m_value );
@@ -440,10 +440,10 @@ namespace {
             out.write( "    void operator=( const T& t ) { ok = t; fail = 0; }\n" );
             out.write( "    void operator=( builtin_Error e ) { fail = e; }\n};\n" );
             out.write(
-                "struct string { std::string m_s; "
-                "inline string() = default; "
-                "inline string(const char* s) : m_s(s,s?std::strlen(s):0) {} "
-                "inline string(const char* s, size_t l) : m_s(s,l) {} "
+                "struct builtin_string { std::string m_s; "
+                "inline builtin_string() = default; "
+                "inline builtin_string(const char* s) : m_s(s,s?std::strlen(s):0) {} "
+                "inline builtin_string(const char* s, size_t l) : m_s(s,l) {} "
                 "};\n" );
             out.write(
                 "template<typename T> struct builtin_array_view { "
@@ -459,16 +459,16 @@ namespace {
             out.write( "inline int builtin_mod(int a, int b) { return a%b; }\n" );
             out.write( "inline double builtin_dfromi(int a) { return (double)a; }\n" );
             out.write(
-                "inline builtin_Result<int> builtin_parsei(const string& s) { int r = ::strtol(s.m_s.data(), nullptr, 0); if(r) return r; return failed; "
+                "inline builtin_Result<int> builtin_parsei(const builtin_string& s) { int r = ::strtol(s.m_s.data(), nullptr, 0); if(r) return r; return failed; "
                 "}\n" );
             out.write( "inline double builtin_muld(double a, double b) { return a*b; }\n" );
             out.write( "inline double builtin_divd(double a, double b) { return a/b; }\n" );
             out.write( "inline double builtin_addd(double a, double b) { return a+b; }\n" );
-            out.write( "inline int builtin_puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
+            out.write( "inline int builtin_puts(const builtin_string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
             out.write( "inline int builtin_puti(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int builtin_putd(double a) { return printf(\"%f\\n\", a); }\n" );
             out.write( "typedef builtin_array_view<int> array_view__int__;\n" );
-            out.write( "typedef builtin_array_view<string> array_view__string__;\n" );
+            out.write( "typedef builtin_array_view<builtin_string> array_view__builtin_string__;\n" );
             out.write( "typedef std::vector<int> array_heap__int__;\n" );
             out.write( "typedef int array_const__int__[];\n" );
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
@@ -490,8 +490,8 @@ namespace {
                 "template<typename T> inline builtin_Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; return "
                 "failed; }\n" );
 
-            out.write( "inline void builtin_strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
-            out.write( "inline string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
+            out.write( "inline void builtin_strcat_(builtin_string& a, const builtin_string& b) { a.m_s += b.m_s; }\n" );
+            out.write( "inline builtin_string operator \"\" _builtin_str( const char* str, size_t len ) noexcept { return builtin_string{str,len}; }\n" );
 
             out.write( "inline int bitops_asl(int a, int b) { return a<<b; } \n" );
             out.write( "inline int bitops_lsl(int a, int b) { return a<<b; } \n" );
@@ -521,11 +521,11 @@ namespace {
                 case 1:
                     out.write(
                         "int main_entry(int argc, const char** argv) {\n"
-                        "   std::vector<string> args;\n"
+                        "   std::vector<builtin_string> args;\n"
                         "   for( int i = 0; i < argc; ++i ) {\n"
                         "       args.emplace_back(argv[i]);\n"
                         "   }\n"
-                        "   builtin_array_view<string> view{args.data(), args.size()};\n"
+                        "   builtin_array_view<builtin_string> view{args.data(), args.size()};\n"
                         "   return main(view);\n"
                         "}" );
                     break;

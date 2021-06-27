@@ -285,7 +285,7 @@ Ast::Type Ast::s_typeError( "builtin_Error"sv );
 Ast::Type Ast::s_typeDouble( "double"sv );
 Ast::Type Ast::s_typeFloat( "float"sv );
 Ast::Type Ast::s_typeVoid( "void"sv );
-Ast::Type Ast::s_typeString( "string"sv );
+Ast::Type Ast::s_typeString( "builtin_string"sv );
 
 Ast::Type::Type( string_view sym ) : Named( istring::make( sym ) ) {}
 
