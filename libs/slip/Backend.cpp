@@ -261,10 +261,17 @@ namespace {
 
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
+            for( auto p = n->environment_; p; p = p->parent() ) {
+                break;
+                if( auto m = dynamic_cast<Ast::Module*>( p ) ) {
+                    symbol.insert( 0, "_" );
+                    symbol.insert( 0, m->name().view() );
+                }
+            }
             if( n->m_intrinsic ) {
                 return sanitize( symbol );
             }
-            if( symbol != "main" ) {
+            if( n->name() != "main"sv ) {
                 for( auto p : n->m_params ) {
                     assert( p->m_type );
                     assert( p->m_name.c_str() );
@@ -274,7 +281,10 @@ namespace {
                         symbol.append( "_ref" );
                     }
                 }
+            } else {
+                symbol = "main"sv;
             }
+
             addName( n, istring::make( symbol ) );
             out.begin( string_concat( "\n", n->m_type->m_callable[0]->name(), " ", symbol, "(" ) );
             const char* sep = "";
@@ -484,6 +494,11 @@ namespace {
 
             out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
             out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
+
+            out.write( "inline int asl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int lsl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int asr(int a, int b) { return a>>b; } \n" );
+            out.write( "inline int lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
 
             istring mainStr = istring::make( "main" );
             int mainKind = -1;

@@ -74,16 +74,17 @@ namespace Slip::Parse {
         env->bind( name, new Ast::Builtin( name, std::move( fun ) ) );
     }
 
-    static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
+    static auto addIntrinsic( Ast::Module* module, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
         auto n = istring::make( name );
-        auto f = new Ast::FunctionDecl( n, WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+        auto f =
+            new Ast::FunctionDecl( n, WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = module ) );
         char pname[2] = {'a', 0};
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
             auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
             f->m_params.emplace_back( p );
             pname[0] += 1;
         }
-        env->bind( n, f );
+        module->add( n, f );
         return f;
     }
 
@@ -253,27 +254,48 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         return Result::OK;
     } else if( auto list = dynamic_cast<Ast::LexList*>( atom ) ) {
         RETURN_ERROR_IF( list->size() == 0, Error::UnexpectedEmptyList, atom->m_loc );
+        std::vector<Ast::Expr*> candidates;
+        istring isym;
+
         auto items = list->items();
         auto first = items[0];
-        auto sym = dynamic_cast<Ast::LexIdent*>( first );
-        RETURN_ERROR_IF( !sym, Error::SymbolExpectedAtListHead, list->m_loc );
+        if( auto dot = dynamic_cast<Ast::LexDot*>( first ) ) {
+            std::string name;
+            Ast::LexIdent* ident;
+            RETURN_IF_FAILED( dynCast( dot->m_lhs, &ident ) );
+            Ast::Expr* out;
+            name += ident->text();
+            RETURN_IF_FAILED( env->lookup( ident->text(), &out ) );
+            Ast::Dictlike* dict;
+            RETURN_IF_FAILED( dynCast( out, &dict ) );
+            Ast::LexIdent* identr;
+            RETURN_IF_FAILED( dynCast( dot->m_rhs, &identr ) );
+            Ast::Expr* e;
+            RETURN_IF_FAILED( dict->lookup( identr->text(), &e ) );
+            name += "_";
+            name += identr->text();
+            candidates.emplace_back( e );
+            isym = istring::make( name );
+        } else {
+            auto sym = dynamic_cast<Ast::LexIdent*>( first );
+            RETURN_ERROR_IF( !sym, Error::SymbolExpectedAtListHead, list->m_loc );
 
-        // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
-        Ast::Expr* p;
-        auto isym = istring::make( sym->text() );
-        std::vector<Ast::Expr*> candidates;
-        Ast::Environment::LookupIter iter;
-        while( env->lookupIter( isym, &p, iter ) ) {
-            if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
-                RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
-                RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
-                return b->parse( env, list, out );
-            } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
-                RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
-                RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
-                return macroExpand( m, env, list, out );
-            } else {
-                candidates.emplace_back( p );
+            // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
+            Ast::Expr* p;
+            isym = istring::make( sym->text() );
+            Ast::Environment::LookupIter iter;
+            while( env->lookupIter( isym, &p, iter ) ) {
+                if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
+                    RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
+                    RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
+                    return b->parse( env, list, out );
+                } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
+                    RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
+                    RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
+                    return macroExpand( m, env, list, out );
+                } else {
+                    candidates.emplace_back( p );
+                }
             }
         }
 
@@ -394,7 +416,7 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     Ast::LexList* largs;
     std::vector<Ast::LexNode*> lbody;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
-    auto func = new Ast::FunctionDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
+    auto func = new Ast::FunctionDecl( lname->text(), WITH( _.m_loc = lname->m_loc, _.environment_ = env ) );
     env->bind( func->m_name, func );
     auto inner = new Ast::Environment( env );
     if( auto a = largs->m_decltype ) {
@@ -868,7 +890,7 @@ Slip::Result Slip::Parse::ResultT_instantiate( Ast::Type* t, Ast::Type** out ) {
     return Slip::Parse::ResultT::_cache.instantiate( t, out );
 }
 
-Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
+Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto env = new Ast::Environment( nullptr );
     addBuiltin( env, "coro"sv, &parse_Coroutine );
     addBuiltin( env, "define"sv, &parse_Define );
@@ -926,34 +948,53 @@ Slip::Result Parse::module( const char* name, Ast::LexList& lex, Slip::unique_pt
     RETURN_IF_FAILED( ResultT_instantiate( &Ast::s_typeInt, &Ri ) );
     auto Ri_s = _makeFuncType( "(string)->Result<int>", Ri, &Ast::s_typeString );
 
-    addIntrinsic( env, "eq?", b_ii );
-    addIntrinsic( env, "lt?", b_ii );
-    addIntrinsic( env, "ge?", b_ii );
-    addIntrinsic( env, "add", i_ii );
-    addIntrinsic( env, "mod", i_ii );
-    addIntrinsic( env, "mul", i_ii );
-    addIntrinsic( env, "div", i_ii );
-    addIntrinsic( env, "sub", i_ii );
-    addIntrinsic( env, "puts", v_s );
-    addIntrinsic( env, "puti", v_i );
-    addIntrinsic( env, "putd", v_d );
-    addIntrinsic( env, "addd", d_dd );
-    addIntrinsic( env, "muld", d_dd );
-    addIntrinsic( env, "modd", d_dd );
-    addIntrinsic( env, "divd", d_dd );
-    addIntrinsic( env, "dfromi", d_i );
-    addIntrinsic( env, "parsei", Ri_s );
-    addIntrinsic( env, "strcat!", v_ss );
+    auto bitops = make_unique_del<Ast::Module>( "bitops"sv );
+    {
+        auto m = bitops.get();
+        addIntrinsic( m, "asl", i_ii );  // arith shift left
+        addIntrinsic( m, "lsl", i_ii );  // logical shift left
+        addIntrinsic( m, "asr", i_ii );
+        addIntrinsic( m, "lsr", i_ii );
+    }
 
-    auto module = make_unique_del<Ast::Module>();
-    module->m_name = istring::make( name );
+    auto builtin = make_unique_del<Ast::Module>( "builtin"sv );
+    {
+        auto m = builtin.get();
+        addIntrinsic( m, "eq?", b_ii );
+        addIntrinsic( m, "lt?", b_ii );
+        addIntrinsic( m, "ge?", b_ii );
+        addIntrinsic( m, "add", i_ii );
+        addIntrinsic( m, "mod", i_ii );
+        addIntrinsic( m, "mul", i_ii );
+        addIntrinsic( m, "div", i_ii );
+        addIntrinsic( m, "sub", i_ii );
+        addIntrinsic( m, "puts", v_s );
+        addIntrinsic( m, "puti", v_i );
+        addIntrinsic( m, "putd", v_d );
+        addIntrinsic( m, "addd", d_dd );
+        addIntrinsic( m, "muld", d_dd );
+        addIntrinsic( m, "modd", d_dd );
+        addIntrinsic( m, "divd", d_dd );
+        addIntrinsic( m, "dfromi", d_i );
+        addIntrinsic( m, "parsei", Ri_s );
+        addIntrinsic( m, "strcat!", v_ss );
+
+        for( auto&& a : builtin->pairs() ) {
+            env->bind( a.first, a.second );
+        }
+    }
+    env->bind( bitops->name(), bitops.get() );
+
+    auto module = make_unique_del<Ast::Module>( name );
     for( auto c : lex.items() ) {
         Ast::Expr* e;
         RETURN_IF_FAILED( parse1( env, c, Parse::Flags::RValue, &e ), "Failed to parse" );
         Ast::Named* n;
-        RETURN_IF_FAILED( dynCast(e, &n) );
+        RETURN_IF_FAILED( dynCast( e, &n ) );
         module->add( n->name(), n );
     }
+    builtin.release(); //< FIXME leak
+    bitops.release();  //< FIXME leak
     mod = std::move( module );
     return Result::OK;
 }

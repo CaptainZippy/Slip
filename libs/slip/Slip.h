@@ -30,7 +30,7 @@ namespace Slip {
         struct Evaluator;
 
         /// Parse lexed input
-        Result module( const char* name, Ast::LexList& Lex, unique_ptr_del<Ast::Module>& mod );
+        Result module( string_view name, Ast::LexList& Lex, unique_ptr_del<Ast::Module>& mod );
     }  // namespace Parse
 
     namespace Sema {

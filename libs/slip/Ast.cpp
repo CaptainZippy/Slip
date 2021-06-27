@@ -67,7 +67,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Module )
-    REFLECT_PARENT( Expr )
+    REFLECT_PARENT( Named )
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 
@@ -275,27 +275,6 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
 }
 
 Result Ast::FunctionDecl::NotImplemented( array_view<Ast::Expr*> args, Ast::Expr** out ) { return Error::NotImplemented; }
-
-Ast::FunctionDecl* Ast::FunctionDecl::makeBinaryOp( string_view name, Parameter* a, Parameter* b, Expr* ret ) {
-    auto f = new FunctionDecl( name );
-    f->m_declReturnTypeExpr = ret;
-    f->m_body = new Expr();
-    f->m_body->m_declTypeExpr = ret;
-    f->m_params.push_back( a );
-    f->m_params.push_back( b );
-    return f;
-}
-
-Ast::FunctionDecl* Ast::FunctionDecl::makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Expr* ret,
-                                                     std::initializer_list<Parameter*> params ) {
-    auto f = new FunctionDecl( name );
-    f->m_intrinsic = std::move( intrin );
-    f->m_declReturnTypeExpr = ret;
-    f->m_body = new Expr();
-    f->m_body->m_declTypeExpr = ret;
-    f->m_params = params;
-    return f;
-}
 
 Ast::Expr* Ast::Reference::resolve() { return m_target; }
 

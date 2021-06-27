@@ -16,6 +16,14 @@
         (expand body env)
         (set! cur (add cur 1))))
 
+;(macro for_down2 (it lo hi body) env
+;    (var cur (sub #[env hi] 1))
+;    (var end #[env lo])
+;    #(env.bind it cur)
+;    (while (ge? cur end)
+;        #[env body]
+;        (set! cur (sub cur 1))))
+
 (macro for_down (it lo hi body) env
     (var cur (sub (expand hi env) 1))
     (var end (expand lo env))

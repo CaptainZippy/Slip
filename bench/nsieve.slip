@@ -31,7 +31,7 @@
 (func main (args:(array_view string)) : int
     (let m (catch (pipe (get args 1) (parsei)) 100))
     (for_up i 0 3 (begin
-        (let n 1) ; (lshift 10000 (sub m i)))
+        (let n (bitops.asl 10000 (sub m i)))
         (puti m)
         (puti (nsieve n)))))
 ;        (print #(fmt "Primes up to {m} {nsieve n}")))))

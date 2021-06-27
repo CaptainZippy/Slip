@@ -231,6 +231,7 @@ namespace Slip::Ast {
         Result lookup( string_view sym, Expr** out ) const override;
         Result bind( istring sym, Expr* value );
         auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
+        auto parent() const { return parent_; }
 
         Environment* parent_;
         std::multimap<istring, Expr*> syms_;
@@ -252,24 +253,16 @@ namespace Slip::Ast {
         using IntrinsicProto = Result( array_view<Expr*> args, Ast::Expr** out );
         static Result NotImplemented( array_view<Expr*> args, Ast::Expr** out );
 
-        vector<Parameter*> m_params;
-        Ast::Expr* m_declReturnTypeExpr{nullptr};
-        Expr* m_body{nullptr};
-        Func<IntrinsicProto> m_intrinsic;
-
-        FunctionDecl( string_view name ) : Named( name ) {}
+        vector<Parameter*> m_params{};
+        Ast::Expr* m_declReturnTypeExpr{};
+        Expr* m_body{};
+        Func<IntrinsicProto> m_intrinsic{};
+        Environment* environment_{};
 
         template <typename With>
         FunctionDecl( string_view name, With&& with ) : Named( name ) {
             with( *this );
         }
-
-        /// Create a named function of two parameters.
-        static FunctionDecl* makeBinaryOp( string_view name, Parameter* a, Parameter* b, Expr* ret );
-
-        /// Create a named intrinsic function.
-        static FunctionDecl* makeIntrinsic( string_view name, Func<IntrinsicProto>&& intrin, Expr* ret,
-                                            initializer_list<Parameter*> params );
     };
 
     struct If : Expr {
@@ -313,11 +306,13 @@ namespace Slip::Ast {
 
     struct Module : Environment {
         AST_DECL();
+        Module( istring n ) : Environment( nullptr ), m_name( n ) {}
+        Module( string_view s ) : Environment( nullptr ), m_name( istring::make(s) ) {}
 
-        Module() : Environment( nullptr ) {}
-
+        istring name() { return m_name; }
         istring m_name;
         array_view<Expr*> items() { return m_items; }
+        auto pairs() { return syms_; }
         void add( istring n, Expr* e ) {
             m_items.push_back( e );
             this->bind( n, e );
