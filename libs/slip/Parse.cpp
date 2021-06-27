@@ -852,7 +852,7 @@ struct Parse::ResultT {
     struct Cache {
         Result instantiate( Ast::Type* t, Ast::Type** out ) {
             *out = nullptr;
-            auto name = string_format( "Result<%s>", t->name().c_str() );
+            auto name = string_format( "builtin_Result<%s>", t->name().c_str() );
             if( auto it = types_.find( name ); it != types_.end() ) {
                 *out = it->second;
                 return Result::OK;

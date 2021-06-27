@@ -262,7 +262,6 @@ namespace {
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
             for( auto p = n->environment_; p; p = p->parent() ) {
-                break;
                 if( auto m = dynamic_cast<Ast::Module*>( p ) ) {
                     symbol.insert( 0, "_" );
                     symbol.insert( 0, m->name().view() );
@@ -432,73 +431,74 @@ namespace {
             out.write( "struct MainReg {\n" );
             out.write( "    typedef int(*mainfunc)(int argc, const char**);\n" );
             out.write( "    MainReg(const char* n, mainfunc m); const char* name; mainfunc main; const MainReg* next; };\n" );
-            out.begin( string_concat( "namespace ", n->m_name, " {" ) );
-            out.write( "enum Error { failed=1 };\n" );
-            out.write( "template<typename T> struct Result { T ok; int fail;\n" );
-            out.write( "    Result( ) : fail( failed ) {}\n" );
-            out.write( "    Result( const T& t ) : ok( t ), fail(0) {}\n" );
-            out.write( "    Result( Error e ) : fail( e ) {}\n" );
+            out.write( "enum builtin_Error { failed=1 };\n" );
+            out.write( "template<typename T> struct builtin_Result { T ok; int fail;\n" );
+            out.write( "    builtin_Result( ) : fail( failed ) {}\n" );
+            out.write( "    builtin_Result( const T& t ) : ok( t ), fail(0) {}\n" );
+            out.write( "    builtin_Result( builtin_Error e ) : fail( e ) {}\n" );
             out.write( "    void setFail( int f ) { fail = f; }\n" );
             out.write( "    void operator=( const T& t ) { ok = t; fail = 0; }\n" );
-            out.write( "    void operator=( Error e ) { fail = e; }\n};\n" );
+            out.write( "    void operator=( builtin_Error e ) { fail = e; }\n};\n" );
             out.write(
                 "struct string { std::string m_s; "
-                "string() = default; "
-                "string(const char* s) : m_s(s,s?std::strlen(s):0) {} "
-                "string(const char* s, size_t l) : m_s(s,l) {} "
+                "inline string() = default; "
+                "inline string(const char* s) : m_s(s,s?std::strlen(s):0) {} "
+                "inline string(const char* s, size_t l) : m_s(s,l) {} "
                 "};\n" );
             out.write(
-                "template<typename T> struct array_view { "
+                "template<typename T> struct builtin_array_view { "
                 "T* m_data; size_t m_count; "
-                "T operator[](int i) { return m_data[i]; } };\n" );
-            out.write( "inline bool eq_(int a, int b) { return a==b; }\n" );
-            out.write( "inline bool lt_(int a, int b) { return a<b; }\n" );
-            out.write( "inline bool ge_(int a, int b) { return a>=b; }\n" );
-            out.write( "inline int add(int a, int b) { return a+b; }\n" );
-            out.write( "inline int sub(int a, int b) { return a-b; }\n" );
-            out.write( "inline int mul(int a, int b) { return a*b; }\n" );
-            out.write( "inline int div( int a, int b ) { return a / b; }\n" );
-            out.write( "inline int mod(int a, int b) { return a%b; }\n" );
-            out.write( "inline double dfromi(int a) { return (double)a; }\n" );
+                "inline T operator[](int i) { return m_data[i]; } };\n" );
+            out.write( "inline bool builtin_eq_(int a, int b) { return a==b; }\n" );
+            out.write( "inline bool builtin_lt_(int a, int b) { return a<b; }\n" );
+            out.write( "inline bool builtin_ge_(int a, int b) { return a>=b; }\n" );
+            out.write( "inline int builtin_add(int a, int b) { return a+b; }\n" );
+            out.write( "inline int builtin_sub(int a, int b) { return a-b; }\n" );
+            out.write( "inline int builtin_mul(int a, int b) { return a*b; }\n" );
+            out.write( "inline int builtin_div( int a, int b ) { return a / b; }\n" );
+            out.write( "inline int builtin_mod(int a, int b) { return a%b; }\n" );
+            out.write( "inline double builtin_dfromi(int a) { return (double)a; }\n" );
             out.write(
-                "inline Result<int> parsei(const string& s) { int r = ::strtod(s.m_s.data(), nullptr); if(r) return r; return failed; "
+                "inline builtin_Result<int> builtin_parsei(const string& s) { int r = ::strtol(s.m_s.data(), nullptr, 0); if(r) return r; return failed; "
                 "}\n" );
-            out.write( "inline double muld(double a, double b) { return a*b; }\n" );
-            out.write( "inline double divd(double a, double b) { return a/b; }\n" );
-            out.write( "inline double addd(double a, double b) { return a+b; }\n" );
-            out.write( "inline int puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
-            out.write( "inline int puti(int a) { return printf(\"%i\\n\", a); }\n" );
-            out.write( "inline int putd(double a) { return printf(\"%f\\n\", a); }\n" );
-            out.write( "typedef array_view<int> array_view__int__;\n" );
-            out.write( "typedef array_view<string> array_view__string__;\n" );
+            out.write( "inline double builtin_muld(double a, double b) { return a*b; }\n" );
+            out.write( "inline double builtin_divd(double a, double b) { return a/b; }\n" );
+            out.write( "inline double builtin_addd(double a, double b) { return a+b; }\n" );
+            out.write( "inline int builtin_puts(const string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
+            out.write( "inline int builtin_puti(int a) { return printf(\"%i\\n\", a); }\n" );
+            out.write( "inline int builtin_putd(double a) { return printf(\"%f\\n\", a); }\n" );
+            out.write( "typedef builtin_array_view<int> array_view__int__;\n" );
+            out.write( "typedef builtin_array_view<string> array_view__string__;\n" );
             out.write( "typedef std::vector<int> array_heap__int__;\n" );
             out.write( "typedef int array_const__int__[];\n" );
             out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
             out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T, int N> inline Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
+                "template<typename T, int N> inline builtin_Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
                 "return "
                 "failed; }\n" );
-            out.write( "template<typename T> inline int size(array_view<T> a) { return (int)a.m_count; }\n" );
-            out.write( "template<typename T> inline T at(array_view<T> a, int i) { return a[i]; }\n" );
+            out.write( "template<typename T> inline int size(builtin_array_view<T> a) { return (int)a.m_count; }\n" );
+            out.write( "template<typename T> inline T at(builtin_array_view<T> a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T> inline Result<T> get(array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; "
+                "template<typename T> inline builtin_Result<T> get(builtin_array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; "
                 "return "
                 "failed; }\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
             out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T> inline Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; return "
+                "template<typename T> inline builtin_Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; return "
                 "failed; }\n" );
 
-            out.write( "void strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
-            out.write( "string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
+            out.write( "inline void builtin_strcat_(string& a, const string& b) { a.m_s += b.m_s; }\n" );
+            out.write( "inline string operator \"\" _str( const char* str, size_t len ) noexcept { return string{str,len}; }\n" );
 
-            out.write( "inline int asl(int a, int b) { return a<<b; } \n" );
-            out.write( "inline int lsl(int a, int b) { return a<<b; } \n" );
-            out.write( "inline int asr(int a, int b) { return a>>b; } \n" );
-            out.write( "inline int lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
+            out.write( "inline int bitops_asl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int bitops_lsl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int bitops_asr(int a, int b) { return a>>b; } \n" );
+            out.write( "inline int bitops_lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
+
+            out.begin( string_concat( "namespace ", n->m_name, " {" ) );
 
             istring mainStr = istring::make( "main" );
             int mainKind = -1;
@@ -525,7 +525,7 @@ namespace {
                         "   for( int i = 0; i < argc; ++i ) {\n"
                         "       args.emplace_back(argv[i]);\n"
                         "   }\n"
-                        "   array_view<string> view{args.data(), args.size()};\n"
+                        "   builtin_array_view<string> view{args.data(), args.size()};\n"
                         "   return main(view);\n"
                         "}" );
                     break;
