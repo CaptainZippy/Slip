@@ -68,7 +68,12 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( Module )
     REFLECT_PARENT( Named )
-    REFLECT_FIELD2( m_items, Flags::Child )
+    REFLECT_FIELD2( exports_, Flags::Child )
+    REFLECT_END()
+
+    REFLECT_BEGIN( Module::Export )
+    REFLECT_FIELD( name )
+    REFLECT_FIELD2( expr, Flags::Abbrev )
     REFLECT_END()
 
     REFLECT_BEGIN( FunctionCall )
@@ -271,6 +276,28 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
                      "%s:%i:%i: Previously defined here",
                      sym.c_str(), loc.filename(), loc.line(), loc.col() );
     syms_.emplace_hint( it, sym, value );
+    return Result::OK;
+}
+
+
+Result Ast::Environment::importAll( Ast::Environment* other ) {
+    for( auto it = other->syms_.begin(); it != other->syms_.end();  ++it ) {
+        RETURN_IF_FAILED( bind( it->first, it->second ) );
+    }
+    return Result::OK;
+}
+
+Result Ast::Module::instantiate( istring name, const Func<Result(Ast::Type**)>& create, Ast::Type** out ) {
+    *out = nullptr;
+    if( auto it = instantiations_.find( name ); it != instantiations_.end() ) {
+        *out = it->second;
+        return Result::OK;
+    }
+
+    Ast::Type* t;
+    RETURN_IF_FAILED( create( &t ) );
+    assert( t && t->name() == name );
+    *out = t;
     return Result::OK;
 }
 

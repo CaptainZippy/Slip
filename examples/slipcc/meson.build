@@ -7,4 +7,5 @@ slipcc = executable('slipcc',
 
 slip_compile = generator(slipcc,
     output : ['@BASENAME@.cpp'],
+    depends : slipcc,
     arguments: ['--output-dir=@BUILD_DIR@', '@INPUT@'])

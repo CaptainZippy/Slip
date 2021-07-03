@@ -119,9 +119,7 @@ namespace {
 
         string operator()( Ast::MacroExpansion* n ) { return dispatch( n->m_expansion ); }
 
-        string operator()( Ast::Reference* n ) {
-            return dispatch( n->m_target );
-        }
+        string operator()( Ast::Reference* n ) { return dispatch( n->m_target ); }
         string operator()( Ast::Parameter* n ) {
             addName( n, n->name() );
             return n->m_name.std_str();
@@ -261,11 +259,9 @@ namespace {
 
         string operator()( Ast::FunctionDecl* n ) {
             std::string symbol = n->m_name.std_str();
-            for( auto p = n->environment_; p; p = p->parent() ) {
-                if( auto m = dynamic_cast<Ast::Module*>( p ) ) {
-                    symbol.insert( 0, "_" );
-                    symbol.insert( 0, m->name().view() );
-                }
+            if( n->environment_ ) {
+                symbol.insert( 0, "_" );
+                symbol.insert( 0, n->environment_->module()->name().view() );
             }
             if( n->m_intrinsic ) {
                 return sanitize( symbol );
@@ -502,10 +498,10 @@ namespace {
 
             istring mainStr = istring::make( "main" );
             int mainKind = -1;
-            for( auto n : n->items() ) {
-                dispatch( n );
-                if( auto fd = dynamic_cast<Ast::FunctionDecl*>( n ) ) {
-                    if( fd->name() == mainStr ) {
+            for( auto n : n->exports() ) {
+                dispatch( n.expr );
+                if( n.name == mainStr ) {
+                    if( auto fd = dynamic_cast<Ast::FunctionDecl*>( n.expr ) ) {
                         mainKind = fd->m_params.size() ? 1 : 0;
                     }
                 }

@@ -225,16 +225,22 @@ namespace Slip::Ast {
     struct Environment : Expr, Dictlike {
         AST_DECL();
 
-        Environment( Environment* parent ) : parent_( parent ) {}
+        Environment( Module* module ) : module_( module ) {}
+        Environment( Environment* parent ) : module_( parent->module_ ), parent_( parent ) {}
 
         bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const override;
         Result lookup( string_view sym, Expr** out ) const override;
         Result bind( istring sym, Expr* value );
         auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
         auto parent() const { return parent_; }
+        Result importAll( Environment* other );
+        // Each env knows the module in which it is contained
+        Module* module() { return module_; }
 
-        Environment* parent_;
-        std::multimap<istring, Expr*> syms_;
+       //private:
+        Module* module_{};
+        Environment* parent_{};
+        std::multimap<istring, Expr*> syms_{};
     };
 
     struct FunctionCall : Expr {
@@ -304,22 +310,29 @@ namespace Slip::Ast {
         }
     };
 
-    struct Module : Environment {
+    struct Module : Named {
         AST_DECL();
-        Module( istring n ) : Environment( nullptr ), m_name( n ) {}
-        Module( string_view s ) : Environment( nullptr ), m_name( istring::make(s) ) {}
+        Module( istring n ) : Named( n ), environment_(new Environment( this )) { }
+        Module( string_view s ) : Named( s ), environment_( new Environment( this ) ) {}
 
-        istring name() { return m_name; }
-        istring m_name;
-        array_view<Expr*> items() { return m_items; }
-        auto pairs() { return syms_; }
-        void add( istring n, Expr* e ) {
-            m_items.push_back( e );
-            this->bind( n, e );
-        }
+        struct Export {
+            REFLECT_DECL();
+            Export( istring n, Ast::Expr* e ) : name( n ), expr( e ) {}
+            istring name;
+            Ast::Expr* expr;
+        };
+        array_view<Export> exports() { return exports_; }
+        Ast::Environment* env() { return environment_; }
+
+        void addExport( istring n, Expr* e ) { exports_.emplace_back( n, e ); }
+        // Instantiate a template and return the type.
+        // Instantiations are memorized - 'create' is only called if the name isn't known
+        Result instantiate( istring name, const Func<Result( Ast::Type** )>& create, Ast::Type** out );
 
        protected:
-        vector<Expr*> m_items;
+        Ast::Environment* environment_{};
+        std::unordered_map<istring, Ast::Type*> instantiations_;
+        std::vector<Export> exports_;
     };
 
     // We may not be able to tell which overload is chosen until after type inference.

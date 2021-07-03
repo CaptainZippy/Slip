@@ -61,7 +61,7 @@ namespace Slip::Parse {
     struct ArrayView;
     struct ArrayConst;
     struct ResultT;
-    Result ResultT_instantiate( Ast::Type* t, Ast::Type** out );
+    Result ResultT_instantiate( Ast::Module* env, Ast::Type* t, Ast::Type** out );
 
     template <typename... Args>
     static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
@@ -74,17 +74,17 @@ namespace Slip::Parse {
         env->bind( name, new Ast::Builtin( name, std::move( fun ) ) );
     }
 
-    static auto addIntrinsic( Ast::Module* module, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
+    static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
         auto n = istring::make( name );
         auto f =
-            new Ast::FunctionDecl( n, WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = module ) );
+            new Ast::FunctionDecl( n, WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = env ) );
         char pname[2] = {'a', 0};
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
             auto p = new Ast::Parameter( pname, WITH( _.m_type = at ) );
             f->m_params.emplace_back( p );
             pname[0] += 1;
         }
-        module->add( n, f );
+        env->bind( n, f );
         return f;
     }
 
@@ -765,75 +765,70 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr
 }
 
 struct Parse::ArrayView {
-    struct Cache {
-        string _generic_root;
-        Cache( string&& root ) : _generic_root( root ) {}
+    static Result parse_ArrayView( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+        return parse_internal( env, args, out, "array_view", false );
+    }
+    static Result parse_ArrayConst( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+        return parse_internal( env, args, out, "array_const", false );
+    }
+    static Result parse_ArrayHeap( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+        return parse_internal( env, args, out, "array_heap", true );
+    }
 
-        Result instantiate( Ast::Type* t, Ast::Type** out ) {
-            *out = nullptr;
-            auto name = string_format( "%s__%s__", _generic_root.c_str(), t->name().c_str() );
-            if( auto it = types_.find( name ); it != types_.end() ) {
-                *out = it->second;
-                return Result::OK;
-            }
-            auto r = new Ast::Type( name );
-            r->m_array = t;
+   protected:
+    static Result instantiate_internal( istring name, Ast::Environment* env, bool isHeap /*fixme*/, Ast::Type* t, Ast::Type** out ) {
+        *out = nullptr;
+        auto r = new Ast::Type( name );
+        r->m_array = t;
 
-            {
-                auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
-                auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
-                fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-                r->m_methods.emplace_back( fdecl );
-            }
-
-            {
-                auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
-                auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
-                atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-                atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
-                r->m_methods.emplace_back( atdecl );
-            }
-
-            {
-                Ast::Type* resultT;
-                RETURN_IF_FAILED( ResultT_instantiate( t, &resultT ) );
-                auto gettype =
-                    _makeFuncType( string_format( "(%s,int)->result<%s>", name.c_str(), t->name().c_str() ), resultT, r, &Ast::s_typeInt );
-                auto getdecl =
-                    new Ast::FunctionDecl( "get", WITH( _.m_type = gettype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
-                getdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-                getdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
-                r->m_methods.emplace_back( getdecl );
-            }
-
-            {
-                auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
-                                              &Ast::s_typeInt, t );
-                auto putdecl =
-                    new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
-                putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-                putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
-                putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
-                r->m_methods.emplace_back( putdecl );
-            }
-
-            if( _generic_root == "array_heap" ) {
-                auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
-                auto redecl =
-                    new Ast::FunctionDecl( "resize", WITH( _.m_type = retype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
-                redecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
-                redecl->m_params.emplace_back( new Ast::Parameter( "size", WITH( _.m_type = &Ast::s_typeInt ) ) );
-                r->m_methods.emplace_back( redecl );
-            }
-
-            types_.emplace( name, r );
-            *out = r;
-            return Result::OK;
+        {
+            auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
+            auto fdecl = new Ast::FunctionDecl( "size", WITH( _.m_type = ftype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            fdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            r->m_methods.emplace_back( fdecl );
         }
-        std::map<std::string, Ast::Type*> types_;
-    };
 
-    static Result parse( Cache* cache, Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+        {
+            auto attype = _makeFuncType( string_format( "(%s,int)->%s", name.c_str(), t->name().c_str() ), t, r, &Ast::s_typeInt );
+            auto atdecl = new Ast::FunctionDecl( "at", WITH( _.m_type = attype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            atdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            r->m_methods.emplace_back( atdecl );
+        }
+
+        {
+            Ast::Type* resultT;
+            RETURN_IF_FAILED( ResultT_instantiate( env->module(), t, &resultT ) );
+            auto gettype =
+                _makeFuncType( string_format( "(%s,int)->result<%s>", name.c_str(), t->name().c_str() ), resultT, r, &Ast::s_typeInt );
+            auto getdecl = new Ast::FunctionDecl( "get", WITH( _.m_type = gettype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            getdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            getdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            r->m_methods.emplace_back( getdecl );
+        }
+
+        {
+            auto puttype = _makeFuncType( string_format( "(%s,int,%s)->void", name.c_str(), t->name().c_str() ), &Ast::s_typeVoid, r,
+                                          &Ast::s_typeInt, t );
+            auto putdecl = new Ast::FunctionDecl( "put!", WITH( _.m_type = puttype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "idx", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            putdecl->m_params.emplace_back( new Ast::Parameter( "val", WITH( _.m_type = t ) ) );
+            r->m_methods.emplace_back( putdecl );
+        }
+
+        if( isHeap ) {
+            auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
+            auto redecl = new Ast::FunctionDecl( "resize", WITH( _.m_type = retype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            redecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
+            redecl->m_params.emplace_back( new Ast::Parameter( "size", WITH( _.m_type = &Ast::s_typeInt ) ) );
+            r->m_methods.emplace_back( redecl );
+        }
+
+        *out = r;
+        return Result::OK;
+    }
+    static Result parse_internal( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out, const char* root_name, bool isHeap ) {
         *out = nullptr;
         Ast::LexIdent* lparam;
         RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
@@ -841,97 +836,85 @@ struct Parse::ArrayView {
         RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
         auto type = dynamic_cast<Ast::Type*>( param );
         assert( type );
+        auto name = istring::make( string_format( "%s__%s__", root_name, type->name() ) );
+
         Ast::Type* r;
-        RETURN_IF_FAILED( cache->instantiate( type, &r ) );
+        RETURN_IF_FAILED( env->module()->instantiate(
+            name, [&]( Ast::Type** out ) { return instantiate_internal( name, env, isHeap, type, out ); }, &r ) );
         *out = r;
         return Result::OK;
     }
 };
 
-struct Parse::ResultT {
-    struct Cache {
-        Result instantiate( Ast::Type* t, Ast::Type** out ) {
-            *out = nullptr;
-            auto name = string_format( "builtin_Result<%s>", t->name().c_str() );
-            if( auto it = types_.find( name ); it != types_.end() ) {
-                *out = it->second;
-                return Result::OK;
-            }
-            auto r = new Ast::Type( name );
-            r->m_sum.emplace_back( t );
-            r->m_sum.emplace_back( &Ast::s_typeError );
-            types_.emplace( name, r );
-            *out = r;
-            return Result::OK;
-        }
-        std::map<std::string, Ast::Type*> types_;
-    };
+Slip::Result Slip::Parse::ResultT_instantiate( Ast::Module* mod, Ast::Type* t, Ast::Type** out ) {
+    auto name = istring::make( string_format( "builtin_Result<%s>", t->name().c_str() ) );
+    RETURN_IF_FAILED( mod->instantiate( name,
+                                        [&]( Ast::Type** ret ) {
+                                            auto r = new Ast::Type( name );
+                                            r->m_sum.emplace_back( t );
+                                            r->m_sum.emplace_back( &Ast::s_typeError );
+                                            *ret = r;
+                                            return Result::OK;
+                                        },
+                                        out ) );
+    return Result::OK;
+}
 
-    static Cache _cache;  // FIXME how to allow instatiation elsewhere
-
-    static Result parse( Cache* cache, Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-        assert( &_cache == cache );
-        *out = nullptr;
-        Ast::LexIdent* lparam;
-        RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
-        Ast::Expr* param;
-        RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
-        auto type = dynamic_cast<Ast::Type*>( param );
-        assert( type );
-        Ast::Type* r;
-        RETURN_IF_FAILED( cache->instantiate( type, &r ) );
-        *out = r;
-        return Result::OK;
-    }
-};
-Parse::ResultT::Cache Parse::ResultT::_cache;  // FIXME how to allow instatiation elsewhere
-
-Slip::Result Slip::Parse::ResultT_instantiate( Ast::Type* t, Ast::Type** out ) {
-    return Slip::Parse::ResultT::_cache.instantiate( t, out );
+static Result parse_ResultT( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+    *out = nullptr;
+    Ast::LexIdent* lparam;
+    RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
+    Ast::Expr* param;
+    RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
+    auto type = dynamic_cast<Ast::Type*>( param );
+    assert( type );
+    Ast::Type* r;
+    RETURN_IF_FAILED( Slip::Parse::ResultT_instantiate( env->module(), type, &r ) );
+    *out = r;
+    return Result::OK;
 }
 
 Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
-    auto env = new Ast::Environment( nullptr );
-    addBuiltin( env, "coro"sv, &parse_Coroutine );
-    addBuiltin( env, "define"sv, &parse_Define );
-    addBuiltin( env, "func"sv, &parse_Func );
-    addBuiltin( env, "if"sv, &parse_If );
-    addBuiltin( env, "while"sv, &parse_While );
-    addBuiltin( env, "cond"sv, &parse_Cond );
-    addBuiltin( env, "let"sv, &parse_Let );
-    addBuiltin( env, "begin"sv, &parse_Begin );
-    addBuiltin( env, "block"sv, &parse_Block );
-    addBuiltin( env, "break"sv, &parse_Break );
-    addBuiltin( env, "var"sv, &parse_Var );
-    addBuiltin( env, "const"sv, &parse_Const );
-    addBuiltin( env, "set!"sv, &parse_Set );
-    addBuiltin( env, "try"sv, &parse_Try );
-    addBuiltin( env, "catch"sv, &parse_Catch );
-    addBuiltin( env, "scope"sv, &parse_Scope );
-    addBuiltin( env, "macro"sv, &parse_Macro );
-    addBuiltin( env, "struct"sv, &parse_Struct );
-    addBuiltin( env, "pipe"sv, &parse_Pipe );
-    addBuiltin( env, "array_view"sv, [cache = new Parse::ArrayView::Cache( "array_view" )]( auto e, auto a, auto o ) {
-        return ArrayView::parse( cache, e, a, o );
-    } );
-    addBuiltin( env, "array_const"sv, [cache = new Parse::ArrayView::Cache( "array_const" )]( auto e, auto a, auto o ) {
-        return ArrayView::parse( cache, e, a, o );
-    } );
-    addBuiltin( env, "array_heap"sv, [cache = new Parse::ArrayView::Cache( "array_heap" )]( auto e, auto a, auto o ) {
-        return ArrayView::parse( cache, e, a, o );
-    } );
-    addBuiltin( env, "result"sv, []( auto e, auto a, auto o ) { return ResultT::parse( &Parse::ResultT::_cache, e, a, o ); } );
+    auto module = make_unique_del<Ast::Module>( name );
 
-    env->bind( "int"sv, &Ast::s_typeInt );
-    env->bind( "float"sv, &Ast::s_typeFloat );
-    env->bind( "double"sv, &Ast::s_typeDouble );
-    env->bind( "void"sv, &Ast::s_typeVoid );
-    env->bind( "string"sv, &Ast::s_typeString );
-    env->bind( "bool"sv, &Ast::s_typeBool );
+    auto lang0 = make_unique_del<Ast::Module>( "lang0"sv );
+    {
+        auto env = lang0->env();
+        addBuiltin( env, "coro"sv, &parse_Coroutine );
+        addBuiltin( env, "define"sv, &parse_Define );
+        addBuiltin( env, "func"sv, &parse_Func );
+        addBuiltin( env, "if"sv, &parse_If );
+        addBuiltin( env, "while"sv, &parse_While );
+        addBuiltin( env, "cond"sv, &parse_Cond );
+        addBuiltin( env, "let"sv, &parse_Let );
+        addBuiltin( env, "begin"sv, &parse_Begin );
+        addBuiltin( env, "block"sv, &parse_Block );
+        addBuiltin( env, "break"sv, &parse_Break );
+        addBuiltin( env, "var"sv, &parse_Var );
+        addBuiltin( env, "const"sv, &parse_Const );
+        addBuiltin( env, "set!"sv, &parse_Set );
+        addBuiltin( env, "try"sv, &parse_Try );
+        addBuiltin( env, "catch"sv, &parse_Catch );
+        addBuiltin( env, "scope"sv, &parse_Scope );
+        addBuiltin( env, "macro"sv, &parse_Macro );
+        addBuiltin( env, "struct"sv, &parse_Struct );
+        addBuiltin( env, "pipe"sv, &parse_Pipe );
+        addBuiltin( env, "array_view"sv, &ArrayView::parse_ArrayView );
+        addBuiltin( env, "array_const"sv, &ArrayView::parse_ArrayConst );
+        addBuiltin( env, "array_heap"sv, &ArrayView::parse_ArrayHeap );
+        addBuiltin( env, "result"sv, &parse_ResultT );
 
-    env->bind( "true"sv, new Ast::Number( "true", WITH( _.m_type = &Ast::s_typeBool ) ) );
-    env->bind( "false"sv, new Ast::Number( "false", WITH( _.m_type = &Ast::s_typeBool ) ) );
-    env->bind( "failed"sv, new Ast::Number( "failed", WITH( _.m_type = &Ast::s_typeError ) ) );
+        env->bind( "int"sv, &Ast::s_typeInt );
+        env->bind( "float"sv, &Ast::s_typeFloat );
+        env->bind( "double"sv, &Ast::s_typeDouble );
+        env->bind( "void"sv, &Ast::s_typeVoid );
+        env->bind( "string"sv, &Ast::s_typeString );
+        env->bind( "bool"sv, &Ast::s_typeBool );
+
+        env->bind( "true"sv, new Ast::Number( "true", WITH( _.m_type = &Ast::s_typeBool ) ) );
+        env->bind( "false"sv, new Ast::Number( "false", WITH( _.m_type = &Ast::s_typeBool ) ) );
+        env->bind( "failed"sv, new Ast::Number( "failed", WITH( _.m_type = &Ast::s_typeError ) ) );
+    }
 
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
     auto i_ii = _makeFuncType( "(int, int)->int", &Ast::s_typeInt, &Ast::s_typeInt, &Ast::s_typeInt );
@@ -945,56 +928,54 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
     Ast::Type* Ri;
-    RETURN_IF_FAILED( ResultT_instantiate( &Ast::s_typeInt, &Ri ) );
+    RETURN_IF_FAILED( ResultT_instantiate( module.get(), &Ast::s_typeInt, &Ri ) );
     auto Ri_s = _makeFuncType( "(string)->Result<int>", Ri, &Ast::s_typeString );
 
     auto bitops = make_unique_del<Ast::Module>( "bitops"sv );
     {
-        auto m = bitops.get();
-        addIntrinsic( m, "asl", i_ii );  // arith shift left
-        addIntrinsic( m, "lsl", i_ii );  // logical shift left
-        addIntrinsic( m, "asr", i_ii );
-        addIntrinsic( m, "lsr", i_ii );
+        auto env = bitops->env();
+        addIntrinsic( env, "asl", i_ii );  // arith shift left
+        addIntrinsic( env, "lsl", i_ii );  // logical shift left
+        addIntrinsic( env, "asr", i_ii );
+        addIntrinsic( env, "lsr", i_ii );
     }
 
     auto builtin = make_unique_del<Ast::Module>( "builtin"sv );
     {
-        auto m = builtin.get();
-        addIntrinsic( m, "eq?", b_ii );
-        addIntrinsic( m, "lt?", b_ii );
-        addIntrinsic( m, "ge?", b_ii );
-        addIntrinsic( m, "add", i_ii );
-        addIntrinsic( m, "mod", i_ii );
-        addIntrinsic( m, "mul", i_ii );
-        addIntrinsic( m, "div", i_ii );
-        addIntrinsic( m, "sub", i_ii );
-        addIntrinsic( m, "puts", v_s );
-        addIntrinsic( m, "puti", v_i );
-        addIntrinsic( m, "putd", v_d );
-        addIntrinsic( m, "addd", d_dd );
-        addIntrinsic( m, "muld", d_dd );
-        addIntrinsic( m, "modd", d_dd );
-        addIntrinsic( m, "divd", d_dd );
-        addIntrinsic( m, "dfromi", d_i );
-        addIntrinsic( m, "parsei", Ri_s );
-        addIntrinsic( m, "strcat!", v_ss );
-
-        for( auto&& a : builtin->pairs() ) {
-            env->bind( a.first, a.second );
-        }
+        auto env = builtin->env();
+        env->parent_ = lang0->env();
+        addIntrinsic( env, "eq?", b_ii );
+        addIntrinsic( env, "lt?", b_ii );
+        addIntrinsic( env, "ge?", b_ii );
+        addIntrinsic( env, "add", i_ii );
+        addIntrinsic( env, "mod", i_ii );
+        addIntrinsic( env, "mul", i_ii );
+        addIntrinsic( env, "div", i_ii );
+        addIntrinsic( env, "sub", i_ii );
+        addIntrinsic( env, "puts", v_s );
+        addIntrinsic( env, "puti", v_i );
+        addIntrinsic( env, "putd", v_d );
+        addIntrinsic( env, "addd", d_dd );
+        addIntrinsic( env, "muld", d_dd );
+        addIntrinsic( env, "modd", d_dd );
+        addIntrinsic( env, "divd", d_dd );
+        addIntrinsic( env, "dfromi", d_i );
+        addIntrinsic( env, "parsei", Ri_s );
+        addIntrinsic( env, "strcat!", v_ss );
     }
-    env->bind( bitops->name(), bitops.get() );
+    module->env()->parent_ = builtin->env(); // hack, using env.parent instead of import/search
+    module->env()->bind( bitops->name(), bitops->env() );
 
-    auto module = make_unique_del<Ast::Module>( name );
     for( auto c : lex.items() ) {
         Ast::Expr* e;
-        RETURN_IF_FAILED( parse1( env, c, Parse::Flags::RValue, &e ), "Failed to parse" );
+        RETURN_IF_FAILED( parse1( module->env(), c, Parse::Flags::RValue, &e ), "Failed to parse" );
         Ast::Named* n;
         RETURN_IF_FAILED( dynCast( e, &n ) );
-        module->add( n->name(), n );
+        module->addExport( n->name(), n );
     }
-    builtin.release(); //< FIXME leak
-    bitops.release();  //< FIXME leak
+    builtin.release();  //< FIXME leak
+    bitops.release();   //< FIXME leak
+    lang0.release();
     mod = std::move( module );
     return Result::OK;
 }

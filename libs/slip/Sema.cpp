@@ -5,7 +5,7 @@
 #include "Io.h"
 
 namespace Slip::Parse {
-    extern Slip::Result ResultT_instantiate( Ast::Type* t, Ast::Type** out );
+    extern Slip::Result ResultT_instantiate( Ast::Module* mod, Ast::Type* t, Ast::Type** out );
 }
 
 namespace Slip::Sema {
@@ -107,10 +107,13 @@ namespace Slip::Sema {
 
         Result operator()( Ast::Module* n, VisitInfo& vi ) {
             vi.info = _internKnownType( &Ast::s_typeVoid );  // Todo: proper type
-            for( auto i : n->items() ) {
+            m_modules.push_back( n );
+            for( auto i : n->exports() ) {
                 TypeInfo* t;
-                RETURN_IF_FAILED( dispatch( i, &t ) );
+                RETURN_IF_FAILED( dispatch( i.expr, &t ) );
             }
+            assert( m_modules.back() == n );
+            m_modules.pop_back();
             return Result::OK;
         }
 
@@ -471,7 +474,7 @@ namespace Slip::Sema {
                 auto origT = ti->get_type();
                 Ast::Type* thisT;
                 if( origT->m_sum.empty() ) {
-                    RETURN_IF_FAILED( Slip::Parse::ResultT_instantiate( origT, &thisT ) );
+                    RETURN_IF_FAILED( Slip::Parse::ResultT_instantiate( m_modules.back(), origT, &thisT ) );
                 } else {
                     // TODO assert ResultT
                     thisT = origT;
@@ -525,11 +528,12 @@ namespace Slip::Sema {
             std::vector<Pair> rhs;
             bool todo{true};
         };
-        deque<VisitInfo> m_visited;
-        unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
+        std::deque<VisitInfo> m_visited;
+        std::unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
-        vector<Convertible> m_convertible;
+        std::vector<Convertible> m_convertible{};
         std::vector<bool> m_autoUnwrap{false};
+        std::vector<Ast::Module*> m_modules{}; // stack of currently active modules
 
         Result build( Ast::Expr* node ) {
             TypeInfo* t;
