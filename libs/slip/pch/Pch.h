@@ -32,12 +32,9 @@
 #include <functional>
 #include <variant>
 
-#if defined(_MSC_VER)
-    #pragma warning(suppress: 4455)
-    constexpr std::string_view operator "" sv(const char* str, size_t len) noexcept {
-        return std::string_view(str, len);
-    }
-#endif
+constexpr std::string_view operator "" _sv(const char* str, size_t len) noexcept {
+    return std::string_view(str, len);
+}
 
 // Local utilities
 #include "slip/Util.h"

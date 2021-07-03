@@ -14,7 +14,7 @@
 namespace Slip::Args {
 
     struct Parser {
-        using Action = function<void( string_view )>;
+        using Action = std::function<void( string_view )>;
         struct Opt {
             string_view m_meta;  // e.g. --arg1=FOO, --arg2, --arg3 FOO BAR
             string_view m_key;   // The part to match, m_meta up to the first one of " ,.[=" e.g. "--arg"
@@ -28,7 +28,7 @@ namespace Slip::Args {
             auto& o = ( meta[0] == '-' ) ? m_opts.emplace_back() : m_positional.emplace_back();
             auto sl = meta.find_first_of( ". [=" );
             o.m_meta = meta;
-            o.m_key = sl == string::npos ? meta : meta.substr( 0, sl );
+            o.m_key = sl == std::string::npos ? meta : meta.substr( 0, sl );
             o.m_help = help;
             o.m_action = move( action );
         }
@@ -88,8 +88,8 @@ namespace Slip::Args {
         bool dumpParse{false};
         bool dumpInfer{false};
         bool tapTest{false};
-        vector<string> inputs;
-        string outputDir{"."};
+        std::vector<std::string> inputs;
+        std::string outputDir{"."};
     };
 }  // namespace Slip::Args
 
@@ -124,12 +124,12 @@ static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManag
         Ast::print( ast.get() );
 
     string_view path{fname};
-    auto slash = path.find_last_of( "\\/"sv );
-    if( slash != string::npos ) {
+    auto slash = path.find_last_of( "\\/"_sv );
+    if( slash != std::string::npos ) {
         path.remove_prefix( slash + 1 );
     }
-    auto suff = path.find( ".slip"sv );
-    if( suff != string::npos ) {
+    auto suff = path.find( ".slip"_sv );
+    if( suff != std::string::npos ) {
         path.remove_suffix( path.size() - suff );
     }
     Io::TextOutput out{string_concat( args.outputDir, "/", path, ".cpp" ).c_str()};
@@ -208,10 +208,10 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
     auto args = Args::Args();
-    parser.add( "--dump-parse"sv, "Debug print each module after parsing"sv, [&args]( string_view v ) { args.dumpParse = true; } );
-    parser.add( "--dump-infer", "Debug print each module after type inference"sv, [&args]( string_view v ) { args.dumpInfer = true; } );
-    parser.add( "-h", "Show help"sv, [&parser]( string_view v ) { parser.help(); } );
-    parser.add( "--help", "Show help"sv, [&parser]( string_view v ) { parser.help(); } );
+    parser.add( "--dump-parse"_sv, "Debug print each module after parsing"_sv, [&args]( string_view v ) { args.dumpParse = true; } );
+    parser.add( "--dump-infer", "Debug print each module after type inference"_sv, [&args]( string_view v ) { args.dumpInfer = true; } );
+    parser.add( "-h", "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
+    parser.add( "--help", "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
     parser.add( "--nop[=ignored]", "Ignore this argument", []( string_view v ) { /*ignore arg*/ } );
     parser.add( "--output-dir=dir", "Output to specified directory", [&args]( string_view v ) { args.outputDir = v; } );
     parser.add( "--tap", "Use TAP test mode", [&args]( string_view v ) {

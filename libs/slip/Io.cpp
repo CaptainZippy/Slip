@@ -6,7 +6,7 @@
 
 namespace Slip::Io {
     struct SourceManagerImpl : SourceManager {
-        map<string, SourceNameAndContents*> m_files;
+        std::map<std::string, SourceNameAndContents*> m_files;
 
         Result load( const char* fname, Io::TextInput& text ) override;
     };
@@ -30,7 +30,7 @@ int Io::SourceLocation::col() const {
     if( m_file ) {
         auto& txt = m_file->m_contents;
         auto nl = txt.rfind( '\n', m_start );
-        return safe_cast( m_start - ( ( nl == string::npos ) ? 0 : nl ) );
+        return safe_cast( m_start - ( ( nl == std::string::npos ) ? 0 : nl ) );
     }
     return 0;
 }
@@ -45,7 +45,7 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
         }
         FILE* fin = fopen( fname, "r" );
         RETURN_ERROR_IF( !fin, Error::FileNotFound, Io::SourceLocation(), "Unable to open %s for read", fname );
-        string txt;
+        std::string txt;
         while( 1 ) {
             char buf[4096];
             size_t n = fread( buf, 1, sizeof( buf ), fin );

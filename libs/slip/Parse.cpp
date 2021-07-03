@@ -184,8 +184,8 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
         localEnv->bind( macro->m_params[i]->name(), args[i] );
     }
     localEnv->bind( macro->m_dynEnvSym, env );
-    static Ast::Builtin expander{"expand"sv, &macroExpand1};
-    localEnv->bind( "expand"sv, &expander );
+    static Ast::Builtin expander{"expand"_sv, &macroExpand1};
+    localEnv->bind( "expand"_sv, &expander );
     std::vector<Ast::Expr*> body;
     for( auto&& b : macro->m_body ) {
         Ast::Expr* p;
@@ -300,7 +300,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         }
 
         // eval args
-        vector<Ast::Expr*> fa;
+        std::vector<Ast::Expr*> fa;
         for( auto a : list->items().ltrim( 1 ) ) {
             Ast::Expr* n;
             RETURN_IF_FAILED( parse1( env, a, Parse::Flags::RValue, &n ) );
@@ -330,8 +330,8 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         auto inner = new Ast::Environment( env );
-        Parse::addBuiltin( inner, "stringize"sv, &parse_Stringize );
-        Parse::addBuiltin( inner, "bind"sv, &parse_Bind );
+        Parse::addBuiltin( inner, "stringize"_sv, &parse_Stringize );
+        Parse::addBuiltin( inner, "bind"_sv, &parse_Bind );
         Ast::Expr* parsed;
         RETURN_IF_FAILED( parse1( inner, now->m_expr, Parse::Flags::None, &parsed ) );
         Ast::Expr* replacement = nullptr;
@@ -352,7 +352,7 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
     auto coro = new Ast::CoroutineDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
     env->bind( coro->m_name, coro );
     auto inner = new Ast::Environment( env );
-    Parse::addBuiltin( inner, "yield"sv, [coro]( auto env, auto args, auto out ) -> Result {
+    Parse::addBuiltin( inner, "yield"_sv, [coro]( auto env, auto args, auto out ) -> Result {
         RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, args->m_loc, "Expected 2, got %i", args->size() );
         auto ret = new Ast::CoroutineYield();
         RETURN_IF_FAILED( parse1( env, args->at( 1 ), Parse::Flags::RValue, &ret->m_expr ) );
@@ -558,7 +558,7 @@ static Result parse_While( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
 static Result parse_Cond( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
     *out = nullptr;
     RETURN_ERROR_IF( args->size() < 2, Error::TooFewArguments, args->m_loc, "Expected 2, got %i", args->size() );
-    vector<pair<Ast::Expr*, Ast::Expr*>> cases;
+    std::vector<std::pair<Ast::Expr*, Ast::Expr*>> cases;
     for( auto&& arg : args->items().ltrim( 1 ) ) {
         auto pair = dynamic_cast<Ast::LexList*>( arg );
         RETURN_ERROR_IF( pair == nullptr, Error::ListExpected, arg->m_loc );
@@ -877,43 +877,43 @@ static Result parse_ResultT( Ast::Environment* env, Ast::LexList* args, Ast::Exp
 Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto module = make_unique_del<Ast::Module>( name );
 
-    auto lang0 = make_unique_del<Ast::Module>( "lang0"sv );
+    auto lang0 = make_unique_del<Ast::Module>( "lang0"_sv );
     {
         auto env = lang0->env();
-        addBuiltin( env, "coro"sv, &parse_Coroutine );
-        addBuiltin( env, "define"sv, &parse_Define );
-        addBuiltin( env, "func"sv, &parse_Func );
-        addBuiltin( env, "if"sv, &parse_If );
-        addBuiltin( env, "while"sv, &parse_While );
-        addBuiltin( env, "cond"sv, &parse_Cond );
-        addBuiltin( env, "let"sv, &parse_Let );
-        addBuiltin( env, "begin"sv, &parse_Begin );
-        addBuiltin( env, "block"sv, &parse_Block );
-        addBuiltin( env, "break"sv, &parse_Break );
-        addBuiltin( env, "var"sv, &parse_Var );
-        addBuiltin( env, "const"sv, &parse_Const );
-        addBuiltin( env, "set!"sv, &parse_Set );
-        addBuiltin( env, "try"sv, &parse_Try );
-        addBuiltin( env, "catch"sv, &parse_Catch );
-        addBuiltin( env, "scope"sv, &parse_Scope );
-        addBuiltin( env, "macro"sv, &parse_Macro );
-        addBuiltin( env, "struct"sv, &parse_Struct );
-        addBuiltin( env, "pipe"sv, &parse_Pipe );
-        addBuiltin( env, "array_view"sv, &ArrayView::parse_ArrayView );
-        addBuiltin( env, "array_const"sv, &ArrayView::parse_ArrayConst );
-        addBuiltin( env, "array_heap"sv, &ArrayView::parse_ArrayHeap );
-        addBuiltin( env, "result"sv, &parse_ResultT );
+        addBuiltin( env, "coro"_sv, &parse_Coroutine );
+        addBuiltin( env, "define"_sv, &parse_Define );
+        addBuiltin( env, "func"_sv, &parse_Func );
+        addBuiltin( env, "if"_sv, &parse_If );
+        addBuiltin( env, "while"_sv, &parse_While );
+        addBuiltin( env, "cond"_sv, &parse_Cond );
+        addBuiltin( env, "let"_sv, &parse_Let );
+        addBuiltin( env, "begin"_sv, &parse_Begin );
+        addBuiltin( env, "block"_sv, &parse_Block );
+        addBuiltin( env, "break"_sv, &parse_Break );
+        addBuiltin( env, "var"_sv, &parse_Var );
+        addBuiltin( env, "const"_sv, &parse_Const );
+        addBuiltin( env, "set!"_sv, &parse_Set );
+        addBuiltin( env, "try"_sv, &parse_Try );
+        addBuiltin( env, "catch"_sv, &parse_Catch );
+        addBuiltin( env, "scope"_sv, &parse_Scope );
+        addBuiltin( env, "macro"_sv, &parse_Macro );
+        addBuiltin( env, "struct"_sv, &parse_Struct );
+        addBuiltin( env, "pipe"_sv, &parse_Pipe );
+        addBuiltin( env, "array_view"_sv, &ArrayView::parse_ArrayView );
+        addBuiltin( env, "array_const"_sv, &ArrayView::parse_ArrayConst );
+        addBuiltin( env, "array_heap"_sv, &ArrayView::parse_ArrayHeap );
+        addBuiltin( env, "result"_sv, &parse_ResultT );
 
-        env->bind( "int"sv, &Ast::s_typeInt );
-        env->bind( "float"sv, &Ast::s_typeFloat );
-        env->bind( "double"sv, &Ast::s_typeDouble );
-        env->bind( "void"sv, &Ast::s_typeVoid );
-        env->bind( "string"sv, &Ast::s_typeString );
-        env->bind( "bool"sv, &Ast::s_typeBool );
+        env->bind( "int"_sv, &Ast::s_typeInt );
+        env->bind( "float"_sv, &Ast::s_typeFloat );
+        env->bind( "double"_sv, &Ast::s_typeDouble );
+        env->bind( "void"_sv, &Ast::s_typeVoid );
+        env->bind( "string"_sv, &Ast::s_typeString );
+        env->bind( "bool"_sv, &Ast::s_typeBool );
 
-        env->bind( "true"sv, new Ast::Number( "true", WITH( _.m_type = &Ast::s_typeBool ) ) );
-        env->bind( "false"sv, new Ast::Number( "false", WITH( _.m_type = &Ast::s_typeBool ) ) );
-        env->bind( "failed"sv, new Ast::Number( "failed", WITH( _.m_type = &Ast::s_typeError ) ) );
+        env->bind( "true"_sv, new Ast::Number( "true", WITH( _.m_type = &Ast::s_typeBool ) ) );
+        env->bind( "false"_sv, new Ast::Number( "false", WITH( _.m_type = &Ast::s_typeBool ) ) );
+        env->bind( "failed"_sv, new Ast::Number( "failed", WITH( _.m_type = &Ast::s_typeError ) ) );
     }
 
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );
@@ -931,7 +931,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     RETURN_IF_FAILED( ResultT_instantiate( module.get(), &Ast::s_typeInt, &Ri ) );
     auto Ri_s = _makeFuncType( "(string)->Result<int>", Ri, &Ast::s_typeString );
 
-    auto bitops = make_unique_del<Ast::Module>( "bitops"sv );
+    auto bitops = make_unique_del<Ast::Module>( "bitops"_sv );
     {
         auto env = bitops->env();
         addIntrinsic( env, "asl", i_ii );  // arith shift left
@@ -940,7 +940,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addIntrinsic( env, "lsr", i_ii );
     }
 
-    auto builtin = make_unique_del<Ast::Module>( "builtin"sv );
+    auto builtin = make_unique_del<Ast::Module>( "builtin"_sv );
     {
         auto env = builtin->env();
         env->parent_ = lang0->env();

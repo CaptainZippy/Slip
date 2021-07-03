@@ -35,7 +35,7 @@ namespace Slip::Io {
             write( s );
         }
         void nl() {
-            _writeImpl( "\n"sv );
+            _writeImpl( "\n"_sv );
             m_state = State::Start;
         }
 
@@ -50,8 +50,8 @@ namespace Slip::Io {
     };
 
     struct SourceNameAndContents {
-        string m_name;
-        string m_contents;
+        std::string m_name;
+        std::string m_contents;
     };
 
     struct SourceLocation {

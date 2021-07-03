@@ -7,7 +7,6 @@
 using namespace Slip;
 
 namespace {
-    using namespace std;
     using namespace Slip;
     struct Evaluator {
         enum class OpCode { Add };

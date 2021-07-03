@@ -1,7 +1,6 @@
 #pragma once
 
 namespace Slip::Reflect {
-    using namespace std;
     struct Type;
     struct Var;
     struct Field;
@@ -22,7 +21,7 @@ namespace Slip::Reflect {
     };
 
     struct Field {
-        string name;
+        std::string name;
         const Type* type;
         int offset;
         unsigned flags;
@@ -56,7 +55,7 @@ namespace Slip::Reflect {
         MakeFunc make;                //{ nullptr };
         DynamicTypeFunc dynamicType;  //{ nullptr };
         ToStringFunc toString;        //{ nullptr };
-        vector<Field> fields;
+        std::vector<Field> fields;
 
         template <typename BASE>
         bool extends() const {
@@ -90,18 +89,18 @@ namespace Slip::Reflect {
         }
     };
     template <typename T>
-    struct TypeOf<vector<T> > {
+    struct TypeOf<std::vector<T> > {
         static inline const Type* value() {
             static const Type t{
-                Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof( vector<T> ), nullptr, {},
+                Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof( std::vector<T> ), nullptr, {},
             };
             return &t;
         }
     };
     template <typename T, typename U>
-    struct TypeOf<pair<T, U> > {
+    struct TypeOf<std::pair<T, U> > {
         static inline const Type* value() {
-            typedef pair<T, U> pair;
+            typedef std::pair<T, U> pair;
             static const Field f[2] = {{"first", TypeOf<T>::value(), offsetof( pair, first ), 1},
                                        {"second", TypeOf<U>::value(), offsetof( pair, second ), 1}};
             static const Type t{Kind::Record, nullptr, nullptr, "Pair<T,U>",   sizeof( std::pair<T, U> ),
@@ -110,13 +109,11 @@ namespace Slip::Reflect {
         }
     };
     template <>
-    struct TypeOf<string> {
+    struct TypeOf<std::string> {
         static inline const Type* value() {
-            static const Type t{
-                Kind::String,     nullptr,
-                nullptr,          "char[]",
-                sizeof( string ), nullptr,
-                nullptr,          []( const void* addr ) { return string_view{ ((string*)addr)->data(), ((string*)addr)->size() }; }};
+            static const Type t{Kind::String, nullptr, nullptr, "char[]", sizeof( std::string ), nullptr, nullptr, []( const void* addr ) {
+                                    return string_view{( (std::string*)addr )->data(), ( (std::string*)addr )->size()};
+                                }};
             return &t;
         }
     };

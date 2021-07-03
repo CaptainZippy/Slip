@@ -305,14 +305,14 @@ Result Ast::FunctionDecl::NotImplemented( array_view<Ast::Expr*> args, Ast::Expr
 
 Ast::Expr* Ast::Reference::resolve() { return m_target; }
 
-Ast::Type Ast::s_typeType( "Type"sv );
-Ast::Type Ast::s_typeInt( "int"sv );
-Ast::Type Ast::s_typeBool( "bool"sv );
-Ast::Type Ast::s_typeError( "builtin_Error"sv );
-Ast::Type Ast::s_typeDouble( "double"sv );
-Ast::Type Ast::s_typeFloat( "float"sv );
-Ast::Type Ast::s_typeVoid( "void"sv );
-Ast::Type Ast::s_typeString( "builtin_string"sv );
+Ast::Type Ast::s_typeType( "Type"_sv );
+Ast::Type Ast::s_typeInt( "int"_sv );
+Ast::Type Ast::s_typeBool( "bool"_sv );
+Ast::Type Ast::s_typeError( "builtin_Error"_sv );
+Ast::Type Ast::s_typeDouble( "double"_sv );
+Ast::Type Ast::s_typeFloat( "float"_sv );
+Ast::Type Ast::s_typeVoid( "void"_sv );
+Ast::Type Ast::s_typeString( "builtin_string"_sv );
 
 Ast::Type::Type( string_view sym ) : Named( istring::make( sym ) ) {}
 

@@ -1,8 +1,6 @@
 #pragma once
 
 namespace Slip {
-    using namespace std;
-
     typedef unsigned char byte;
 
     int diagnostic( const char* fmt, ... );
@@ -257,6 +255,8 @@ namespace Slip {
         return std::for_each( c.begin(), c.end(), lambda );
     }
 
+    using std::string_view;
+
     // Interned string
     struct istring {
         static istring make( const char* s );
@@ -297,7 +297,7 @@ namespace Slip {
     template <typename T>
     using unique_ptr_del = std::unique_ptr<T, void ( * )( T* )>;
 
-    template <class _Ty, class... _Types, enable_if_t<!is_array<_Ty>::value, int> = 0>
+    template <class _Ty, class... _Types, std::enable_if_t<!std::is_array<_Ty>::value, int> = 0>
     inline unique_ptr_del<_Ty> make_unique_del( _Types&&... _Args ) {
         return unique_ptr_del<_Ty>( new _Ty( std::forward<_Types>( _Args )... ), []( _Ty* t ) { delete t; } );
     }

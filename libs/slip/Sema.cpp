@@ -16,7 +16,7 @@ namespace Slip::Sema {
 
     struct FuncInfo {
         TypeInfo* ret{nullptr};
-        vector<TypeInfo*> params;
+        std::vector<TypeInfo*> params;
     };
 
     struct TypeInfo {
@@ -94,7 +94,7 @@ namespace Slip::Sema {
                     RETURN_IF_FAILED( dispatch( p, &t ) );
                     params.emplace_back( t );
                 }
-                auto v_t = new Ast::Type( "auto"sv );  // FIXME.coro
+                auto v_t = new Ast::Type( "auto"_sv );  // FIXME.coro
                 v_t->m_callCanFail = true;
                 v_t->m_callable.push_back( ret->get_type() );
                 auto ti_v_t = _internKnownType( v_t );
@@ -628,7 +628,7 @@ namespace Slip::Sema {
                 return true;
             if( lhs == &Ast::s_typeVoid )
                 return true;
-            if( lhs->name().view() == "auto"sv )
+            if( lhs->name().view() == "auto"_sv )
                 return true;
             for( auto&& s : lhs->m_sum ) {
                 if( s == rhs )
@@ -757,7 +757,7 @@ namespace Slip::Sema {
                 }
             }
             // create new
-            string name;
+            std::string name;
             name.append( "(" );
             const char* sep = "";
             for( auto a : f->params ) {
@@ -780,7 +780,7 @@ namespace Slip::Sema {
             }
         }
 
-        void _isFunction( TypeInfo* ti, TypeInfo* ret, vector<TypeInfo*>&& args ) {
+        void _isFunction( TypeInfo* ti, TypeInfo* ret, std::vector<TypeInfo*>&& args ) {
             ti->func = new FuncInfo{ret, args};
             _addTriggerDep( ti, ret );
             for( auto&& a : args ) {
