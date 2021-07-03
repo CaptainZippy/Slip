@@ -430,7 +430,7 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
         Ast::Expr* te;
         RETURN_IF_FAILED( parse1( inner, item->m_decltype, Parse::Flags::None, &te ) );
         auto param = new Ast::Parameter( sym->text(), WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
-        auto it = find_if( item->m_decltype->m_attrs, []( Ast::LexNode* n ) {
+        auto it = rng::find_if( item->m_decltype->m_attrs, []( Ast::LexNode* n ) {
             if( auto i = dynamic_cast<Ast::LexIdent*>( n ) ) {
                 return i->text() == "ref";
             }

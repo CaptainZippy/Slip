@@ -494,9 +494,9 @@ namespace Slip::Sema {
             auto rhsi = dynamic_cast<Ast::LexIdent*>( n->m_rhs );
             auto id = istring::make( rhsi->text() );
             auto decl = type->m_struct;
-            auto it = std::find_if( decl->m_fields.begin(), decl->m_fields.end(), [id]( auto a ) { return a->name() == id; } );
-            RETURN_ERROR_IF( it == decl->m_fields.end(), Error::DottedAttributeNotFound, n->m_loc, "'%s'", id.c_str() );
-            vi.info = _internKnownType( ( *it )->m_type );
+            auto it = rng::find_if( decl->m_fields, [id]( auto a ) { return a->name() == id; } );
+            RETURN_ERROR_IF( it.empty(), Error::DottedAttributeNotFound, n->m_loc, "'%s'", id.c_str() );
+            vi.info = _internKnownType( it.first()->m_type );
             return Result::OK;
         }
 

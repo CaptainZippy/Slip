@@ -235,10 +235,11 @@ namespace Slip::Ast {
         Result importAll( Environment* other );
         // Each env knows the module in which it is contained
         Module* module() { return module_; }
+        auto syms() { return rng::make(syms_); }
 
-       //private:
-        Module* module_{};
         Environment* parent_{};
+        private:
+        Module* module_{};
         std::multimap<istring, Expr*> syms_{};
     };
 
@@ -311,7 +312,7 @@ namespace Slip::Ast {
 
     struct Module : Named {
         AST_DECL();
-        Module( istring n ) : Named( n ), environment_(new Environment( this )) { }
+        Module( istring n ) : Named( n ), environment_( new Environment( this ) ) {}
         Module( string_view s ) : Named( s ), environment_( new Environment( this ) ) {}
 
         struct Export {
@@ -327,6 +328,8 @@ namespace Slip::Ast {
         // Instantiate a template and return the type.
         // Instantiations are memorized - 'create' is only called if the name isn't known
         Result instantiate( istring name, const Func<Result( Ast::Type** )>& create, Ast::Type** out );
+
+        auto instantiations() { return rng::make(instantiations_); }
 
        protected:
         Ast::Environment* environment_{};

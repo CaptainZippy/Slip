@@ -281,8 +281,8 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
 
 
 Result Ast::Environment::importAll( Ast::Environment* other ) {
-    for( auto it = other->syms_.begin(); it != other->syms_.end();  ++it ) {
-        RETURN_IF_FAILED( bind( it->first, it->second ) );
+    for( auto& it : other->syms() ) {
+        RETURN_IF_FAILED( bind( it.first, it.second ) );
     }
     return Result::OK;
 }
@@ -297,6 +297,7 @@ Result Ast::Module::instantiate( istring name, const Func<Result(Ast::Type**)>& 
     Ast::Type* t;
     RETURN_IF_FAILED( create( &t ) );
     assert( t && t->name() == name );
+    instantiations_.emplace( name, t );
     *out = t;
     return Result::OK;
 }

@@ -425,7 +425,8 @@ namespace {
             out.write( "#include<cstring>\n" );
             out.write( "struct MainReg {\n" );
             out.write( "    typedef int(*mainfunc)(int argc, const char**);\n" );
-            out.write( "    MainReg(const char* n, mainfunc m); const char* name; mainfunc main; const MainReg* next; };\n" );
+            out.write( "    MainReg(const char* n, mainfunc m);\n" );
+            out.write( "    const char* name; mainfunc main; const MainReg* next; };\n" );
             out.write( "enum builtin_Error { failed=1 };\n" );
             out.write( "template<typename T> struct builtin_Result { T ok; int fail;\n" );
             out.write( "    builtin_Result( ) : fail( failed ) {}\n" );
@@ -492,6 +493,10 @@ namespace {
             out.write( "inline int bitops_lsl(int a, int b) { return a<<b; } \n" );
             out.write( "inline int bitops_asr(int a, int b) { return a>>b; } \n" );
             out.write( "inline int bitops_lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
+
+            for( auto n : n->instantiations() ) {
+                out.write( string_format( "// %s\n", n.first.c_str() ) );
+            }
 
             out.begin( string_concat( "namespace ", n->m_name, " {" ) );
 

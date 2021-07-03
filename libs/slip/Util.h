@@ -218,41 +218,55 @@ namespace Slip {
 
     template <typename Iter>
     struct range {
-        range() : begin{}, end{} {}
-        range( Iter b, Iter e ) : begin( b ), end( e ) {}
-        bool empty() const { return begin == end; }
-        explicit operator bool() const { return begin != end; }
-        Iter begin;
-        Iter end;
+        range() : begin_{}, end_{} {}
+        range( Iter b, Iter e ) : begin_( b ), end_( e ) {}
+        bool empty() const { return begin_ == end_; }
+        explicit operator bool() const { return begin_ != end_; }
+        auto& first() { return *begin_; }
+        Iter begin() { return begin_; }
+        Iter end() { return end_; }
+        Iter begin_;
+        Iter end_;
     };
 
-    template <typename T, typename V>
-    auto find( T&& iterable, const V& v ) -> range<typename std::decay_t<T>::iterator> {
-        return {std::find( iterable.begin(), iterable.end(), v ), iterable.end()};
-    }
+    namespace rng {
+        template<typename Cont>
+        auto make( const Cont& c ) {
+            return range(c.begin(), c.end());
+        }
+        template <typename T, typename V>
+        auto find( T&& iterable, const V& v ) -> range<typename std::decay_t<T>::iterator> {
+            return {std::find( iterable.begin(), iterable.end(), v ), iterable.end()};
+        }
 
-    template <typename T, typename P>
-    auto find_if( T&& iterable, P&& p ) -> range<typename std::decay_t<T>::iterator> {
-        return {std::find_if( iterable.begin(), iterable.end(), p ), iterable.end()};
-    }
+        template <typename T, typename P>
+        auto find_if( T&& iterable, P&& p ) -> range<typename std::decay_t<T>::iterator> {
+            return {std::find_if( iterable.begin(), iterable.end(), p ), iterable.end()};
+        }
 
-    template <typename Cont, typename Lambda>
-    bool all_of( const Cont& c, Lambda&& lambda ) {
-        return std::all_of( c.begin(), c.end(), lambda );
-    }
-    template <typename Cont, typename Lambda>
-    bool any_of( const Cont& c, Lambda&& lambda ) {
-        return std::any_of( c.begin(), c.end(), lambda );
-    }
+        template <typename Cont, typename Lambda>
+        bool all_of( const Cont& c, Lambda&& lambda ) {
+            return std::all_of( c.begin(), c.end(), lambda );
+        }
+        template <typename Cont, typename Lambda>
+        bool any_of( const Cont& c, Lambda&& lambda ) {
+            return std::any_of( c.begin(), c.end(), lambda );
+        }
 
-    template <typename Cont, typename Lambda>
-    auto erase_if( Cont& c, Lambda&& lambda ) {
-        return c.erase( std::remove_if( c.begin(), c.end(), lambda ), c.end() );
-    }
+        template <typename Cont, typename Lambda>
+        auto erase_if( Cont& c, Lambda&& lambda ) {
+            return c.erase( std::remove_if( c.begin(), c.end(), lambda ), c.end() );
+        }
 
-    template <typename Cont, typename Lambda>
-    auto for_each( Cont& c, Lambda&& lambda ) {
-        return std::for_each( c.begin(), c.end(), lambda );
+        template <typename Cont, typename Lambda>
+        auto for_each( Cont& c, Lambda&& lambda ) {
+            return std::for_each( c.begin(), c.end(), lambda );
+        }
+
+        template <typename Cont, typename Zero, typename Lambda>
+        auto accumulate( Cont& c, Zero zero, Lambda&& lambda ) {
+            return std::accumulate( c.begin(), c.end(), zero, lambda );
+        }
     }
 
     using std::string_view;
