@@ -4,7 +4,6 @@
 #include "slip/Slip.h"
 
 namespace Slip::Ast {
-    using namespace std;
 #define AST_NODE( X ) struct X;
 #include "slip/Ast.inc"
 #undef AST_NODE
@@ -53,7 +52,7 @@ namespace Slip::Ast {
         LexNode( const SourceLocation& loc ) : Expr( loc ) {}
 
         LexNode* m_decltype = nullptr;
-        vector<LexNode*> m_attrs;
+        std::vector<LexNode*> m_attrs;
 
         LexNode() = default;
     };
@@ -106,14 +105,14 @@ namespace Slip::Ast {
         void append( LexNode* a ) { m_items.push_back( a ); }
         void insertAt( int idx, LexNode* a ) { m_items.insert( m_items.begin() + idx, a ); }
         array_view<LexNode*> items() { return m_items; }
-        vector<LexNode*> m_items;
+        std::vector<LexNode*> m_items;
     };
 
     struct Named : Expr {
         AST_DECL();
         istring m_name{};
 
-        Named( istring s ) : m_name( move( s ) ) {}
+        Named( istring s ) : m_name( std::move( s ) ) {}
         Named( string_view sym ) : m_name( istring::make( sym ) ) {}
 
         istring name() { return m_name; }
@@ -169,7 +168,7 @@ namespace Slip::Ast {
 
     struct Cond : Expr {
         AST_DECL();
-        vector<pair<Expr*, Expr*> > m_cases;
+        std::vector<std::pair<Expr*, Expr*> > m_cases;
 
         template <typename With>
         Cond( With&& with ) {
@@ -180,7 +179,7 @@ namespace Slip::Ast {
     struct CoroutineDecl : Named {
         AST_DECL();
 
-        vector<Parameter*> m_params;
+        std::vector<Parameter*> m_params;
         Ast::Expr* m_declReturnTypeExpr{nullptr};
         Expr* m_body{nullptr};
 
@@ -246,10 +245,10 @@ namespace Slip::Ast {
     struct FunctionCall : Expr {
         AST_DECL();
         Expr* m_func{nullptr};
-        vector<Expr*> m_args;
+        std::vector<Expr*> m_args;
 
         template <typename With>
-        FunctionCall( Expr* func, vector<Expr*>&& args, With&& with ) : m_func( func ), m_args( args ) {
+        FunctionCall( Expr* func, std::vector<Expr*>&& args, With&& with ) : m_func( func ), m_args( args ) {
             with( *this );
         }
     };
@@ -259,7 +258,7 @@ namespace Slip::Ast {
         using IntrinsicProto = Result( array_view<Expr*> args, Ast::Expr** out );
         static Result NotImplemented( array_view<Expr*> args, Ast::Expr** out );
 
-        vector<Parameter*> m_params{};
+        std::vector<Parameter*> m_params{};
         Ast::Expr* m_declReturnTypeExpr{};
         Expr* m_body{};
         Func<IntrinsicProto> m_intrinsic{};
@@ -286,7 +285,7 @@ namespace Slip::Ast {
     struct MacroDecl : Named {
         AST_DECL();
 
-        vector<Parameter*> m_params;
+        std::vector<Parameter*> m_params;
         istring m_dynEnvSym;
         Environment* m_staticEnv;
         std::vector<LexNode*> m_body;
@@ -302,10 +301,10 @@ namespace Slip::Ast {
         AST_DECL();
         Expr* m_expansion{nullptr};
         MacroDecl* m_macro{nullptr};
-        vector<Expr*> m_args;
-        MacroExpansion( MacroDecl* macro, vector<Expr*>&& args ) : m_macro( macro ), m_args( args ) {}
+        std::vector<Expr*> m_args;
+        MacroExpansion( MacroDecl* macro, std::vector<Expr*>&& args ) : m_macro( macro ), m_args( args ) {}
         template <typename With>
-        MacroExpansion( MacroDecl* macro, vector<Expr*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
+        MacroExpansion( MacroDecl* macro, std::vector<Expr*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
             with( *this );
         }
     };
@@ -361,9 +360,9 @@ namespace Slip::Ast {
         Number( string_view n, With&& with ) : m_num( n ) {
             with( *this );
         }
-        string m_num;
+        std::string m_num;
 
-        static string toString( const void* p ) {
+        static std::string toString( const void* p ) {
             auto n = static_cast<const Number*>( p );
             return n->m_num;
         }
@@ -423,7 +422,7 @@ namespace Slip::Ast {
         Sequence() = default;
         Sequence( std::vector<Expr*>&& items ) : m_items( items ) {}
         array_view<Expr*> items() { return m_items; }
-        vector<Expr*> m_items;
+        std::vector<Expr*> m_items;
     };
 
     struct String : Expr {
@@ -432,9 +431,9 @@ namespace Slip::Ast {
         String( string_view n, With&& with ) : m_str( n ) {
             with( *this );
         }
-        string m_str;
+        std::string m_str;
 
-        static string toString( const void* p ) {
+        static std::string toString( const void* p ) {
             auto n = static_cast<const String*>( p );
             return n->m_str;
         }

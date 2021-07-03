@@ -72,7 +72,7 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 }
                 break;
             case '(': {
-                vector<LexNode*> c;
+                std::vector<LexNode*> c;
                 auto start = in.tell();
                 in.next();
                 while( 1 ) {
