@@ -127,5 +127,8 @@
     <None Include="errors\try_err_01.slip">
       <Filter>errors</Filter>
     </None>
+    <None Include="feature\module_01.slip">
+      <Filter>feature</Filter>
+    </None>
   </ItemGroup>
 </Project>

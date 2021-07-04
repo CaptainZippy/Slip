@@ -1,0 +1,14 @@
+
+; TODO (import bitops)
+
+(func main (args:(array_view string)):int
+    (puts "Hello ")
+    (var n (catch
+        (pipe
+            (get args 1)
+            (parsei))
+        10))
+    (puti n)
+    (puts "1<<n")
+    (puti (bitops.asl 1 n))
+    0)

@@ -5,12 +5,10 @@
 * neatly handle "void" in backend
 * error checking for immutable, mutable, const
     * must initialize const with constant expr
+* modules
 
 # generics
 # ranges/iterators
 
 # debug logging
-# source locations
 # tail recursion
-#
-

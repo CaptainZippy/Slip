@@ -14,6 +14,7 @@ slip_tests = [
     'macro_expr_01',
     'macro_expr_02',
     #'macro_expr_03',
+    'module_01',
     'now_expr_01',
     'now_expr_02',
     'recursive_01',
