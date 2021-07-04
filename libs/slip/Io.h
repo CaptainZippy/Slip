@@ -79,8 +79,10 @@ namespace Slip::Io {
 
     struct TextInput {
         TextInput() = default;
-        TextInput( const char* s, const char* e, SourceNameAndContents* n ) : cur( s ), start( s ), end( e ), info( n ) {}
-        void reset( const char* s, const char* e, SourceNameAndContents* n ) {
+        TextInput( const char* s, const char* c, const char* e, const SourceNameAndContents* n )
+            : cur( c ), start( s ), end( e ), info( n ) {}
+        TextInput( const char* s, const char* e, const SourceNameAndContents* n ) : cur( s ), start( s ), end( e ), info( n ) {}
+        void reset( const char* s, const char* e, const SourceNameAndContents* n ) {
             cur = s;
             start = s;
             end = e;

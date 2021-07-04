@@ -19,8 +19,9 @@ namespace Slip {
 #undef AST_NODE
 
         /// Lex an input
-        Result lex_input( Io::TextInput& input, unique_ptr_del<LexList>& lex );
         Result lex_file( Io::SourceManager& sm, const char* fname, unique_ptr_del<LexList>& lex );
+        Result lex_input( Io::TextInput& input, unique_ptr_del<LexList>& lex );
+        Result lex_atom( Io::TextInput& input, LexNode** atom );
 
         void print( Expr* node );
         void print( Expr* node, Io::TextOutput& output );
@@ -49,7 +50,7 @@ namespace Slip {
 
     namespace Main {
         /// Sample driver main
-        Result main(int argc, const char* argv[]);
+        Result main( int argc, const char* argv[] );
     }  // namespace Main
 
 }  // namespace Slip

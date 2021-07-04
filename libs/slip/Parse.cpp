@@ -743,6 +743,46 @@ static Result parse_Pipe( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     return Result::OK;
 }
 
+static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+    *out = nullptr;
+    Ast::LexString* fmtLex;
+    RETURN_IF_FAILED( matchLex( env, args, &fmtLex ) );
+    auto fmt = fmtLex->text();
+    size_t cur = 0;
+    std::vector<Ast::Expr*> parts;
+    while( cur != fmt.size() ) {
+        auto sp = fmt.find( '{', cur );
+        if( sp != std::string::npos ) {
+            auto ep = fmt.find( '}', sp );
+            RETURN_ERROR_IF( ep == std::string::npos, Error::LexPrematureEndOfFile, fmtLex->m_loc, "Missing end '}'" );
+            if( cur != sp ) {
+                auto loc = fmtLex->m_loc;
+                loc.m_end = loc.m_start + sp;
+                loc.m_start += cur;
+                parts.emplace_back( new Ast::String( fmt.substr(cur, sp), WITH( _.m_loc = loc ) ) );
+            }
+            Io::TextInput input( fmtLex->m_loc.m_file->m_contents.data(), fmt.data() + sp + 1, fmt.data() + ep, fmtLex->m_loc.m_file );
+            Ast::LexNode* node;
+            RETURN_IF_FAILED( Ast::lex_atom( input, &node ) );
+            Ast::Expr* expr;
+            RETURN_IF_FAILED( parse1( env, node, Parse::Flags::RValue, &expr ));
+            parts.emplace_back( expr );
+            cur = ep + 1;
+        } else {
+            auto loc = fmtLex->m_loc;
+            loc.m_start += cur;
+            parts.emplace_back( new Ast::String( fmt.substr( cur ), WITH( _.m_loc = loc ) ) );
+            break;
+        }
+    }
+    // TODO stringize parts
+    //Ast::Expr* strjoin;
+    //RETURN_IF_FAILED( env->lookup( "strjoin"_sv, &strjoin ) );
+    //*out = new Ast::FunctionCall( strjoin, std::move( parts ), WITH( _.m_loc = args->m_loc ) );
+    *out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) );
+    return Result::OK;
+}
+
 static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
     *out = nullptr;
     Ast::LexIdent* lname;
@@ -899,6 +939,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addBuiltin( env, "macro"_sv, &parse_Macro );
         addBuiltin( env, "struct"_sv, &parse_Struct );
         addBuiltin( env, "pipe"_sv, &parse_Pipe );
+        addBuiltin( env, "fmt"_sv, &parse_Fmt );
         addBuiltin( env, "array_view"_sv, &ArrayView::parse_ArrayView );
         addBuiltin( env, "array_const"_sv, &ArrayView::parse_ArrayConst );
         addBuiltin( env, "array_heap"_sv, &ArrayView::parse_ArrayHeap );
@@ -975,7 +1016,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     }
     builtin.release();  //< FIXME leak
     bitops.release();   //< FIXME leak
-    lang0.release();
+    lang0.release();    //< FIXME leak
     mod = std::move( module );
     return Result::OK;
 }

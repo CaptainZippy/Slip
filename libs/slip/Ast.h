@@ -225,7 +225,7 @@ namespace Slip::Ast {
         AST_DECL();
 
         Environment( Module* module ) : module_( module ) {}
-        Environment( Environment* parent ) : module_( parent->module_ ), parent_( parent ) {}
+        Environment( Environment* parent ) : parent_( parent ), module_( parent->module_ ) {}
 
         bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const override;
         Result lookup( string_view sym, Expr** out ) const override;
