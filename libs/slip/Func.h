@@ -2,7 +2,7 @@
 
 namespace Slip {
     template <class Sig>
-    class  Func;
+    class Func;
 
     namespace details {
 

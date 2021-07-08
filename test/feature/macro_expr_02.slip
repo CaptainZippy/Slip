@@ -1,9 +1,9 @@
 ; Variable 'a' in macro shouldn't clash with 'a' at expansion.
 
 (macro in_two_environmemts (body) env
-    (var a 2:int)
-    (expand body)       ; static environment, outputs 2
-    (expand body env))  ; dynamic environment, outputs 101
+    (var a 2:int)       ; note: body=(puti a)
+    (expand body)       ; static environment here, outputs 2
+    (expand body env))  ; dynamic environment in caller, outputs 101
 
 (func main ():int
     (var a 101:int)
