@@ -41,7 +41,7 @@ endforeach
 cpps = slip_compile.process(srcs)
 
 exe = executable('feature', cpps, '../util/main.cpp',
-        cpp_args: '-Wno-unused-but-set-variable')
+        cpp_args: get_variable('warning_opts'))
 
 foreach t : slip_tests
     test(t, exe,

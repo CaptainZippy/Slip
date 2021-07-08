@@ -9,7 +9,7 @@ namespace Slip::Ast {
 #undef AST_NODE
 
 #define AST_DECL()  \
-    REFLECT_DECL(); \
+    REFLECT_DECL_VT(); \
     int tag() const override
 
     namespace Flags {

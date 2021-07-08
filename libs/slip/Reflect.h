@@ -165,6 +165,16 @@ namespace Slip::Reflect {
     const Reflect::Type* dynamicType() const { return &s_reflectType; } \
     struct Terminator
 
+// Declare reflected for types with vtables (adds override)
+#define REFLECT_DECL_VT()                                               \
+    struct _Auto;                                                       \
+    friend struct _Auto;                                                \
+    static Reflect::Type s_reflectType;                                 \
+    static const Reflect::Type* staticType() { return &s_reflectType; } \
+    const Reflect::Type* dynamicType() const override { return &s_reflectType; } \
+    struct Terminator
+
+
 #define REFLECT_BEGIN( NAME )                                \
     struct NAME::_Auto {                                     \
         static Reflect::Type make();                         \
