@@ -1,0 +1,6 @@
+#! /bin/sh
+export CC=clang
+export CXX=clang++
+cd `dirname $0`/..
+meson build/clang-debug --optimization g 
+meson build/clang-devel --buildtype debugoptimized
