@@ -1,0 +1,19 @@
+
+
+(func test1 (i:int):void
+    (puts (fmt "The answer is {i}\n"))
+)
+
+(func test2 (d:double i:int):void
+    (puts (fmt "The answers are {i} and {d}\n"))
+)
+
+(func test3 (argv:(array_view string)):void
+    (puts (fmt "hello {(catch (get argv 1) 'world')}\n"))
+)
+
+(func main (argv:(array_view string)):int
+    (test1 11)
+    (test2 364.9 44)
+    (test3 argv)
+    0)

@@ -755,7 +755,7 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
                 auto loc = fmtLex->m_loc;
                 loc.m_end = loc.m_start + sp;
                 loc.m_start += cur;
-                parts.emplace_back( new Ast::String( fmt.substr( cur, sp ), WITH( _.m_loc = loc ) ) );
+                parts.emplace_back( new Ast::String( fmt.substr( cur, sp-cur ), WITH( _.m_loc = loc ) ) );
             }
             Io::TextInput input( fmtLex->m_loc.m_file->m_contents.data(), fmt.data() + sp + 1, fmt.data() + ep, fmtLex->m_loc.m_file );
             Ast::LexNode* node;
@@ -775,6 +775,8 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
     std::vector<Ast::Expr*> tostringExprs;
     auto itostring = istring::make( "tostring"_sv );
     env->lookupAll( itostring, tostringExprs );
+    //TODO: don't tostring & stringjoin everything inline, pass literal string fragments
+    // and reflected pointers to the expression values
     std::vector<Ast::Expr*> sparts;
     for( auto part : parts ) {
         if( dynamic_cast<Ast::String*>( part ) ) {
@@ -785,10 +787,12 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
         }
     }
 
-    Ast::Expr* strjoin;
-    RETURN_IF_FAILED( env->lookup( "strjoin"_sv, &strjoin ) );
-    *out = new Ast::FunctionCall( strjoin, std::move( sparts ), WITH( _.m_loc = args->m_loc ) );
-    //*out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) );
+    std::vector<Ast::Expr*> strjoinExprs;
+    auto istrjoin = istring::make( "strjoin"_sv );
+    env->lookupAll( istrjoin, strjoinExprs );
+    *out = new Ast::NamedFunctionCall( istrjoin, std::move( strjoinExprs ), std::move(sparts), WITH( _.m_loc = args->m_loc ) );
+
+    //*out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) ); // debug: return the input string
     return Result::OK;
 }
 
@@ -971,12 +975,19 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     auto v_s = _makeFuncType( "(string)->void", &Ast::s_typeVoid, &Ast::s_typeString );
     auto v_i = _makeFuncType( "(int)->void", &Ast::s_typeVoid, &Ast::s_typeInt );
     auto v_d = _makeFuncType( "(double)->void", &Ast::s_typeVoid, &Ast::s_typeDouble );
+    auto s_d = _makeFuncType( "(double)->string", &Ast::s_typeString, &Ast::s_typeDouble );
     auto d_dd = _makeFuncType( "(double, double)->double", &Ast::s_typeDouble, &Ast::s_typeDouble, &Ast::s_typeDouble );
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
+    auto s_i = _makeFuncType( "(int)->string", &Ast::s_typeString, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
     auto s_s = _makeFuncType( "(string)->string", &Ast::s_typeString, &Ast::s_typeString );
+    auto s_ss = _makeFuncType( "(string,string)->string", &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString );
     auto s_sss =
         _makeFuncType( "(string, string, string)->string", &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString );
+    auto s_ssss =
+        _makeFuncType( "(string, string, string, string)->string", &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString );
+    auto s_sssss =
+        _makeFuncType( "(string, string, string, string, string)->string", &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString );
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
@@ -1014,8 +1025,14 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addIntrinsic( env, "dfromi", d_i );
         addIntrinsic( env, "parsei", Ri_s );
         addIntrinsic( env, "strcat!", v_ss );
+        addIntrinsic( env, "strjoin", s_s );
+        addIntrinsic( env, "strjoin", s_ss );
         addIntrinsic( env, "strjoin", s_sss );
+        addIntrinsic( env, "strjoin", s_ssss );
+        addIntrinsic( env, "strjoin", s_sssss );
         addIntrinsic( env, "tostring", s_s );
+        addIntrinsic( env, "tostring", s_i );
+        addIntrinsic( env, "tostring", s_d );
     }
 
     module->env()->addUsing( builtin.get(), istring{} );

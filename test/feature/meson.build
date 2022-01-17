@@ -7,6 +7,7 @@ slip_tests = [
     'coro_expr_01',
     'cond_expr_01',
     'function_overload_01',
+    'fmt_expr_01',
     'intrinsic_01',
    # 'iterable_01',
     'let_expr_01',
