@@ -281,17 +281,13 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
             RETURN_ERROR_IF( !sym, Error::SymbolExpectedAtListHead, list->m_loc );
 
             // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
-            Ast::Expr* p;
-            isym = istring::make( sym->text() );
-            Ast::Environment::LookupIter iter;
-            while( env->lookupIter( isym, &p, iter ) ) {
+            env->lookupAll( istring::make( sym->text() ), candidates );
+            for( Ast::Expr* p : candidates ) {
                 if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
-                    RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
-                    RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
+                    RETURN_ERROR_IF( candidates.size() != 1, Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                     return b->parse( env, list, out );
                 } else if( auto m = dynamic_cast<Ast::MacroDecl*>( p ) ) {
-                    RETURN_ERROR_IF( !candidates.empty(), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
-                    RETURN_ERROR_IF( env->lookupIter( isym, &p, iter ), Error::CannotOverload, sym->m_loc, "Macros can't be overloaded" );
+                    RETURN_ERROR_IF( candidates.size() != 1, Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                     return macroExpand( m, env, list, out );
                 } else {
                     candidates.emplace_back( p );
@@ -759,13 +755,13 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
                 auto loc = fmtLex->m_loc;
                 loc.m_end = loc.m_start + sp;
                 loc.m_start += cur;
-                parts.emplace_back( new Ast::String( fmt.substr(cur, sp), WITH( _.m_loc = loc ) ) );
+                parts.emplace_back( new Ast::String( fmt.substr( cur, sp ), WITH( _.m_loc = loc ) ) );
             }
             Io::TextInput input( fmtLex->m_loc.m_file->m_contents.data(), fmt.data() + sp + 1, fmt.data() + ep, fmtLex->m_loc.m_file );
             Ast::LexNode* node;
             RETURN_IF_FAILED( Ast::lex_atom( input, &node ) );
             Ast::Expr* expr;
-            RETURN_IF_FAILED( parse1( env, node, Parse::Flags::RValue, &expr ));
+            RETURN_IF_FAILED( parse1( env, node, Parse::Flags::RValue, &expr ) );
             parts.emplace_back( expr );
             cur = ep + 1;
         } else {
@@ -775,11 +771,24 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
             break;
         }
     }
-    // TODO stringize parts
-    //Ast::Expr* strjoin;
-    //RETURN_IF_FAILED( env->lookup( "strjoin"_sv, &strjoin ) );
-    //*out = new Ast::FunctionCall( strjoin, std::move( parts ), WITH( _.m_loc = args->m_loc ) );
-    *out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) );
+
+    std::vector<Ast::Expr*> tostringExprs;
+    auto itostring = istring::make( "tostring"_sv );
+    env->lookupAll( itostring, tostringExprs );
+    std::vector<Ast::Expr*> sparts;
+    for( auto part : parts ) {
+        if( dynamic_cast<Ast::String*>( part ) ) {
+            sparts.push_back( part );
+        } else {
+            sparts.push_back(
+                new Ast::NamedFunctionCall( itostring, tostringExprs, std::vector<Ast::Expr*>{part}, WITH( _.m_loc = args->m_loc ) ) );
+        }
+    }
+
+    Ast::Expr* strjoin;
+    RETURN_IF_FAILED( env->lookup( "strjoin"_sv, &strjoin ) );
+    *out = new Ast::FunctionCall( strjoin, std::move( sparts ), WITH( _.m_loc = args->m_loc ) );
+    //*out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) );
     return Result::OK;
 }
 
@@ -965,6 +974,9 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     auto d_dd = _makeFuncType( "(double, double)->double", &Ast::s_typeDouble, &Ast::s_typeDouble, &Ast::s_typeDouble );
     auto d_i = _makeFuncType( "(int)->double", &Ast::s_typeDouble, &Ast::s_typeInt );
     auto v_ss = _makeFuncType( "(string, string)->void", &Ast::s_typeVoid, &Ast::s_typeString, &Ast::s_typeString );
+    auto s_s = _makeFuncType( "(string)->string", &Ast::s_typeString, &Ast::s_typeString );
+    auto s_sss =
+        _makeFuncType( "(string, string, string)->string", &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString, &Ast::s_typeString );
     auto i_s = _makeFuncType( "(string)->void", &Ast::s_typeInt, &Ast::s_typeString );
     auto t_t = _makeFuncType( "(type)->type", &Ast::s_typeType, &Ast::s_typeType );
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
@@ -984,7 +996,6 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     auto builtin = make_unique_del<Ast::Module>( "builtin"_sv );
     {
         auto env = builtin->env();
-        env->parent_ = lang0->env();
         addIntrinsic( env, "eq?", b_ii );
         addIntrinsic( env, "lt?", b_ii );
         addIntrinsic( env, "ge?", b_ii );
@@ -1003,9 +1014,12 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addIntrinsic( env, "dfromi", d_i );
         addIntrinsic( env, "parsei", Ri_s );
         addIntrinsic( env, "strcat!", v_ss );
+        addIntrinsic( env, "strjoin", s_sss );
+        addIntrinsic( env, "tostring", s_s );
     }
-    module->env()->parent_ = builtin->env(); // hack, using env.parent instead of import/search
-    module->env()->bind( bitops->name(), bitops->env() );
+
+    module->env()->addUsing( builtin.get(), istring{} );
+    module->env()->addUsing( lang0.get(), istring{} );
 
     for( auto c : lex.items() ) {
         Ast::Expr* e;

@@ -8,7 +8,7 @@ namespace Slip::Ast {
 #include "slip/Ast.inc"
 #undef AST_NODE
 
-#define AST_DECL()  \
+#define AST_DECL()     \
     REFLECT_DECL_VT(); \
     int tag() const override
 
@@ -213,11 +213,8 @@ namespace Slip::Ast {
     };
 
     struct Dictlike {
-        struct LookupIter {
-            intptr_t storage[4]{0};
-        };
         virtual ~Dictlike() = default;
-        virtual bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const = 0;
+        virtual void lookupAll( istring sym, std::vector<Expr*>& out ) const = 0;
         virtual Result lookup( string_view sym, Expr** out ) const = 0;
     };
 
@@ -227,7 +224,7 @@ namespace Slip::Ast {
         Environment( Module* module ) : module_( module ) {}
         Environment( Environment* parent ) : parent_( parent ), module_( parent->module_ ) {}
 
-        bool lookupIter( istring sym, Expr** out, LookupIter& iter ) const override;
+        void lookupAll( istring sym, std::vector<Expr*>& out ) const override;
         Result lookup( string_view sym, Expr** out ) const override;
         Result bind( istring sym, Expr* value );
         auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
@@ -235,12 +232,14 @@ namespace Slip::Ast {
         Result importAll( Environment* other );
         // Each env knows the module in which it is contained
         Module* module() { return module_; }
-        auto syms() { return rng::make(syms_); }
+        auto syms() { return rng::make( syms_ ); }
+        auto addUsing( Module* mod, istring alias ) { usings_.emplace_back( mod, alias ); }
 
+       private:
         Environment* parent_{};
-        private:
         Module* module_{};
         std::multimap<istring, Expr*> syms_{};
+        std::vector<std::pair<Module*, istring> > usings_{};
     };
 
     struct FunctionCall : Expr {
@@ -329,7 +328,7 @@ namespace Slip::Ast {
         // Instantiations are memorized - 'create' is only called if the name isn't known
         Result instantiate( istring name, const Func<Result( Ast::Type** )>& create, Ast::Type** out );
 
-        auto instantiations() { return rng::make(instantiations_); }
+        auto instantiations() { return rng::make( instantiations_ ); }
 
        protected:
         Ast::Environment* environment_{};
@@ -342,7 +341,7 @@ namespace Slip::Ast {
         AST_DECL();
 
         template <typename With>
-        NamedFunctionCall( istring name, std::vector<Expr*>&& candidates, std::vector<Expr*>&& args, With&& with )
+        NamedFunctionCall( istring name, std::vector<Expr*> candidates, std::vector<Expr*>&& args, With&& with )
             : Named( name ), m_candidates( candidates ), m_args( args ) {
             with( *this );
         }

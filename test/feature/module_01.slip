@@ -10,5 +10,5 @@
         10))
     (puti n)
     (puts "1<<n")
-    (puti (bitops.asl 1 n))
+    ; (puti (bitops.asl 1 n))
     0)

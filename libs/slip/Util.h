@@ -284,6 +284,7 @@ namespace Slip {
         inline const char* c_str() const { return m_str; }
         inline std::string std_str() const { return m_str; }
         inline size_t size() const { return reinterpret_cast<const size_t*>( m_str )[-1]; }
+        inline bool empty() const { return size()==0; }
 
        private:
         static const char s_empty[];

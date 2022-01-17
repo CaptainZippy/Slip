@@ -1,7 +1,7 @@
 
 slip_bench = [
     'ackermann',
-    'ary',
+    #'ary',
     'fibo',
     'harmonic',
     'hash',

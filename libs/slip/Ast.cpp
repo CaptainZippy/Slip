@@ -216,48 +216,41 @@ size_t Ast::Expr::s_serial;
 
 Ast::Expr* Ast::Expr::resolve() { return this; }
 
-namespace {
-    struct EnvLookupIter {
-        const Ast::Environment* env{nullptr};
-        std::multimap<istring, Ast::Expr*>::const_iterator it;
-    };
-    static_assert( sizeof( EnvLookupIter ) <= sizeof( Ast::Dictlike::LookupIter ) );
-}
-
-bool Ast::Environment::lookupIter( istring sym, Expr** out, LookupIter& iterIn ) const {
-    auto& iter = reinterpret_cast<EnvLookupIter&>( iterIn );
-    *out = nullptr;
-    // iter is null first time, or the env of the previous find.
-    if( iter.env == nullptr ) {
-        iter.env = this;
-        iter.it = iter.env->syms_.lower_bound( sym );
-    }
-    while( iter.it == iter.env->syms_.end() || iter.it->first != sym ) {
-        if( auto p = iter.env->parent_ ) {
-            iter.env = p;
-            iter.it = iter.env->syms_.lower_bound( sym );
-        } else {
-            return false;
+void Ast::Environment::lookupAll( istring sym, std::vector<Ast::Expr*>& out ) const {
+    std::unordered_set<const Environment*> queued;
+    std::vector<const Environment*> todo;
+    todo.push_back( this );
+    queued.insert( this );
+    while( !todo.empty() ) {
+        auto env = todo.back();
+        todo.pop_back();
+        for( auto it = env->syms_.lower_bound( sym ); it != env->syms_.end() && it->first == sym; ++it ) {
+            out.push_back( it->second );
+        }
+        for( auto it : env->usings_ ) {
+            if( it.second == sym ) {
+                out.push_back( it.first );
+            }
+            else if( it.second.empty() && queued.insert(it.first->env()).second ) {
+                todo.push_back( it.first->env() );
+            }
+        }
+        if( env->parent_ && queued.insert( env->parent_ ).second ) {
+            todo.push_back( env->parent_ );
         }
     }
-    *out = iter.it->second;
-    ++iter.it;
-    return true;
 }
 
 Result Ast::Environment::lookup( string_view sym, Expr** out ) const {
     *out = nullptr;
-    auto s = istring::make( sym );
-    LookupIter iterBase;
-    if( lookupIter( s, out, iterBase ) == false ) {
-        return Result::ERR;
-    }
-    EnvLookupIter& iter = reinterpret_cast<EnvLookupIter&>( iterBase );
-    if( iter.it != iter.env->syms_.end() && iter.it->first == s ) {
+    std::vector<Ast::Expr*> all;
+    lookupAll( istring::make( sym ), all );
+    if( all.size() != 1 ) {
         // This api expects only 1 match
         // If overloads are OK, the caller should use lookup_iter
         return Result::ERR;
     }
+    *out = all[0];
     return Result::OK;
 }
 
@@ -279,7 +272,6 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
     return Result::OK;
 }
 
-
 Result Ast::Environment::importAll( Ast::Environment* other ) {
     for( auto& it : other->syms() ) {
         RETURN_IF_FAILED( bind( it.first, it.second ) );
@@ -287,7 +279,7 @@ Result Ast::Environment::importAll( Ast::Environment* other ) {
     return Result::OK;
 }
 
-Result Ast::Module::instantiate( istring name, const Func<Result(Ast::Type**)>& create, Ast::Type** out ) {
+Result Ast::Module::instantiate( istring name, const Func<Result( Ast::Type** )>& create, Ast::Type** out ) {
     *out = nullptr;
     if( auto it = instantiations_.find( name ); it != instantiations_.end() ) {
         *out = it->second;
@@ -298,6 +290,9 @@ Result Ast::Module::instantiate( istring name, const Func<Result(Ast::Type**)>& 
     RETURN_IF_FAILED( create( &t ) );
     assert( t && t->name() == name );
     instantiations_.emplace( name, t );
+    for( auto m : t->m_methods ) {
+        environment_->bind( m->m_name, m );
+    }
     *out = t;
     return Result::OK;
 }

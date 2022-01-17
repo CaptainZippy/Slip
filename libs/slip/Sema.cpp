@@ -452,7 +452,7 @@ namespace Slip::Sema {
             bool usedUnwrap{false};
             TypeInfo* ti;
             for( auto&& stage : n->m_stages ) {
-                Ast::NamedFunctionCall* nf;
+                Ast::NamedFunctionCall* nf{nullptr};
                 if( prev ) {
                     RETURN_IF_FAILED( dynCast( stage.expr, &nf ) );
                     nf->m_args.push_back( prev );

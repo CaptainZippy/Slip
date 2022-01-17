@@ -1,7 +1,4 @@
-; TODO formatted IO
 
 (func main (argv:(array_view string)):int
-    (puts (fmt "hello {(catch (get argv 2) 'world')}\n"))
-    ;(puts (fmt2 'hello ' (catch (get argv 2) 'world') "\n))
+    (puts (fmt "hello {(catch (get argv 1) 'world')}\n"))
     0)
-

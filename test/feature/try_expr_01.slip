@@ -6,7 +6,7 @@
 
 (func test ():void
     (var x (safe_div 100 22))
-    (puts "OK"))
+    (puti (catch x -999)))
 
 (func main ():int
     (test)
