@@ -1,0 +1,4 @@
+#! /bin/sh
+
+cd $0/../../build/clang-debug
+ninja && ./bench/bench nbody

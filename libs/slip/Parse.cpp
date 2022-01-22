@@ -818,18 +818,19 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr
 }
 
 struct Parse::ArrayView {
+    enum class Kind { View, Fixed, Heap };
     static Result parse_ArrayView( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-        return parse_internal( env, args, out, "array_view", false );
+        return parse_internal( env, args, out, "array_view", Kind::View );
     }
-    static Result parse_ArrayConst( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-        return parse_internal( env, args, out, "array_const", false );
+    static Result parse_ArrayFixed( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+        return parse_internal( env, args, out, "array_fixed", Kind::Fixed );
     }
     static Result parse_ArrayHeap( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-        return parse_internal( env, args, out, "array_heap", true );
+        return parse_internal( env, args, out, "array_heap", Kind::Heap );
     }
 
    protected:
-    static Result instantiate_internal( istring name, Ast::Environment* env, bool isHeap /*fixme*/, Ast::Type* t, Ast::Type** out ) {
+    static Result instantiate_internal( istring name, Ast::Environment* env, Kind kind /*fixme*/, Ast::Type* t, Ast::Type** out ) {
         *out = nullptr;
         auto r = new Ast::Type( name );
         r->m_array = t;
@@ -870,7 +871,7 @@ struct Parse::ArrayView {
             r->m_methods.emplace_back( putdecl );
         }
 
-        if( isHeap ) {
+        if( kind == Kind::Heap ) {
             auto retype = _makeFuncType( string_format( "(%s,int)->void", name.c_str() ), &Ast::s_typeVoid, r, &Ast::s_typeInt );
             auto redecl = new Ast::FunctionDecl( "resize", WITH( _.m_type = retype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
             redecl->m_params.emplace_back( new Ast::Parameter( "self", WITH( _.m_type = r ) ) );
@@ -881,19 +882,28 @@ struct Parse::ArrayView {
         *out = r;
         return Result::OK;
     }
-    static Result parse_internal( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out, const char* root_name, bool isHeap ) {
+    static Result parse_internal( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out, const char* root_name, Kind kind ) {
         *out = nullptr;
         Ast::LexIdent* lparam;
-        RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
+        Ast::LexNumber* lcount{nullptr};
+        std::string count;
+        if( kind == Kind::Fixed ) {
+            RETURN_IF_FAILED( matchLex( env, args, &lparam, &lcount ) );
+            count = lcount->text();
+            count.insert(0,",");
+        } else {
+            RETURN_IF_FAILED( matchLex( env, args, &lparam ) );
+        }
         Ast::Expr* param;
         RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
         auto type = dynamic_cast<Ast::Type*>( param );
-        assert( type );
-        auto name = istring::make( string_format( "%s__%s__", root_name, type->name() ) );
+        RETURN_ERROR_IF(type==nullptr, Error::TypeExpected, param->m_loc, "Array of non-type");
+
+        auto name = istring::make( string_format( "builtin_%s<%s%s>", root_name, type->name(), count.c_str() ) );
 
         Ast::Type* r;
         RETURN_IF_FAILED( env->module()->instantiate(
-            name, [&]( Ast::Type** out ) { return instantiate_internal( name, env, isHeap, type, out ); }, &r ) );
+            name, [&]( Ast::Type** out ) { return instantiate_internal( name, env, kind, type, out ); }, &r ) );
         *out = r;
         return Result::OK;
     }
@@ -954,13 +964,15 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addBuiltin( env, "pipe"_sv, &parse_Pipe );
         addBuiltin( env, "fmt"_sv, &parse_Fmt );
         addBuiltin( env, "array_view"_sv, &ArrayView::parse_ArrayView );
-        addBuiltin( env, "array_const"_sv, &ArrayView::parse_ArrayConst );
+        addBuiltin( env, "array_fixed"_sv, &ArrayView::parse_ArrayFixed );
         addBuiltin( env, "array_heap"_sv, &ArrayView::parse_ArrayHeap );
         addBuiltin( env, "result"_sv, &parse_ResultT );
 
         env->bind( "int"_sv, &Ast::s_typeInt );
         env->bind( "float"_sv, &Ast::s_typeFloat );
         env->bind( "double"_sv, &Ast::s_typeDouble );
+        env->bind( "f64"_sv, &Ast::s_typeDouble );
+        env->bind( "f32"_sv, &Ast::s_typeFloat );
         env->bind( "void"_sv, &Ast::s_typeVoid );
         env->bind( "string"_sv, &Ast::s_typeString );
         env->bind( "bool"_sv, &Ast::s_typeBool );

@@ -1,0 +1,18 @@
+(struct Planet
+    x: f64
+    y: f64
+    z: f64
+    vx: f64
+    vy: f64
+    vz: f64
+    mass: f64
+)
+
+
+(func main (args:(array_view string)):int
+    (let n (catch (pipe (get args 1) (parsei)) 1000))
+    ;(var bodies: (array_fixed Planet 1) 0)
+
+    (puti n)
+    0
+)

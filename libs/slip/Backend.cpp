@@ -241,16 +241,16 @@ namespace {
             return ret;
         }
 
-        static std::string sanitize( string_view inp ) {
+        static std::string sanitize( string_view inp, string_view badchars ) {
             std::string s;
             size_t cur = 0;
             while( true ) {
-                auto p = inp.find_first_of( "?!"_sv, cur );
+                auto p = inp.find_first_of( badchars, cur );
                 if( p == std::string::npos ) {
                     s.append( inp.begin() + cur, inp.end() );
                     return s;
                 }
-                s.append( inp.begin() + cur, inp.begin() + cur + p );
+                s.append( inp.begin() + cur, inp.begin() + p );
                 s.append( "_"_sv );
                 cur = p + 1;
             }
@@ -263,14 +263,14 @@ namespace {
                 symbol.insert( 0, n->environment_->module()->name().view() );
             }
             if( n->m_intrinsic ) {
-                return sanitize( symbol );
+                return sanitize( symbol, "?!"_sv );
             }
             if( n->name() != "main"_sv ) {
                 for( auto p : n->m_params ) {
                     assert( p->m_type );
                     assert( p->m_name.c_str() );
                     symbol.append( "__" );
-                    symbol.append( p->m_type->name() );  // todo valid symbol, spaces etc
+                    symbol.append( sanitize(p->m_type->name(),"<>"_sv) );  // todo valid symbol, spaces etc
                     if( p->m_ref ) {
                         symbol.append( "_ref" );
                     }
@@ -362,7 +362,7 @@ namespace {
                 sep = ", ";
             }
             for( auto a : args ) {
-                out.write( string_concat( sep, a ) );
+                out.write( string_concat( sep, sanitize(a, "<>"_sv) ) );
                 sep = ", ";
             }
             out.write( ");\n" );
@@ -421,6 +421,7 @@ namespace {
         std::string operator()( Ast::Module* n ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );
+            out.write( "#include<array>\n" );
             out.write( "#include<vector>\n" );
             out.write( "#include<cstring>\n" );
             out.write( "struct MainReg {\n" );
@@ -463,14 +464,11 @@ namespace {
             out.write( "inline int builtin_puts(const builtin_string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
             out.write( "inline int builtin_puti(int a) { return printf(\"%i\\n\", a); }\n" );
             out.write( "inline int builtin_putd(double a) { return printf(\"%f\\n\", a); }\n" );
-            out.write( "typedef builtin_array_view<int> array_view__int__;\n" );
-            out.write( "typedef builtin_array_view<builtin_string> array_view__builtin_string__;\n" );
-            out.write( "typedef std::vector<int> array_heap__int__;\n" );
-            out.write( "typedef int array_const__int__[];\n" );
-            out.write( "template<typename T, int N> inline int size(const T(&)[N]) { return N; }\n" );
-            out.write( "template<typename T, int N> inline T at(const T(&a)[N], int i) { return a[i]; }\n" );
+            out.write( "template<typename T, size_t N> using builtin_array_fixed = std::array<T,N>;\n" );
+            out.write( "template<typename T, size_t N> inline int size(const builtin_array_fixed<T,N>& a) { return N; }\n" );
+            out.write( "template<typename T, size_t N> inline T at(const builtin_array_fixed<T,N>& a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T, int N> inline builtin_Result<T> get(const T(&a)[N], int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
+                "template<typename T, size_t N> inline builtin_Result<T> get(const builtin_array_fixed<T,N>& a, int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
                 "return "
                 "failed; }\n" );
             out.write( "template<typename T> inline int size(builtin_array_view<T> a) { return (int)a.m_count; }\n" );
@@ -479,6 +477,7 @@ namespace {
                 "template<typename T> inline builtin_Result<T> get(builtin_array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; "
                 "return "
                 "failed; }\n" );
+            out.write( "template<typename T> using builtin_array_Heap = std::vector<T>;\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
             out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
@@ -502,7 +501,7 @@ namespace {
             out.write( "inline int bitops_lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
 
             for( auto n : n->instantiations() ) {
-                out.write( string_format( "// %s\n", n.first.c_str() ) );
+                out.write( string_format( "//instantiate %s\n", n.first.c_str() ) );
             }
 
             out.begin( string_concat( "namespace ", n->m_name, " {" ) );

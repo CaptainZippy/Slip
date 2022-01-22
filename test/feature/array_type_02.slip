@@ -1,6 +1,6 @@
 
 (func main ():int
-    (var args:(array_const int) 101 102 103)
+    (var args:(array_fixed int 3) 101 102 103)
     (puti (size args))
     (if (lt? (size args) 2)
         (puts "none")
