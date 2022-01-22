@@ -39,7 +39,7 @@
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
             },
-            "compileCommands": "${workspaceFolder}/build/meson/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/build/clang-debug/compile_commands.json"
         },
         {
             "name": "Win32",

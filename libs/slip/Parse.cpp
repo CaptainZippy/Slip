@@ -290,7 +290,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
                     RETURN_ERROR_IF( candidates.size() != 1, Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                     return macroExpand( m, env, list, out );
                 } else {
-                    candidates.emplace_back( p );
+                    //candidates.emplace_back( p );
                 }
             }
         }
@@ -336,6 +336,10 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         return Result::OK;
     }
     RETURN_ERROR( Error::NotImplemented, atom->m_loc );
+}
+
+Result Slip::Parse::parse( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out ) {
+    return parse1(env, atom, Parse::Flags::RValue, out);
 }
 
 static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
@@ -967,8 +971,34 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addBuiltin( env, "array_fixed"_sv, &ArrayView::parse_ArrayFixed );
         addBuiltin( env, "array_heap"_sv, &ArrayView::parse_ArrayHeap );
         addBuiltin( env, "result"_sv, &parse_ResultT );
+        {
+            static const Io::SourceNameAndContents generic{"generic.slip",
+            "(generic (TYPE:Type)\n"
+            "  (struct result\n"
+            "    ok:TYPE\n"
+            "    fail:i32))\n"};
+            const auto& s = generic.m_contents;
+            Io::TextInput input{s.c_str(), s.c_str()+s.size(), &generic};
+            Ast::LexNode* lex;
+            Slip::Ast::lex_atom(input, &lex);
+            Ast::LexList* list = dynamic_cast<Ast::LexList*>(lex);
+            assert(list);
+            Ast::LexList* args;
+            Ast::LexNode* body;
+            matchLex(env, list, &args, &body);
+            std::vector<Ast::Parameter*> params;
+            for( auto a : args->m_items ) {
+                auto li = dynamic_cast<Ast::LexIdent*>(a);
+                assert(li);
+                params.push_back(new Ast::Parameter(li->text(), WITH(_.m_type = &Ast::s_typeType))); //todo parse type
+            }
+            auto decl = new Ast::GenericDecl("$result"_sv, WITH(
+                _.environment_=env, _.body_ = body, _.params_ = std::move(params)));
+            //env->bind( "result"_sv, decl );
+        }
 
         env->bind( "int"_sv, &Ast::s_typeInt );
+        env->bind( "i32"_sv, &Ast::s_typeInt );
         env->bind( "float"_sv, &Ast::s_typeFloat );
         env->bind( "double"_sv, &Ast::s_typeDouble );
         env->bind( "f64"_sv, &Ast::s_typeDouble );

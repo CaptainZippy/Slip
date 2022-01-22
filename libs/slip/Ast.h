@@ -270,6 +270,31 @@ namespace Slip::Ast {
         }
     };
 
+    struct GenericDecl : Named {
+        AST_DECL();
+
+        std::vector<Ast::Parameter*> params_{};
+        LexNode* body_{};
+        Environment* environment_{};
+
+        template <typename With>
+        GenericDecl( string_view name, With&& with ) : Named( name ) {
+            with( *this );
+        }
+    };
+
+    struct GenericInstantiation : Named {
+        AST_DECL();
+        std::vector<Ast::Expr*> args_{};
+        Expr* body_{};
+    };
+
+    struct GenericParameterRef : Named {
+        AST_DECL();
+        GenericParameterRef( string_view name) : Named( name ) {
+        }
+    };
+
     struct If : Expr {
         AST_DECL();
         Expr* m_cond;
@@ -490,6 +515,8 @@ namespace Slip::Ast {
         Ast::Type* m_array{nullptr};
         // non-empty for sum type
         std::vector<Ast::Type*> m_sum;
+        // Set if this came from a generic
+        Ast::GenericDecl* generic_{nullptr};
     };
 
     struct TryExpr : Expr {

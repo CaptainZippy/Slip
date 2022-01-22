@@ -32,6 +32,8 @@ namespace Slip {
 
         /// Parse lexed input
         Result module( string_view name, Ast::LexList& Lex, unique_ptr_del<Ast::Module>& mod );
+        Result parse( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out );
+
     }  // namespace Parse
 
     namespace Sema {

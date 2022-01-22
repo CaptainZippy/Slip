@@ -730,13 +730,26 @@ namespace Slip::Sema {
                 if( candidates.size() != 1 ) {
                     Result::failed( Error::UnresolvedCall, named->m_loc, "%s", named->name().c_str() );
                 }
-                auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] );
-                assert( func );
-                Ast::Expr* ret;
-                ( func->m_intrinsic )( named->m_args, &ret );
-                auto type = dynamic_cast<Ast::Type*>( ret );
-                assert( type );
-                return _internKnownType( type );
+                if( auto gen = dynamic_cast<Ast::GenericDecl*>( candidates[0] ) ) {
+                    auto env = new Ast::Environment(gen->environment_);
+                    assert(gen->params_.size() == named->m_args.size());
+                    for( size_t i = 0; i< gen->params_.size(); ++i ) {
+                        env->bind( gen->params_[i]->name(), named->m_args[i]);
+                    }
+                    Ast::Expr* expr;
+                    auto r = Parse::parse(env, gen->body_, &expr);
+                    assert(r.isOk());
+                    assert(false);
+                } else if( auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] ) ) {
+                    Ast::Expr* ret;
+                    ( func->m_intrinsic )( named->m_args, &ret );
+                    auto type = dynamic_cast<Ast::Type*>( ret );
+                    assert( type );
+                    return _internKnownType( type );
+                } else {
+                    assert( false );
+                    return nullptr;
+                }
             }
             assert( false );
             return nullptr;
