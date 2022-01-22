@@ -7,17 +7,20 @@
             "label": "build",
             "type": "shell",
             "command": "ninja",
-            "args": ["-C", "${workspaceFolder}/build/meson"],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "args": [
+                "-C",
+                "${workspaceFolder}/build/clang-debug"
+            ],
+            "group": "build",
             "presentation": {
                 "reveal": "always"
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": ["relative", "${workspaceFolder}/build/meson"]
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}/build/clang-debug"
+                ]
             }
         }
     ]

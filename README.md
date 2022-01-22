@@ -27,3 +27,8 @@ If there are several annotations, they are all added.
 ## Comments
 
 From ";" to the end of the line
+
+## Developing
+
+Run 'tools/meson-init' to generate build configurations.
+In 'build/clang-debug' run 'ninja' or 'ninja test'

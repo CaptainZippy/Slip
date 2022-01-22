@@ -9,6 +9,9 @@ slip_errs = [
     'parse_err_01',
 ]
 
+# These tests don't produce an executable.
+# They verify that compiling the input files give an appropriate error.
+
 srcs = []
 foreach err : slip_errs
     s = meson.current_source_dir() + '/' + err + '.slip'
