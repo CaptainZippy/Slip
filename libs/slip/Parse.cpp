@@ -805,8 +805,8 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr
     Ast::LexIdent* lname;
     std::vector<Ast::LexNode*> lfields;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &lfields, Ellipsis::ZeroOrMore ) );
-    auto decl = new Ast::StructDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );
-    auto type = new Ast::Type( decl->name() );
+    auto decl = new Ast::StructDecl( lname->text(), WITH( _.m_loc = lname->m_loc ) );//TODO separate decl & instantiation
+    auto type = new Ast::Type( string_concat( lname->text(), env->nameSuffix() ) );
     type->m_struct = decl;
     RETURN_IF_FAILED( env->bind( decl->m_name, type ) );
     for( auto&& lf : lfields ) {
@@ -974,7 +974,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         {
             static const Io::SourceNameAndContents generic{"generic.slip",
             "(generic (TYPE:Type)\n"
-            "  (struct result\n"
+            "  (union result\n"
             "    ok:TYPE\n"
             "    fail:i32))\n"};
             const auto& s = generic.m_contents;
@@ -992,7 +992,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
                 assert(li);
                 params.push_back(new Ast::Parameter(li->text(), WITH(_.m_type = &Ast::s_typeType))); //todo parse type
             }
-            auto decl = new Ast::GenericDecl("$result"_sv, WITH(
+            auto decl = new Ast::GenericDecl( WITH( //TODO
                 _.environment_=env, _.body_ = body, _.params_ = std::move(params)));
             //env->bind( "result"_sv, decl );
         }
@@ -1035,7 +1035,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     // auto v_v = _makeFuncType( "(void)->void", &Ast::s_typeVoid, &Ast::s_typeVoid );
     Ast::Type* Ri;
     RETURN_IF_FAILED( ResultT_instantiate( module.get(), &Ast::s_typeInt, &Ri ) );
-    auto Ri_s = _makeFuncType( "(string)->Result<int>", Ri, &Ast::s_typeString );
+    auto Ri_s = _makeFuncType( "(string)->{Result int}", Ri, &Ast::s_typeString );
 
     auto bitops = make_unique_del<Ast::Module>( "bitops"_sv );
     {

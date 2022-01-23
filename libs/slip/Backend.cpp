@@ -492,7 +492,9 @@ namespace {
             out.write( "inline builtin_string builtin_tostring( double d ) noexcept { return builtin_string{std::to_string(d)}; }\n" );
             out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c ) noexcept {"
                 "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; return r; }\n" );
-                out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c, const builtin_string& d, const builtin_string& e ) noexcept {"
+            out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c, const builtin_string& d ) noexcept {"
+                "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; return r; }\n" );
+            out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c, const builtin_string& d, const builtin_string& e ) noexcept {"
                 "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; r.m_s += e.m_s; return r; }\n" );
 
             out.write( "inline int bitops_asl(int a, int b) { return a<<b; } \n" );

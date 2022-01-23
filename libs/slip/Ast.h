@@ -234,12 +234,16 @@ namespace Slip::Ast {
         Module* module() { return module_; }
         auto syms() { return rng::make( syms_ ); }
         auto addUsing( Module* mod, istring alias ) { usings_.emplace_back( mod, alias ); }
+        void nameSuffixPush( std::string s ) { suffixes_.push_back( s ); }
+        void nameSuffixPop() { suffixes_.pop_back(); }
+        const std::string& nameSuffix() const { return suffixes_.back(); }
 
        private:
         Environment* parent_{};
         Module* module_{};
         std::multimap<istring, Expr*> syms_{};
         std::vector<std::pair<Module*, istring> > usings_{};
+        std::vector<std::string> suffixes_{""};
     };
 
     struct FunctionCall : Expr {
@@ -270,7 +274,7 @@ namespace Slip::Ast {
         }
     };
 
-    struct GenericDecl : Named {
+    struct GenericDecl : Expr {
         AST_DECL();
 
         std::vector<Ast::Parameter*> params_{};
@@ -278,7 +282,7 @@ namespace Slip::Ast {
         Environment* environment_{};
 
         template <typename With>
-        GenericDecl( string_view name, With&& with ) : Named( name ) {
+        GenericDecl( With&& with ) {
             with( *this );
         }
     };

@@ -113,7 +113,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( GenericDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( Expr )
     REFLECT_FIELD2( params_, Flags::Child )
     REFLECT_FIELD2( body_, Flags::Child )
     REFLECT_END()

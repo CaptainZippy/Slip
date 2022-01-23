@@ -731,15 +731,32 @@ namespace Slip::Sema {
                     Result::failed( Error::UnresolvedCall, named->m_loc, "%s", named->name().c_str() );
                 }
                 if( auto gen = dynamic_cast<Ast::GenericDecl*>( candidates[0] ) ) {
-                    auto env = new Ast::Environment(gen->environment_);
-                    assert(gen->params_.size() == named->m_args.size());
-                    for( size_t i = 0; i< gen->params_.size(); ++i ) {
-                        env->bind( gen->params_[i]->name(), named->m_args[i]);
+                    auto env = new Ast::Environment( gen->environment_ );
+                    assert( gen->params_.size() == named->m_args.size() );
+                    std::string suffix;
+                    for( size_t i = 0; i < gen->params_.size(); ++i ) {
+                        env->bind( gen->params_[i]->name(), named->m_args[i] );
+                        suffix.append( "__" );
+                        auto a = named->m_args[i];
+                        while( auto r = dynamic_cast<Ast::Reference*>( a ) ) {
+                            a = r->m_target;
+                        }
+                        if( auto na = dynamic_cast<Ast::Named*>( a ) ) {
+                            suffix.append( na->name() );
+                        } else if( auto nu = dynamic_cast<Ast::Number*>( a ) ) {
+                            suffix.append( nu->m_num );
+                        } else {
+                            assert( false );
+                        }
                     }
+                    env->nameSuffixPush( suffix );
                     Ast::Expr* expr;
-                    auto r = Parse::parse(env, gen->body_, &expr);
-                    assert(r.isOk());
-                    assert(false);
+                    auto r = Parse::parse( env, gen->body_, &expr );
+                    assert( r.isOk() );
+                    env->nameSuffixPop();
+                    auto ret = dynamic_cast<Ast::Type*>( expr );
+                    assert( ret );
+                    return _internKnownType( ret );
                 } else if( auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] ) ) {
                     Ast::Expr* ret;
                     ( func->m_intrinsic )( named->m_args, &ret );
