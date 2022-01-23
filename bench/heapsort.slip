@@ -13,9 +13,29 @@
 ;            (muld max (dfromi last))
 ;            (dfromi IM)))))
 
+(struct random
+    last:int
+    max:double)
+
+(func make_random (max:double):random
+    (var ret:random 42 max))
+
+(func next (ran:@ref random):double
+    (const IM:int 139968)
+    (const IA:int 3877)
+    (const IC:int 29573)
+    (set! ran.last (mod (add (mul ran.last IA) IC) IM))
+    (divd
+        (muld ran.max (dfromi ran.last))
+        (dfromi IM)))
+
 (func main (argv:(array_view string)):int
     (puts "hello ")
-;    (var r (random 10))
-;    (putd (r))
+    (var r (make_random 10))
+    (puti r.last)
+    (putd r.max)
+    (putd (next r))
+    (putd (next r))
+    (putd (next r))
     0)
 

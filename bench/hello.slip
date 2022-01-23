@@ -1,3 +1,4 @@
+; Good
 
 (func main (argv:(array_view string)):int
     (puts (fmt "hello {(catch (get argv 1) 'world')}\n"))

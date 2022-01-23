@@ -11,6 +11,7 @@
 
 (func main (args:(array_view string)):int
     (var n (catch (pipe (get args 1) (parsei)) 6))
-    (puti n)
-    (puti (ack 3 n))
+    (puts (fmt "ack(3,{n}) = {(ack 3 n)}"))
+    ;(puti n)
+    ;(puti (ack 3 n))
     0)
