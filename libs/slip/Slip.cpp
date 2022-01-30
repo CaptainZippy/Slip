@@ -236,9 +236,9 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
             const char* actual = Error::toString( result.code );
             if( Tap::getExpectedError( *smanager, input.c_str(), expected ).isOk() ) {
                 if( result.isOk() ) {
-                    Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, expected.size(), expected.data(), input.c_str() );
+                    Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, STRING_VIEW_VARG(expected), input.c_str() );
                 } else if( actual != expected ) {
-                    Tap::header( "not ok %i - expected %.*s but got E%04i(%s) in %s\n", ++i, expected.size(), expected.data(), result.code,
+                    Tap::header( "not ok %i - expected %.*s but got E%04i(%s) in %s\n", ++i, STRING_VIEW_VARG(expected), result.code,
                                  actual, input.c_str() );
                 } else {
                     Tap::header( "ok %i - %s\n", ++i, input.c_str() );

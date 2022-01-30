@@ -270,6 +270,7 @@ namespace Slip {
     }
 
     using std::string_view;
+    #define STRING_VIEW_VARG( A ) static_cast<int>( ( A ).size() ), ( A ).data()
 
     // Interned string
     struct istring {

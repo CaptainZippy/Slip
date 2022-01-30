@@ -158,7 +158,7 @@ namespace Slip::Sema {
             }
             if( !fi->func ) {  // TODO extract method
                 auto text = n->m_loc.text();
-                RETURN_ERROR_IF( !fi->func, Error::CallNonCallable, n->m_loc, "%.*s", text.size(), text.begin() );
+                RETURN_ERROR_IF( !fi->func, Error::CallNonCallable, n->m_loc, "%.*s", STRING_VIEW_VARG(text) );
             }
             _isApplicable( n->m_func, fi, ai );
             vi.info = fi->get_func()->ret;
@@ -611,8 +611,7 @@ namespace Slip::Sema {
             for( auto&& v : m_visited ) {
                 assert( v.node );
                 auto& loc = v.node->m_loc;
-                RETURN_ERROR_IF( v.info->type == nullptr, Error::TypeNotDeduced, loc, "Near '%.*s'", loc.text().size(),
-                                 loc.text().begin() );
+                RETURN_ERROR_IF( v.info->type == nullptr, Error::TypeNotDeduced, loc, "Near '%.*s'", STRING_VIEW_VARG(loc.text()) );
                 if( v.node->m_type ) {
                     assert( v.node->m_type == v.info->type );  // type already assigned, ensure it matches deduced
                 } else {

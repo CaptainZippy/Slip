@@ -241,7 +241,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
     } else if( auto sym = dynamic_cast<Ast::LexIdent*>( atom ) ) {
         Ast::Expr* node;
         RETURN_ERROR_IF_FAILED( env->lookup( sym->text(), &node ), Error::SymbolNotFound, atom->m_loc, "Symbol '%.*s' not found",
-                                sym->text().length(), sym->text().data() );
+                                STRING_VIEW_VARG( sym->text() ) );
         switch( flags ) {
             case Parse::Flags::None:
                 *out = node;
