@@ -126,7 +126,7 @@ namespace {
 
         std::string operator()( Ast::Nop* n ) { return ""; }
 
-        std::string operator()( Ast::Number* n ) { return string_format( "(%s)%s", n->m_type->name().c_str(), n->m_num.c_str() ); }
+        std::string operator()( Ast::Number* n ) { return string_format( "(%s)%s", sanitize(n->m_type->name()).c_str(), n->m_num.c_str() ); }
         std::string operator()( Ast::String* n ) {
             std::string s = n->m_str;
             std::replace( s.begin(), s.end(), '\n', ' ' );
@@ -134,7 +134,7 @@ namespace {
         }
         std::string operator()( Ast::Definition* n ) {
             auto val = dispatch( n->m_value );
-            out.write( string_format( "%s %s = %s", n->m_type->name().c_str(), n->m_name, val.c_str() ) );
+            out.write( string_format( "%s %s = %s", sanitize(n->m_type->name()).c_str(), n->m_name, val.c_str() ) );
             return n->m_name.std_str();
         }
 
@@ -152,7 +152,7 @@ namespace {
             std::string var;
             if( n->m_type != &Ast::s_typeVoid ) {
                 var = string_format( "v_%s", n->name().c_str() );
-                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), var.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), var.c_str() ) );
             }
             out.begin( "{\n" );
             std::string s = dispatch( n->m_contents );
@@ -184,7 +184,7 @@ namespace {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
-                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
             }
             out.begin( " {\n" );
             auto cond = dispatch( n->m_cond );
@@ -208,7 +208,7 @@ namespace {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
-                out.write( string_format( "%s %s;\n", n->m_type->name().c_str(), ret.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
             }
             out.begin( "while(true) {\nif(" );
             auto cond = dispatch( n->m_cond );
@@ -223,7 +223,7 @@ namespace {
 
         std::string operator()( Ast::Cond* n ) {
             auto ret = newVarId();
-            out.write( string_format( "%s %s;", n->m_type->name().c_str(), ret.c_str() ) );
+            out.write( string_format( "%s %s;", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
             out.begin( " {\n" );
             for( auto c : n->m_cases ) {
                 auto cond = dispatch( c.first );
@@ -242,45 +242,53 @@ namespace {
         }
 
         static std::string sanitize( string_view inp, string_view badchars ) {
+            // Symbols
+            // Hex   ASC  Example
+            // _7b = '{'  {template params...}
+            // _20 = ' '  {list int}
+            // _40 = '@'  module@symbol
+            //
             std::string s;
-            size_t cur = 0;
-            while( true ) {
-                auto p = inp.find_first_of( badchars, cur );
-                if( p == std::string::npos ) {
-                    s.append( inp.begin() + cur, inp.end() );
-                    return s;
+            for( auto c : inp ) {
+                if( isalnum( c ) ) {
+                    s.push_back( c );
+                } else if( c == '_' ) {
+                    s.append( "__" );
+                } else {
+                    s.append( string_format( "_%02x", c ) );
                 }
-                s.append( inp.begin() + cur, inp.begin() + p );
-                s.append( "_"_sv );
-                cur = p + 1;
             }
+            return s;
         }
 
+        static std::string sanitize( string_view inp ) { return sanitize( inp, "<>{}.!?"_sv ); }
+
         std::string operator()( Ast::FunctionDecl* n ) {
-            std::string symbol = n->m_name.std_str();
+            std::string name = n->m_name.std_str();
             if( n->environment_ ) {
-                symbol.insert( 0, "_" );
-                symbol.insert( 0, n->environment_->module()->name().view() );
+                name.insert( 0, "@" );
+                name.insert( 0, n->environment_->module()->name().view() );
             }
             if( n->m_intrinsic ) {
-                return sanitize( symbol, "?!"_sv );
+                return sanitize( name );
             }
             if( n->name() != "main"_sv ) {
                 for( auto p : n->m_params ) {
                     assert( p->m_type );
                     assert( p->m_name.c_str() );
-                    symbol.append( "__" );
-                    symbol.append( sanitize(p->m_type->name(),"<>"_sv) );  // todo valid symbol, spaces etc
+                    name.append( ":" );
+                    name.append( p->m_type->name() );  // todo valid symbol, spaces etc
                     if( p->m_ref ) {
-                        symbol.append( "_ref" );
+                        name.append( "&" );
                     }
                 }
             } else {
-                symbol = "main"_sv;
+                name = "main"_sv;
             }
 
+            std::string symbol = sanitize( name );
             addName( n, istring::make( symbol ) );
-            out.begin( string_concat( "\n", n->m_type->m_callable[0]->name(), " ", symbol, "(" ) );
+            out.begin( string_concat( "\n", sanitize(n->m_type->m_callable[0]->name()), " ", symbol, "(" ) );
             const char* sep = "";
             if( n->m_type->m_callCanFail ) {
                 out.write( "int& status" );
@@ -292,7 +300,7 @@ namespace {
             for( auto p : n->m_params ) {
                 assert( p->m_type );
                 assert( p->m_name.c_str() );
-                out.write( string_concat( sep, p->m_type->name(), p->m_ref ? "& " : " ", p->m_name ) );
+                out.write( string_concat( sep, sanitize( p->m_type->name() ), p->m_ref ? "& " : " ", p->m_name ) );
                 sep = ", ";
             }
             out.write( ") {\n" );
@@ -325,7 +333,7 @@ namespace {
                     qual = "static const ";
                     break;
             }
-            out.begin( string_concat( qual, n->m_type->name(), " "_sv, name, "{" ) );
+            out.begin( string_concat( qual, sanitize(n->m_type->name()), " "_sv, name, "{" ) );
             if( n->m_initializer.empty() == false ) {
                 out.write( init );
             }
@@ -362,7 +370,7 @@ namespace {
                 sep = ", ";
             }
             for( auto a : args ) {
-                out.write( string_concat( sep, sanitize(a, "<>"_sv) ) );
+                out.write( string_concat( sep, a ) );
                 sep = ", ";
             }
             out.write( ");\n" );
@@ -376,7 +384,7 @@ namespace {
 
         std::string operator()( Ast::PipelineExpr* n ) {
             std::string ret = newVarId();
-            out.write( string_concat( n->m_type->m_name, " ", ret, ";\n" ) );
+            out.write( string_concat( sanitize(n->m_type->m_name), " ", ret, ";\n" ) );
             std::string cur;
             std::string closing = "";
             for( auto&& stage : n->m_stages ) {
@@ -404,7 +412,7 @@ namespace {
         std::string operator()( Ast::StructDecl* n ) {
             out.begin( string_concat( "struct ", n->name(), " {\n" ) );
             for( auto f : n->m_fields ) {
-                out.write( string_concat( f->m_type->name(), " ", f->name(), ";\n" ) );
+                out.write( string_concat( sanitize(f->m_type->name()), " ", f->name(), ";\n" ) );
             }
             out.end( "};" );
             return n->name().std_str();
@@ -428,82 +436,117 @@ namespace {
             out.write( "    typedef int(*mainfunc)(int argc, const char**);\n" );
             out.write( "    MainReg(const char* n, mainfunc m);\n" );
             out.write( "    const char* name; mainfunc main; const MainReg* next; };\n" );
-            out.write( "enum builtin_Error { failed=1 };\n" );
+            out.write( "enum builtin__Error { failed=1 };\n" );
             out.write( "template<typename T> struct builtin_Result { T ok; int fail;\n" );
             out.write( "    builtin_Result( ) : fail( failed ) {}\n" );
             out.write( "    builtin_Result( const T& t ) : ok( t ), fail(0) {}\n" );
-            out.write( "    builtin_Result( builtin_Error e ) : fail( e ) {}\n" );
+            out.write( "    builtin_Result( builtin__Error e ) : fail( e ) {}\n" );
             out.write( "    void setFail( int f ) { fail = f; }\n" );
             out.write( "    void operator=( const T& t ) { ok = t; fail = 0; }\n" );
-            out.write( "    void operator=( builtin_Error e ) { fail = e; }\n};\n" );
+            out.write( "    void operator=( builtin__Error e ) { fail = e; }\n};\n" );
             out.write(
-                "struct builtin_string { std::string m_s; "
-                "inline builtin_string() = default; "
-                "inline explicit builtin_string(std::string s) : m_s(std::move(s)) {} "
-                "inline builtin_string(const char* s, size_t l) : m_s(s,l) {} "
+                "struct builtin__string { std::string m_s; "
+                "inline builtin__string() = default; "
+                "inline explicit builtin__string(std::string s) : m_s(std::move(s)) {} "
+                "inline builtin__string(const char* s, size_t l) : m_s(s,l) {} "
                 "};\n" );
+
+            // builtin math
+            out.write( "inline bool builtin_40eq_3f(int a, int b) { return a==b; }\n" );
+            out.write( "inline bool builtin_40lt_3f(int a, int b) { return a<b; }\n" );
+            out.write( "inline bool builtin_40ge_3f(int a, int b) { return a>=b; }\n" );
+            out.write( "inline int builtin_40add(int a, int b) { return a+b; }\n" );
+            out.write( "inline int builtin_40sub(int a, int b) { return a-b; }\n" );
+            out.write( "inline int builtin_40mul(int a, int b) { return a*b; }\n" );
+            out.write( "inline int builtin_40div( int a, int b ) { return a / b; }\n" );
+            out.write( "inline int builtin_40mod(int a, int b) { return a%b; }\n" );
+            out.write( "inline double builtin_40dfromi(int a) { return (double)a; }\n" );
             out.write(
-                "template<typename T> struct builtin_array_view { "
-                "T* m_data; size_t m_count; "
-                "inline T operator[](int i) { return m_data[i]; } };\n" );
-            out.write( "inline bool builtin_eq_(int a, int b) { return a==b; }\n" );
-            out.write( "inline bool builtin_lt_(int a, int b) { return a<b; }\n" );
-            out.write( "inline bool builtin_ge_(int a, int b) { return a>=b; }\n" );
-            out.write( "inline int builtin_add(int a, int b) { return a+b; }\n" );
-            out.write( "inline int builtin_sub(int a, int b) { return a-b; }\n" );
-            out.write( "inline int builtin_mul(int a, int b) { return a*b; }\n" );
-            out.write( "inline int builtin_div( int a, int b ) { return a / b; }\n" );
-            out.write( "inline int builtin_mod(int a, int b) { return a%b; }\n" );
-            out.write( "inline double builtin_dfromi(int a) { return (double)a; }\n" );
-            out.write(
-                "inline builtin_Result<int> builtin_parsei(const builtin_string& s) { int r = ::strtol(s.m_s.data(), nullptr, 0); if(r) return r; return failed; "
+                "inline builtin_Result<int> builtin_40parsei(const builtin__string& s) { int r = ::strtol(s.m_s.data(), nullptr, 0); if(r) "
+                "return r; return failed; "
                 "}\n" );
-            out.write( "inline double builtin_muld(double a, double b) { return a*b; }\n" );
-            out.write( "inline double builtin_divd(double a, double b) { return a/b; }\n" );
-            out.write( "inline double builtin_addd(double a, double b) { return a+b; }\n" );
-            out.write( "inline int builtin_puts(const builtin_string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
-            out.write( "inline int builtin_puti(int a) { return printf(\"%i\\n\", a); }\n" );
-            out.write( "inline int builtin_putd(double a) { return printf(\"%f\\n\", a); }\n" );
+            out.write( "inline double builtin_40muld(double a, double b) { return a*b; }\n" );
+            out.write( "inline double builtin_40divd(double a, double b) { return a/b; }\n" );
+            out.write( "inline double builtin_40addd(double a, double b) { return a+b; }\n" );
+            // builtin io
+            out.write( "inline int builtin_40puts(const builtin__string& a) { return printf(\"%s\\n\", a.m_s.c_str()); }\n" );
+            out.write( "inline int builtin_40puti(int a) { return printf(\"%i\\n\", a); }\n" );
+            out.write( "inline int builtin_40putd(double a) { return printf(\"%f\\n\", a); }\n" );
+            // array_fixed
             out.write( "template<typename T, size_t N> using builtin_array_fixed = std::array<T,N>;\n" );
             out.write( "template<typename T, size_t N> inline int size(const builtin_array_fixed<T,N>& a) { return N; }\n" );
             out.write( "template<typename T, size_t N> inline T at(const builtin_array_fixed<T,N>& a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T, size_t N> inline builtin_Result<T> get(const builtin_array_fixed<T,N>& a, int i) { if( unsigned(i) < unsigned(N) ) return a[i]; "
+                "template<typename T, size_t N> inline builtin_Result<T> get(const builtin_array_fixed<T,N>& a, int i) { if( unsigned(i) < "
+                "unsigned(N) ) return a[i]; "
                 "return "
                 "failed; }\n" );
-            out.write( "template<typename T> inline int size(builtin_array_view<T> a) { return (int)a.m_count; }\n" );
-            out.write( "template<typename T> inline T at(builtin_array_view<T> a, int i) { return a[i]; }\n" );
+            // array_view
             out.write(
-                "template<typename T> inline builtin_Result<T> get(builtin_array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) return a[i]; "
+                "template<typename T> struct builtin_array_view { "
+                "T* m_data; size_t m_count; };\n" );
+            out.write( "template<typename T> inline int size(builtin_array_view<T> a) { return (int)a.m_count; }\n" );
+            out.write( "template<typename T> inline T at(builtin_array_view<T> a, int i) { return a.m_data[i]; }\n" );
+            out.write(
+                "template<typename T> inline builtin_Result<T> get(builtin_array_view<T> a, int i) { if( unsigned(i) < unsigned(size(a))) "
+                "return a.m_data[i]; "
                 "return "
                 "failed; }\n" );
+            // array_heap
             out.write( "template<typename T> using builtin_array_Heap = std::vector<T>;\n" );
             out.write( "template<typename T> inline void resize(std::vector<T>& a, int n) { a.resize(n); }\n" );
             out.write( "template<typename T> inline void put_(std::vector<T>& a, int i, const T& t) { a[i] = t; }\n" );
             out.write( "template<typename T> inline T at(std::vector<T>& a, int i) { return a[i]; }\n" );
             out.write(
-                "template<typename T> inline builtin_Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; return "
+                "template<typename T> inline builtin_Result<T> get(std::vector<T>& a, int i) { if(unsigned(i) < a.size()) return a[i]; "
+                "return "
                 "failed; }\n" );
+            // builtin string
+            out.write( "inline void builtin_40strcat_21(builtin__string& a, const builtin__string& b) { a.m_s += b.m_s; }\n" );
+            out.write(
+                "inline builtin__string operator \"\" _builtin_str( const char* str, size_t len ) noexcept { return "
+                "builtin__string{str,len}; }\n" );
+            out.write( "inline builtin__string builtin_40tostring( const builtin__string& str) noexcept { return str; }\n" );
+            out.write( "inline builtin__string builtin_40tostring( int i ) noexcept { return builtin__string{std::to_string(i)}; }\n" );
+            out.write( "inline builtin__string builtin_40tostring( double d ) noexcept { return builtin__string{std::to_string(d)}; }\n" );
+            out.write(
+                "inline builtin__string builtin_40strjoin( const builtin__string& a, const builtin__string& b, const builtin__string& c ) "
+                "noexcept {"
+                "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; return r; }\n" );
+            out.write(
+                "inline builtin__string builtin_40strjoin( const builtin__string& a, const builtin__string& b, const builtin__string& c, const "
+                "builtin__string& d ) noexcept {"
+                "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; return r; }\n" );
+            out.write(
+                "inline builtin__string builtin_40strjoin( const builtin__string& a, const builtin__string& b, const builtin__string& c, const "
+                "builtin__string& d, const builtin__string& e ) noexcept {"
+                "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; r.m_s += e.m_s; return r; }\n" );
+            // bitops
+            out.write( "inline int bitops_40asl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int bitops_40lsl(int a, int b) { return a<<b; } \n" );
+            out.write( "inline int bitops_40asr(int a, int b) { return a>>b; } \n" );
+            out.write( "inline int bitops_40lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
 
-            out.write( "inline void builtin_strcat_(builtin_string& a, const builtin_string& b) { a.m_s += b.m_s; }\n" );
-            out.write( "inline builtin_string operator \"\" _builtin_str( const char* str, size_t len ) noexcept { return builtin_string{str,len}; }\n" );
-            out.write( "inline builtin_string builtin_tostring( const builtin_string& str) noexcept { return str; }\n" );
-            out.write( "inline builtin_string builtin_tostring( int i ) noexcept { return builtin_string{std::to_string(i)}; }\n" );
-            out.write( "inline builtin_string builtin_tostring( double d ) noexcept { return builtin_string{std::to_string(d)}; }\n" );
-            out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c ) noexcept {"
-                "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; return r; }\n" );
-            out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c, const builtin_string& d ) noexcept {"
-                "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; return r; }\n" );
-            out.write( "inline builtin_string builtin_strjoin( const builtin_string& a, const builtin_string& b, const builtin_string& c, const builtin_string& d, const builtin_string& e ) noexcept {"
-                "builtin_string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; r.m_s += e.m_s; return r; }\n" );
-
-            out.write( "inline int bitops_asl(int a, int b) { return a<<b; } \n" );
-            out.write( "inline int bitops_lsl(int a, int b) { return a<<b; } \n" );
-            out.write( "inline int bitops_asr(int a, int b) { return a>>b; } \n" );
-            out.write( "inline int bitops_lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
-
-            for( auto n : n->instantiations() ) {
-                out.write( string_format( "//instantiate %s\n", n.first.c_str() ) );
+            for( auto inst : n->instantiations() ) {
+                if( inst.second->generic_ == nullptr ) {
+                    out.write( string_format( "//instantiate %s AKA %s\n", inst.first.c_str(), sanitize( inst.first ).c_str() ) );
+                    continue;
+                }
+                std::string cname;
+                const char* sep = "";
+                for( auto i : inst.second->generic_->args_ ) {
+                    cname.append( sep );
+                    sep = ",";
+                    if( auto n = dynamic_cast<Ast::Named*>( i ) ) {
+                        cname.append( sanitize(n->name()) );
+                    } else if( auto c = dynamic_cast<Ast::LexNumber*>( i ) ) {
+                        cname.append( c->text() );
+                    } else {
+                        assert( false );
+                    }
+                }
+                out.write( string_format( "typedef %s< %s > %s;\n", inst.second->generic_->decl_->m_name.c_str(), cname.c_str(),
+                                          sanitize( inst.first ).c_str() ) );
             }
 
             out.begin( string_concat( "namespace ", n->m_name, " {" ) );
@@ -529,11 +572,11 @@ namespace {
                 case 1:
                     out.write(
                         "int main_entry(int argc, const char** argv) {\n"
-                        "   std::vector<builtin_string> args;\n"
+                        "   std::vector<builtin__string> args;\n"
                         "   for( int i = 0; i < argc; ++i ) {\n"
                         "       args.emplace_back(argv[i]);\n"
                         "   }\n"
-                        "   builtin_array_view<builtin_string> view{args.data(), args.size()};\n"
+                        "   builtin_array_view<builtin__string> view{args.data(), args.size()};\n"
                         "   return main(view);\n"
                         "}" );
                     break;

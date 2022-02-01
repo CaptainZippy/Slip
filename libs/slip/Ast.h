@@ -274,7 +274,7 @@ namespace Slip::Ast {
         }
     };
 
-    struct GenericDecl : Expr {
+    struct GenericDecl : Named {
         AST_DECL();
 
         std::vector<Ast::Parameter*> params_{};
@@ -282,15 +282,20 @@ namespace Slip::Ast {
         Environment* environment_{};
 
         template <typename With>
-        GenericDecl( With&& with ) {
+        GenericDecl( istring name, With&& with ) : Named(name) {
             with( *this );
         }
     };
 
-    struct GenericInstantiation : Named {
+    struct GenericInstantiation : Expr {
         AST_DECL();
         std::vector<Ast::Expr*> args_{};
-        Expr* body_{};
+        GenericDecl* decl_{};
+
+        template <typename With>
+        GenericInstantiation( With&& with ) {
+            with( *this );
+        }
     };
 
     struct GenericParameterRef : Named {
@@ -520,7 +525,7 @@ namespace Slip::Ast {
         // non-empty for sum type
         std::vector<Ast::Type*> m_sum;
         // Set if this came from a generic
-        Ast::GenericDecl* generic_{nullptr};
+        Ast::GenericInstantiation* generic_{nullptr};
     };
 
     struct TryExpr : Expr {

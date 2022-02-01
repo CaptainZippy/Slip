@@ -121,7 +121,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN( GenericInstantiation )
     REFLECT_PARENT( Named )
     REFLECT_FIELD2( args_, Flags::Child )
-    REFLECT_FIELD2( body_, Flags::Child )
+    REFLECT_FIELD2( decl_, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( GenericParameterRef )
