@@ -124,10 +124,6 @@ namespace Slip::Ast {
     REFLECT_FIELD2( decl_, Flags::Child )
     REFLECT_END()
 
-    REFLECT_BEGIN( GenericParameterRef )
-    REFLECT_PARENT( NamedDecl )
-    REFLECT_END()
-
     REFLECT_BEGIN( Builtin )
     REFLECT_PARENT( Expr )
     REFLECT_END()
@@ -317,18 +313,16 @@ Result Ast::FunctionDecl::NotImplemented( array_view<Ast::Expr*> args, Ast::Expr
 
 Ast::Expr* Ast::Reference::resolve() { return m_target; }
 
-Ast::Type Ast::s_typeType( "Type"_sv );
-Ast::Type Ast::s_typeInt( "int"_sv );
-Ast::Type Ast::s_typeBool( "bool"_sv );
-Ast::Type Ast::s_typeError( "builtin_Error"_sv );
-Ast::Type Ast::s_typeDouble( "double"_sv );
-Ast::Type Ast::s_typeFloat( "float"_sv );
-Ast::Type Ast::s_typeVoid( "void"_sv );
-Ast::Type Ast::s_typeString( "builtin_string"_sv );
+Ast::Type Ast::s_typeType( "Type"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeInt( "int"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeBool( "bool"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeError( "builtin_Error"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeDouble( "double"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeFloat( "float"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeVoid( "void"_istr, fixMeDeclContext );
+Ast::Type Ast::s_typeString( "builtin_string"_istr, fixMeDeclContext );
 
-Ast::Type::Type( string_view sym ) : NamedDecl( istring::make( sym ) ) {}
-
-Ast::Type::Type( istring sym ) : NamedDecl( sym ) {}
+Ast::Type::Type( istring sym, Expr* declContext ) : NamedDecl( sym, declContext ) {}
 
 static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
     if( auto f = top.type->toString ) {

@@ -94,7 +94,7 @@ namespace Slip::Sema {
                     RETURN_IF_FAILED( dispatch( p, &t ) );
                     params.emplace_back( t );
                 }
-                auto v_t = new Ast::Type( "auto"_sv );  // FIXME.coro
+                auto v_t = new Ast::Type( "auto"_istr, Ast::fixMeDeclContext );  // FIXME.coro
                 v_t->m_callCanFail = true;
                 v_t->m_callable.push_back( ret->get_type() );
                 auto ti_v_t = _internKnownType( v_t );
@@ -137,7 +137,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::StructDecl* n, VisitInfo& vi ) {
-            auto type = new Ast::Type( n->name() );
+            auto type = new Ast::Type( n->name(), Ast::fixMeDeclContext );
             for( auto&& f : n->m_fields ) {
                 auto i = _evalTypeExpr( f->m_declTypeExpr );
                 f->m_type = i->get_type();
@@ -796,7 +796,7 @@ namespace Slip::Sema {
             }
             name.append( ") -> " );
             name.append( f->ret->get_type()->m_name );
-            auto r = new Ast::Type( name );
+            auto r = new Ast::Type( istring::make( name ), Ast::fixMeDeclContext );
             r->m_callable = std::move( args );
             m_functionTypes.emplace_back( r );
             _resolveType( ti, r );

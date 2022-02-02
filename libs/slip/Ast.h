@@ -12,6 +12,8 @@ namespace Slip::Ast {
     REFLECT_DECL_VT(); \
     int tag() const override
 
+static constexpr Expr* fixMeDeclContext{nullptr};
+
     namespace Flags {
         const unsigned Hidden = 0;  // Default is "ref"
         const unsigned Child = 1;   // Default is "ref"
@@ -65,6 +67,10 @@ namespace Slip::Ast {
             auto s = m_loc.m_file->m_contents.c_str();
             return {s + m_loc.m_start, m_loc.m_end - m_loc.m_start};
         }
+        istring istr() const {
+            auto s = m_loc.m_file->m_contents.c_str();
+            return istring::make(s + m_loc.m_start, m_loc.m_end - m_loc.m_start);
+        }
     };
 
     struct LexDot : LexNode {
@@ -108,12 +114,17 @@ namespace Slip::Ast {
         std::vector<LexNode*> m_items;
     };
 
-    struct NamedDecl : Expr {
+    struct Decl : Expr {
+        AST_DECL();
+        Decl( Expr* declContext ) : declContext_( declContext ) {}
+        Expr* declContext_{nullptr};
+    };
+
+    struct NamedDecl : Decl {
         AST_DECL();
         istring m_name{};
 
-        NamedDecl( istring s ) : m_name( std::move( s ) ) {}
-        NamedDecl( string_view sym ) : m_name( istring::make( sym ) ) {}
+        NamedDecl( istring name, Expr* declContext ) : Decl(declContext), m_name( name ) {}
 
         istring name() { return m_name; }
     };
@@ -131,7 +142,7 @@ namespace Slip::Ast {
 
     struct Block : NamedDecl {
         AST_DECL();
-        Block( istring name, Ast::Expr* contents ) : NamedDecl( name ), m_contents( contents ) {}
+        Block( istring name, Expr* declContext, Ast::Expr* contents ) : NamedDecl( name, declContext ), m_contents( contents ) {}
         Ast::Expr* m_contents;
     };
 
@@ -147,7 +158,7 @@ namespace Slip::Ast {
         using ParseProto = Result( Ast::Environment* env, LexList* list, Ast::Expr** out );
         using ParseFunc = Func<ParseProto>;
 
-        Builtin( string_view name, ParseFunc&& func ) : NamedDecl( name ), m_func( std::move( func ) ) {}
+        Builtin( istring name, Expr* declContext, ParseFunc&& func ) : NamedDecl( name, declContext ), m_func( std::move( func ) ) {}
 
         Result parse( Ast::Environment* env, LexList* list, Ast::Expr** out ) { return m_func( env, list, out ); }
 
@@ -183,10 +194,8 @@ namespace Slip::Ast {
         Ast::Expr* m_declReturnTypeExpr{nullptr};
         Expr* m_body{nullptr};
 
-        CoroutineDecl( string_view name ) : NamedDecl( name ) {}
-
         template <typename With>
-        CoroutineDecl( string_view name, With&& with ) : NamedDecl( name ) {
+        CoroutineDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
     };
@@ -197,17 +206,13 @@ namespace Slip::Ast {
         CoroutineDecl* m_coro{nullptr};
     };
 
-    struct Decl : Expr {
-        AST_DECL();
-    };
-
     struct Definition : NamedDecl {
         AST_DECL();
 
         Expr* m_value = nullptr;
 
         template <typename With>
-        Definition( string_view sym, Expr* value, With&& with ) : NamedDecl( sym ), m_value( value ) {
+        Definition( istring sym, Expr* declContext, Expr* value, With&& with ) : NamedDecl( sym, declContext ), m_value( value ) {
             with( *this );
         }
     };
@@ -269,7 +274,7 @@ namespace Slip::Ast {
         Environment* environment_{};
 
         template <typename With>
-        FunctionDecl( string_view name, With&& with ) : NamedDecl( name ) {
+        FunctionDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
     };
@@ -282,7 +287,7 @@ namespace Slip::Ast {
         Environment* environment_{};
 
         template <typename With>
-        GenericDecl( istring name, With&& with ) : NamedDecl( name ) {
+        GenericDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
     };
@@ -295,12 +300,6 @@ namespace Slip::Ast {
         template <typename With>
         GenericInstantiation( With&& with ) {
             with( *this );
-        }
-    };
-
-    struct GenericParameterRef : NamedDecl {
-        AST_DECL();
-        GenericParameterRef( string_view name ) : NamedDecl( name ) {
         }
     };
 
@@ -325,8 +324,8 @@ namespace Slip::Ast {
         std::vector<LexNode*> m_body;
 
         template <typename With>
-        MacroDecl( string_view name, string_view dynEnvSym, Environment* staticEnv, With&& with )
-            : NamedDecl( name ), m_dynEnvSym( istring::make( dynEnvSym ) ), m_staticEnv( staticEnv ) {
+        MacroDecl( istring name, Expr* declContext, string_view dynEnvSym, Environment* staticEnv, With&& with )
+            : NamedDecl( name, declContext ), m_dynEnvSym( istring::make( dynEnvSym ) ), m_staticEnv( staticEnv ) {
             with( *this );
         }
     };
@@ -345,8 +344,7 @@ namespace Slip::Ast {
 
     struct Module : NamedDecl {
         AST_DECL();
-        Module( istring n ) : NamedDecl( n ), environment_( new Environment( this ) ) {}
-        Module( string_view s ) : NamedDecl( s ), environment_( new Environment( this ) ) {}
+        Module( istring n, Expr* declContext ) : NamedDecl( n, declContext ), environment_( new Environment( this ) ) {}
 
         struct Export {
             REFLECT_DECL();
@@ -375,8 +373,8 @@ namespace Slip::Ast {
         AST_DECL();
 
         template <typename With>
-        NamedFunctionCall( istring name, std::vector<Expr*> candidates, std::vector<Expr*>&& args, With&& with )
-            : NamedDecl( name ), m_candidates( candidates ), m_args( args ) {
+        NamedFunctionCall( istring name, Expr* declContext, std::vector<Expr*> candidates, std::vector<Expr*>&& args, With&& with )
+            : NamedDecl( name, declContext ), m_candidates( candidates ), m_args( args ) {
             with( *this );
         }
 
@@ -393,7 +391,7 @@ namespace Slip::Ast {
     struct Number : Expr {
         AST_DECL();
         template <typename With>
-        Number( string_view n, With&& with ) : m_num( n ) {
+        Number( istring n, With&& with ) : m_num( n ) {
             with( *this );
         }
         std::string m_num;
@@ -408,7 +406,7 @@ namespace Slip::Ast {
         AST_DECL();
         bool m_ref{false};
         template <typename With>
-        Parameter( string_view s, With&& with ) : NamedDecl( s ) {
+        Parameter( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
     };
@@ -478,7 +476,7 @@ namespace Slip::Ast {
     struct StructDecl : NamedDecl {
         AST_DECL();
         template <typename With>
-        StructDecl( string_view n, With&& with ) : NamedDecl( n ) {
+        StructDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
         std::vector<StructField*> m_fields;
@@ -487,7 +485,7 @@ namespace Slip::Ast {
     struct StructField : NamedDecl {
         AST_DECL();
         template <typename With>
-        StructField( string_view n, With&& with ) : NamedDecl( n ) {
+        StructField( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
     };
@@ -509,8 +507,7 @@ namespace Slip::Ast {
 
     struct Type : NamedDecl {
         AST_DECL();
-        Type( string_view sym );
-        Type( istring sym );
+        Type( istring sym, Expr* declContext );
 
         // callable can fail
         bool m_callCanFail{false};
@@ -542,7 +539,7 @@ namespace Slip::Ast {
     struct VariableDecl : NamedDecl {
         AST_DECL();
         template <typename With>
-        VariableDecl( istring name, With&& with ) : NamedDecl( name ) {
+        VariableDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
         }
         std::vector<Expr*> m_initializer;

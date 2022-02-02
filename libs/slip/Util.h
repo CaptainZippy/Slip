@@ -293,6 +293,10 @@ namespace Slip {
         const char* m_str;
     };
 
+    inline istring operator"" _istr( const char* str, size_t len ) noexcept {
+        return istring::make( str, len );
+    }
+
     template <typename T>
     inline T min2( T&& a, T&& b ) {
         return a <= b ? a : b;
