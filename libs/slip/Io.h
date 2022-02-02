@@ -101,7 +101,8 @@ namespace Slip::Io {
             return *cur;
         }
         int next() {
-            if( cur == end ) return -1;
+            if( cur == end )
+                return -1;
             return *cur++;
         }
         long tell() const { return safe_cast( cur - start ); }

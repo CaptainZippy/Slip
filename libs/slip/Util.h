@@ -230,9 +230,9 @@ namespace Slip {
     };
 
     namespace rng {
-        template<typename Cont>
+        template <typename Cont>
         auto make( const Cont& c ) {
-            return range(c.begin(), c.end());
+            return range( c.begin(), c.end() );
         }
         template <typename T, typename V>
         auto find( T&& iterable, const V& v ) -> range<typename std::decay_t<T>::iterator> {
@@ -267,10 +267,10 @@ namespace Slip {
         auto accumulate( Cont& c, Zero zero, Lambda&& lambda ) {
             return std::accumulate( c.begin(), c.end(), zero, lambda );
         }
-    }
+    }  // namespace rng
 
     using std::string_view;
-    #define STRING_VIEW_VARG( A ) static_cast<int>( ( A ).size() ), ( A ).data()
+#define STRING_VIEW_VARG( A ) static_cast<int>( ( A ).size() ), ( A ).data()
 
     // Interned string
     struct istring {
@@ -285,7 +285,7 @@ namespace Slip {
         inline const char* c_str() const { return m_str; }
         inline std::string std_str() const { return m_str; }
         inline size_t size() const { return reinterpret_cast<const size_t*>( m_str )[-1]; }
-        inline bool empty() const { return size()==0; }
+        inline bool empty() const { return size() == 0; }
 
        private:
         static const char s_empty[];
@@ -293,9 +293,7 @@ namespace Slip {
         const char* m_str;
     };
 
-    inline istring operator"" _istr( const char* str, size_t len ) noexcept {
-        return istring::make( str, len );
-    }
+    inline istring operator"" _istr( const char* str, size_t len ) noexcept { return istring::make( str, len ); }
 
     template <typename T>
     inline T min2( T&& a, T&& b ) {

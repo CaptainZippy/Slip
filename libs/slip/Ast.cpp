@@ -242,8 +242,7 @@ void Ast::Environment::lookupAll( istring sym, std::vector<Ast::Expr*>& out ) co
         for( auto it : env->usings_ ) {
             if( it.second == sym ) {
                 out.push_back( it.first );
-            }
-            else if( it.second.empty() && queued.insert(it.first->env()).second ) {
+            } else if( it.second.empty() && queued.insert( it.first->env() ).second ) {
                 todo.push_back( it.first->env() );
             }
         }

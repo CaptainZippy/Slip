@@ -126,7 +126,9 @@ namespace {
 
         std::string operator()( Ast::Nop* n ) { return ""; }
 
-        std::string operator()( Ast::Number* n ) { return string_format( "(%s)%s", sanitize(n->m_type->name()).c_str(), n->m_num.c_str() ); }
+        std::string operator()( Ast::Number* n ) {
+            return string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
+        }
         std::string operator()( Ast::String* n ) {
             std::string s = n->m_str;
             std::replace( s.begin(), s.end(), '\n', ' ' );
@@ -134,7 +136,7 @@ namespace {
         }
         std::string operator()( Ast::Definition* n ) {
             auto val = dispatch( n->m_value );
-            out.write( string_format( "%s %s = %s", sanitize(n->m_type->name()).c_str(), n->m_name, val.c_str() ) );
+            out.write( string_format( "%s %s = %s", sanitize( n->m_type->name() ).c_str(), n->m_name, val.c_str() ) );
             return n->m_name.std_str();
         }
 
@@ -152,7 +154,7 @@ namespace {
             std::string var;
             if( n->m_type != &Ast::s_typeVoid ) {
                 var = string_format( "v_%s", n->name().c_str() );
-                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), var.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), var.c_str() ) );
             }
             out.begin( "{\n" );
             std::string s = dispatch( n->m_contents );
@@ -184,7 +186,7 @@ namespace {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
-                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             }
             out.begin( " {\n" );
             auto cond = dispatch( n->m_cond );
@@ -208,7 +210,7 @@ namespace {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
-                out.write( string_format( "%s %s;\n", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
+                out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             }
             out.begin( "while(true) {\nif(" );
             auto cond = dispatch( n->m_cond );
@@ -223,7 +225,7 @@ namespace {
 
         std::string operator()( Ast::Cond* n ) {
             auto ret = newVarId();
-            out.write( string_format( "%s %s;", sanitize(n->m_type->name()).c_str(), ret.c_str() ) );
+            out.write( string_format( "%s %s;", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             out.begin( " {\n" );
             for( auto c : n->m_cases ) {
                 auto cond = dispatch( c.first );
@@ -288,7 +290,7 @@ namespace {
 
             std::string symbol = sanitize( name );
             addName( n, istring::make( symbol ) );
-            out.begin( string_concat( "\n", sanitize(n->m_type->m_callable[0]->name()), " ", symbol, "(" ) );
+            out.begin( string_concat( "\n", sanitize( n->m_type->m_callable[0]->name() ), " ", symbol, "(" ) );
             const char* sep = "";
             if( n->m_type->m_callCanFail ) {
                 out.write( "int& status" );
@@ -333,7 +335,7 @@ namespace {
                     qual = "static const ";
                     break;
             }
-            out.begin( string_concat( qual, sanitize(n->m_type->name()), " "_sv, name, "{" ) );
+            out.begin( string_concat( qual, sanitize( n->m_type->name() ), " "_sv, name, "{" ) );
             if( n->m_initializer.empty() == false ) {
                 out.write( init );
             }
@@ -384,7 +386,7 @@ namespace {
 
         std::string operator()( Ast::PipelineExpr* n ) {
             std::string ret = newVarId();
-            out.write( string_concat( sanitize(n->m_type->m_name), " ", ret, ";\n" ) );
+            out.write( string_concat( sanitize( n->m_type->m_name ), " ", ret, ";\n" ) );
             std::string cur;
             std::string closing = "";
             for( auto&& stage : n->m_stages ) {
@@ -412,7 +414,7 @@ namespace {
         std::string operator()( Ast::StructDecl* n ) {
             out.begin( string_concat( "struct ", n->name(), " {\n" ) );
             for( auto f : n->m_fields ) {
-                out.write( string_concat( sanitize(f->m_type->name()), " ", f->name(), ";\n" ) );
+                out.write( string_concat( sanitize( f->m_type->name() ), " ", f->name(), ";\n" ) );
             }
             out.end( "};" );
             return n->name().std_str();
@@ -514,12 +516,14 @@ namespace {
                 "noexcept {"
                 "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; return r; }\n" );
             out.write(
-                "inline builtin__string builtin_40strjoin( const builtin__string& a, const builtin__string& b, const builtin__string& c, const "
+                "inline builtin__string builtin_40strjoin("
+                "const builtin__string& a, const builtin__string& b, const builtin__string& c, const "
                 "builtin__string& d ) noexcept {"
                 "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; return r; }\n" );
             out.write(
-                "inline builtin__string builtin_40strjoin( const builtin__string& a, const builtin__string& b, const builtin__string& c, const "
-                "builtin__string& d, const builtin__string& e ) noexcept {"
+                "inline builtin__string builtin_40strjoin("
+                "const builtin__string& a, const builtin__string& b, const builtin__string& c, const builtin__string& d, const "
+                "builtin__string& e ) noexcept {"
                 "builtin__string r = a; r.m_s += b.m_s; r.m_s += c.m_s; r.m_s += d.m_s; r.m_s += e.m_s; return r; }\n" );
             // bitops
             out.write( "inline int bitops_40asl(int a, int b) { return a<<b; } \n" );
@@ -538,7 +542,7 @@ namespace {
                     cname.append( sep );
                     sep = ",";
                     if( auto n = dynamic_cast<Ast::NamedDecl*>( i ) ) {
-                        cname.append( sanitize(n->name()) );
+                        cname.append( sanitize( n->name() ) );
                     } else if( auto c = dynamic_cast<Ast::LexNumber*>( i ) ) {
                         cname.append( c->text() );
                     } else {

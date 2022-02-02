@@ -11,31 +11,29 @@
 #else
     #define __debugbreak() asm("int $3")
 #endif
-#include <type_traits>
-#include <string_view>
-#include <vector>
-#include <deque>
+#include <algorithm>
 #include <cctype>
-#include <string>
-#include <cstring>
-#include <numeric>
-#include <map>
-#include <set>
-#include <list>
-#include <cstddef>
 #include <cstdarg>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <deque>
+#include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <numeric>
+#include <set>
+#include <string>
+#include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
-#include <memory>
-#include <algorithm>
-#include <functional>
 #include <variant>
+#include <vector>
 
-constexpr std::string_view operator "" _sv(const char* str, size_t len) noexcept {
-    return std::string_view(str, len);
-}
+constexpr std::string_view operator"" _sv( const char* str, size_t len ) noexcept { return std::string_view( str, len ); }
 
 // Local utilities
-#include "slip/Util.h"
 #include "slip/Func.h"
+#include "slip/Util.h"

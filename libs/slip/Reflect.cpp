@@ -56,7 +56,8 @@ namespace Slip::Reflect {
                     unsigned count = unsigned( ( e - s ) / et->size );
                     out.begin( "[" );
                     for( unsigned i = 0; i < count; ++i ) {
-                        if( i != 0 ) out.nl();
+                        if( i != 0 )
+                            out.nl();
                         Var e{s + i * et->size, et};
                         printVar( out, e );
                     }

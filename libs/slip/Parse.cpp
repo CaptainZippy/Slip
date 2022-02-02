@@ -70,7 +70,7 @@ namespace Slip::Parse {
         return r;
     }
 
-    static void addBuiltin( Ast::Environment* env, istring name,  Ast::Expr* declContext, Ast::Builtin::ParseFunc&& fun ) {
+    static void addBuiltin( Ast::Environment* env, istring name, Ast::Expr* declContext, Ast::Builtin::ParseFunc&& fun ) {
         env->bind( name, new Ast::Builtin( name, declContext, std::move( fun ) ) );
     }
 
@@ -80,7 +80,7 @@ namespace Slip::Parse {
                                         WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = env ) );
         char pname[2] = {'a', 0};
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
-            auto p = new Ast::Parameter( istring::make(pname), f, WITH( _.m_type = at ) );
+            auto p = new Ast::Parameter( istring::make( pname ), f, WITH( _.m_type = at ) );
             f->m_params.emplace_back( p );
             pname[0] += 1;
         }
@@ -290,7 +290,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
                     RETURN_ERROR_IF( candidates.size() != 1, Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                     return macroExpand( m, env, list, out );
                 } else {
-                    //candidates.emplace_back( p );
+                    // candidates.emplace_back( p );
                 }
             }
         }
@@ -340,7 +340,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
 }
 
 Result Slip::Parse::parse( Ast::Environment* env, Ast::LexNode* atom, Ast::Expr** out ) {
-    return parse1(env, atom, Parse::Flags::RValue, out);
+    return parse1( env, atom, Parse::Flags::RValue, out );
 }
 
 static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
@@ -760,7 +760,7 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
                 auto loc = fmtLex->m_loc;
                 loc.m_end = loc.m_start + sp;
                 loc.m_start += cur;
-                parts.emplace_back( new Ast::String( fmt.substr( cur, sp-cur ), WITH( _.m_loc = loc ) ) );
+                parts.emplace_back( new Ast::String( fmt.substr( cur, sp - cur ), WITH( _.m_loc = loc ) ) );
             }
             Io::TextInput input( fmtLex->m_loc.m_file->m_contents.data(), fmt.data() + sp + 1, fmt.data() + ep, fmtLex->m_loc.m_file );
             Ast::LexNode* node;
@@ -780,7 +780,7 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
     std::vector<Ast::Expr*> tostringExprs;
     auto itostring = "tostring"_istr;
     env->lookupAll( itostring, tostringExprs );
-    //TODO: don't tostring & stringjoin everything inline, pass literal string fragments
+    // TODO: don't tostring & stringjoin everything inline, pass literal string fragments
     // and reflected pointers to the expression values
     std::vector<Ast::Expr*> sparts;
     for( auto part : parts ) {
@@ -840,10 +840,10 @@ struct Parse::ArrayView {
     }
 
    protected:
-       // TODO add declcontext to decls
+    // TODO add declcontext to decls
     static inline istring s_nameFromKind[] = {"builtin_array_view"_istr, "builtin_array_fixed"_istr, "builtin_array_heap"_istr};
 
-    static Ast::GenericDecl* makeGeneric(Kind kind) {
+    static Ast::GenericDecl* makeGeneric( Kind kind ) {
         auto g = new Ast::GenericDecl( s_nameFromKind[(int)kind], Ast::fixMeDeclContext, WITH() );
         g->params_.push_back( new Ast::Parameter( "T"_istr, g, WITH( _.m_type = &Ast::s_typeType ) ) );
         if( kind == Kind::Fixed ) {
@@ -852,11 +852,12 @@ struct Parse::ArrayView {
         return g;
     }
 
-    static Result instantiate_internal( istring name, Ast::Environment* env, Kind kind /*fixme*/, Ast::Type* t, Ast::LexNumber* count, Ast::GenericDecl* genericDecl, Ast::Type** out ) {
+    static Result instantiate_internal( istring name, Ast::Environment* env, Kind kind /*fixme*/, Ast::Type* t, Ast::LexNumber* count,
+                                        Ast::GenericDecl* genericDecl, Ast::Type** out ) {
         *out = nullptr;
         auto r = new Ast::Type( name, Ast::fixMeDeclContext );
         r->m_array = t;
-        r->generic_ = new Ast::GenericInstantiation(WITH(_.decl_ = genericDecl));
+        r->generic_ = new Ast::GenericInstantiation( WITH( _.decl_ = genericDecl ) );
         r->generic_->args_.push_back( t );
         if( count ) {
             r->generic_->args_.push_back( count );
@@ -865,7 +866,8 @@ struct Parse::ArrayView {
 
         {
             auto ftype = _makeFuncType( string_format( "(%s)->int", name.c_str() ), &Ast::s_typeInt, r );
-            auto fdecl = new Ast::FunctionDecl( "size"_istr, r, WITH( _.m_type = ftype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            auto fdecl =
+                new Ast::FunctionDecl( "size"_istr, r, WITH( _.m_type = ftype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
             fdecl->m_params.emplace_back( new Ast::Parameter( "self"_istr, fdecl, WITH( _.m_type = r ) ) );
             r->m_methods.emplace_back( fdecl );
         }
@@ -884,7 +886,8 @@ struct Parse::ArrayView {
             RETURN_IF_FAILED( ResultT_instantiate( env->module(), t, &resultT ) );
             auto gettype =
                 _makeFuncType( string_format( "(%s,int)->{result %s}", name.c_str(), t->name().c_str() ), resultT, r, &Ast::s_typeInt );
-            auto getdecl = new Ast::FunctionDecl( "get"_istr, r, WITH( _.m_type = gettype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
+            auto getdecl =
+                new Ast::FunctionDecl( "get"_istr, r, WITH( _.m_type = gettype, _.m_intrinsic = Ast::FunctionDecl::NotImplemented ) );
             getdecl->m_params.emplace_back( new Ast::Parameter( "self"_istr, getdecl, WITH( _.m_type = r ) ) );
             getdecl->m_params.emplace_back( new Ast::Parameter( "idx"_istr, getdecl, WITH( _.m_type = &Ast::s_typeInt ) ) );
             r->m_methods.emplace_back( getdecl );
@@ -929,7 +932,7 @@ struct Parse::ArrayView {
         Ast::Expr* param;
         RETURN_IF_FAILED( env->lookup( lparam->text(), &param ) );
         auto type = dynamic_cast<Ast::Type*>( param );
-        RETURN_ERROR_IF(type==nullptr, Error::TypeExpected, param->m_loc, "Array of non-type");
+        RETURN_ERROR_IF( type == nullptr, Error::TypeExpected, param->m_loc, "Array of non-type" );
 
         auto name = istring::make( string_format( "{%s %s%s}", s_nameFromKind[(int)kind].c_str(), type->name(), count.c_str() ) );
 
@@ -951,7 +954,7 @@ Slip::Result Slip::Parse::ResultT_instantiate( Ast::Module* mod, Ast::Type* t, A
                                             r->m_sum.emplace_back( t );
                                             r->m_sum.emplace_back( &Ast::s_typeError );
                                             r->generic_ = new Ast::GenericInstantiation( WITH( _.decl_ = s_resultTDecl ) );
-                                            r->generic_->args_.push_back( new Ast::Parameter(t->name(), r, WITH( _.m_type = t)) );
+                                            r->generic_->args_.push_back( new Ast::Parameter( t->name(), r, WITH( _.m_type = t ) ) );
                                             *ret = r;
                                             return Result::OK;
                                         },
@@ -1004,34 +1007,34 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addBuiltin( env, "array_heap"_istr, lang0, &ArrayView::parse_ArrayHeap );
         addBuiltin( env, "result"_istr, lang0, &parse_ResultT );
         {
-            auto d = new Ast::GenericDecl("builtin_Result"_istr, lang0, WITH());
+            auto d = new Ast::GenericDecl( "builtin_Result"_istr, lang0, WITH() );
             d->params_.push_back( new Ast::Parameter( "T"_istr, d, WITH( _.m_type = &Ast::s_typeType ) ) );
             d->environment_ = env;
             s_resultTDecl = d;
         }
         {
             static const Io::SourceNameAndContents generic{"generic.slip",
-            "(generic (TYPE:Type)\n"
-            "  (union result\n"
-            "    ok:TYPE\n"
-            "    fail:i32))\n"};
+                                                           "(generic (TYPE:Type)\n"
+                                                           "  (union result\n"
+                                                           "    ok:TYPE\n"
+                                                           "    fail:i32))\n"};
             const auto& s = generic.m_contents;
-            Io::TextInput input{s.c_str(), s.c_str()+s.size(), &generic};
+            Io::TextInput input{s.c_str(), s.c_str() + s.size(), &generic};
             Ast::LexNode* lex;
-            Slip::Ast::lex_atom(input, &lex);
-            Ast::LexList* list = dynamic_cast<Ast::LexList*>(lex);
-            assert(list);
+            Slip::Ast::lex_atom( input, &lex );
+            Ast::LexList* list = dynamic_cast<Ast::LexList*>( lex );
+            assert( list );
             Ast::LexList* args;
             Ast::LexNode* body;
-            matchLex(env, list, &args, &body);
+            matchLex( env, list, &args, &body );
             auto decl = new Ast::GenericDecl( "result"_istr, lang0,
                                               WITH(  // TODO
                                                   _.environment_ = env, _.body_ = body ) );
             std::vector<Ast::Parameter*>& params = decl->params_;
             for( auto a : args->m_items ) {
-                auto li = dynamic_cast<Ast::LexIdent*>(a);
-                assert(li);
-                params.push_back(new Ast::Parameter(li->istr(), decl, WITH(_.m_type = &Ast::s_typeType))); //todo parse type
+                auto li = dynamic_cast<Ast::LexIdent*>( a );
+                assert( li );
+                params.push_back( new Ast::Parameter( li->istr(), decl, WITH( _.m_type = &Ast::s_typeType ) ) );  // todo parse type
             }
             // env->bind( "result"_sv, decl );
         }

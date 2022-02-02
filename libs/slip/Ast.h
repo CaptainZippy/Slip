@@ -12,7 +12,7 @@ namespace Slip::Ast {
     REFLECT_DECL_VT(); \
     int tag() const override
 
-static constexpr Expr* fixMeDeclContext{nullptr};
+    static constexpr Expr* fixMeDeclContext{nullptr};
 
     namespace Flags {
         const unsigned Hidden = 0;  // Default is "ref"
@@ -69,7 +69,7 @@ static constexpr Expr* fixMeDeclContext{nullptr};
         }
         istring istr() const {
             auto s = m_loc.m_file->m_contents.c_str();
-            return istring::make(s + m_loc.m_start, m_loc.m_end - m_loc.m_start);
+            return istring::make( s + m_loc.m_start, m_loc.m_end - m_loc.m_start );
         }
     };
 
@@ -124,7 +124,7 @@ static constexpr Expr* fixMeDeclContext{nullptr};
         AST_DECL();
         istring m_name{};
 
-        NamedDecl( istring name, Expr* declContext ) : Decl(declContext), m_name( name ) {}
+        NamedDecl( istring name, Expr* declContext ) : Decl( declContext ), m_name( name ) {}
 
         istring name() { return m_name; }
     };
