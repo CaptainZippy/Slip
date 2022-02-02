@@ -46,7 +46,7 @@ namespace Slip::Ast {
         size_t m_serial{s_serial++};
     };
 
-    struct LexNode : public Expr {
+    struct LexNode : Expr {
        public:
         AST_DECL();
         LexNode( const SourceLocation& loc ) : Expr( loc ) {}
@@ -67,7 +67,7 @@ namespace Slip::Ast {
         }
     };
 
-    struct LexDot : public LexNode {
+    struct LexDot : LexNode {
         AST_DECL();
         LexDot( LexNode* lhs, LexNode* rhs ) : m_lhs( lhs ), m_rhs( rhs ) {}
 
@@ -96,7 +96,7 @@ namespace Slip::Ast {
         LexNumber( const SourceLocation& loc ) : LexValue( loc ) {}
     };
 
-    struct LexList : public LexNode {
+    struct LexList : LexNode {
         AST_DECL();
         LexList( const SourceLocation& loc ) : LexNode( loc ) {}
         size_t size() const { return m_items.size(); }
@@ -201,7 +201,7 @@ namespace Slip::Ast {
         AST_DECL();
     };
 
-    struct Definition : public Named {
+    struct Definition : Named {
         AST_DECL();
 
         Expr* m_value = nullptr;
@@ -429,7 +429,7 @@ namespace Slip::Ast {
         std::vector<Stage> m_stages;
     };
 
-    struct Reference : public Expr {
+    struct Reference : Expr {
         AST_DECL();
         Reference( Expr* s ) : m_target( s ) {}
         Expr* resolve() override;
@@ -437,13 +437,13 @@ namespace Slip::Ast {
         Expr* m_target;
     };
 
-    struct Scope : public Expr {
+    struct Scope : Expr {
         AST_DECL();
         Scope( Expr* c ) : m_child( c ) {}
         Expr* m_child{nullptr};
     };
 
-    struct Selector : public Expr {
+    struct Selector : Expr {
         AST_DECL();
         template <typename With>
         Selector( Expr* l, LexIdent* r, With&& with ) : m_lhs( l ), m_rhs( r ) {
