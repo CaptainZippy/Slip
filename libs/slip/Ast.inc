@@ -1,5 +1,5 @@
 AST_NODE(Expr)
-AST_NODE(Named)
+AST_NODE(NamedDecl)
 
 AST_NODE(Assignment)
 AST_NODE(Block)

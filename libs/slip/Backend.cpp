@@ -537,7 +537,7 @@ namespace {
                 for( auto i : inst.second->generic_->args_ ) {
                     cname.append( sep );
                     sep = ",";
-                    if( auto n = dynamic_cast<Ast::Named*>( i ) ) {
+                    if( auto n = dynamic_cast<Ast::NamedDecl*>( i ) ) {
                         cname.append( sanitize(n->name()) );
                     } else if( auto c = dynamic_cast<Ast::LexNumber*>( i ) ) {
                         cname.append( c->text() );

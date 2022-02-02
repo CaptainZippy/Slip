@@ -182,7 +182,9 @@
     <None Include="..\..\.gitignore" />
     <None Include="..\..\meson.build" />
     <None Include="..\..\stl.natjmc" />
-    <None Include="Ast.inc" />
+    <ClInclude Include="Ast.inc">
+      <FileType>Document</FileType>
+    </ClInclude>
     <None Include="Errors.inc" />
   </ItemGroup>
   <ItemGroup>

@@ -24,7 +24,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Block )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_contents, Flags::Child )
     REFLECT_END()
 
@@ -41,7 +41,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( CoroutineDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_params, Flags::Child )
     // REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
     REFLECT_FIELD2( m_body, Flags::Child )
@@ -67,7 +67,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Module )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( exports_, Flags::Child )
     REFLECT_END()
 
@@ -82,7 +82,7 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_args, Flags::Child )
     REFLECT_END()
 
-    REFLECT_BEGIN( Named )
+    REFLECT_BEGIN( NamedDecl )
     REFLECT_PARENT( Expr )
     REFLECT_FIELD2( m_name, Flags::Abbrev )
     REFLECT_END()
@@ -106,7 +106,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( FunctionDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_params, Flags::Child )
     // REFLECT_FIELD2(m_declReturnTypeExpr, Flags::Child)
     REFLECT_FIELD2( m_body, Flags::Child )
@@ -119,13 +119,13 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( GenericInstantiation )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( args_, Flags::Child )
     REFLECT_FIELD2( decl_, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( GenericParameterRef )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_END()
 
     REFLECT_BEGIN( Builtin )
@@ -137,7 +137,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( MacroDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_params, Flags::Child )
     // REFLECT_FIELD2( m_body, Flags::Child )
     REFLECT_END()
@@ -150,14 +150,14 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( NamedFunctionCall )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_resolved, Flags::Hidden )
     REFLECT_FIELD2( m_candidates, Flags::Hidden )
     REFLECT_FIELD2( m_args, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( VariableDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_initializer, Flags::Child )
     REFLECT_END()
 
@@ -173,7 +173,7 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( Parameter )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_END()
 
     REFLECT_BEGIN( PipelineExpr )
@@ -202,16 +202,16 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( StructDecl )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_fields, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( StructField )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_END()
 
     REFLECT_BEGIN( Definition )
-    REFLECT_PARENT( Named )
+    REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_value, Flags::Child )
     REFLECT_END()
 
@@ -326,9 +326,9 @@ Ast::Type Ast::s_typeFloat( "float"_sv );
 Ast::Type Ast::s_typeVoid( "void"_sv );
 Ast::Type Ast::s_typeString( "builtin_string"_sv );
 
-Ast::Type::Type( string_view sym ) : Named( istring::make( sym ) ) {}
+Ast::Type::Type( string_view sym ) : NamedDecl( istring::make( sym ) ) {}
 
-Ast::Type::Type( istring sym ) : Named( sym ) {}
+Ast::Type::Type( istring sym ) : NamedDecl( sym ) {}
 
 static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
     if( auto f = top.type->toString ) {

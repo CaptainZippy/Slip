@@ -286,7 +286,7 @@ namespace Slip::Sema {
                 Result::failed( Error::OverloadResolutionFailed, n->m_loc, "For function call '%s)", proto.c_str() );
                 Slip::diagnostic( "Candidates are:\n" );
                 for( auto&& c : candidates ) {
-                    auto n = dynamic_cast<Ast::Named*>( c.node );
+                    auto n = dynamic_cast<Ast::NamedDecl*>( c.node );
                     auto av = make_array_view( n->m_type->m_callable );
                     std::string x = string_concat( av[0]->name().c_str(), " ", n ? n->name().c_str() : "?", "(" );
                     sep = "";
@@ -740,7 +740,7 @@ namespace Slip::Sema {
                         while( auto r = dynamic_cast<Ast::Reference*>( a ) ) {
                             a = r->m_target;
                         }
-                        if( auto na = dynamic_cast<Ast::Named*>( a ) ) {
+                        if( auto na = dynamic_cast<Ast::NamedDecl*>( a ) ) {
                             suffix.append( na->name() );
                         } else if( auto nu = dynamic_cast<Ast::Number*>( a ) ) {
                             suffix.append( nu->m_num );

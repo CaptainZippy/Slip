@@ -1116,7 +1116,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     for( auto c : lex.items() ) {
         Ast::Expr* e;
         RETURN_IF_FAILED( parse1( module->env(), c, Parse::Flags::RValue, &e ), "Failed to parse" );
-        Ast::Named* n;
+        Ast::NamedDecl* n;
         RETURN_IF_FAILED( dynCast( e, &n ) );
         module->addExport( n->name(), n );
     }
