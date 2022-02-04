@@ -14,23 +14,42 @@
 namespace Slip::Args {
 
     struct Parser {
-        using Action = std::function<void( string_view )>;
+        using ActionV = std::function<void( string_view )>;    // Action which cannot fail
+        using ActionR = std::function<Result( string_view )>;  // May fail
         struct Opt {
             string_view m_meta;  // e.g. --arg1=FOO, --arg2, --arg3 FOO BAR
             string_view m_key;   // The part to match, m_meta up to the first one of " ,.[=" e.g. "--arg"
             string_view m_help;  // Text for humans
-            Action m_action;
+            ActionV m_actionV;
+            ActionR m_actionR;
+            Result call( string_view val ) const {
+                if( m_actionR ) {
+                    RETURN_IF_FAILED( m_actionR( val ) );
+                } else {
+                    m_actionV( val );
+                }
+                return Result::OK;
+            }
         };
         std::vector<Opt> m_opts;
         std::vector<Opt> m_positional;
 
-        void add( string_view meta, string_view help, Action&& action ) {
+        Opt& _add( string_view meta, string_view help ) {
             auto& o = ( meta[0] == '-' ) ? m_opts.emplace_back() : m_positional.emplace_back();
             auto sl = meta.find_first_of( ". [=" );
             o.m_meta = meta;
             o.m_key = sl == std::string::npos ? meta : meta.substr( 0, sl );
             o.m_help = help;
-            o.m_action = move( action );
+            return o;
+        }
+
+        void addV( string_view meta, string_view help, ActionV&& action ) {
+            Opt& o = _add( meta, help );
+            o.m_actionV = move( action );
+        }
+        void addR( string_view meta, string_view help, ActionR&& action ) {
+            Opt& o = _add( meta, help );
+            o.m_actionR = move( action );
         }
 
         Result parse( array_view<const char*> args ) {
@@ -47,7 +66,7 @@ namespace Slip::Args {
                     bool found = false;
                     for( auto&& opt : m_opts ) {
                         if( opt.m_key == key ) {
-                            opt.m_action( val );
+                            RETURN_IF_FAILED( opt.call( val ) );
                             found = true;
                             break;
                         }
@@ -56,7 +75,7 @@ namespace Slip::Args {
                 } else {  // positional
                     RETURN_ERROR_IF( positionals.empty(), Error::ExtraPositionalCmdlineArgument, Io::SourceLocation(), "'%s'",
                                      key_val.data() );
-                    positionals.front().m_action( key_val );
+                    RETURN_IF_FAILED( positionals.front().call( key_val ) );
                     // don't consume variadic positionals
                     if( positionals.back().m_meta.find( "..." ) == string_view::npos ) {
                         positionals = positionals.ltrim( 1 );
@@ -208,20 +227,51 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
     using namespace Slip;
     auto parser = Args::Parser();
     auto args = Args::Args();
-    parser.add( "--dump-parse"_sv, "Debug print each module after parsing"_sv, [&args]( string_view v ) { args.dumpParse = true; } );
-    parser.add( "--dump-infer", "Debug print each module after type inference"_sv, [&args]( string_view v ) { args.dumpInfer = true; } );
-    parser.add( "-h", "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
-    parser.add( "--help", "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
-    parser.add( "--nop[=ignored]", "Ignore this argument", []( string_view v ) { /*ignore arg*/ } );
-    parser.add( "--output-dir=dir", "Output to specified directory", [&args]( string_view v ) { args.outputDir = v; } );
-    parser.add( "--tap", "Use TAP test mode", [&args]( string_view v ) {
+    auto smanager = Io::makeSourceManager();
+
+    parser.addV( "--dump-parse"_sv, "Debug print each module after parsing"_sv, [&args]( string_view v ) { args.dumpParse = true; } );
+    parser.addV( "--dump-infer"_sv, "Debug print each module after type inference"_sv,
+                 [&args]( string_view v ) { args.dumpInfer = true; } );
+    parser.addR( "--options-file=file"_sv, "Read arguments from the given file"_sv, [&parser, &args, &smanager]( string_view v ) -> Result {
+        Io::TextInput text;
+        RETURN_IF_FAILED( smanager->load( std::string( v ).c_str(), text ) );
+        std::vector<const char*> items;
+        std::deque<std::string> parts;
+        while( true ) {
+            text.eatwhite();
+            if( !text.available() )
+                break;
+            const char* start = text.cur;
+            const char* end = start;
+            for( int c = text.next(); c >= 0; c = text.next() ) {
+                if( isspace(c) ) {
+                    end = text.cur;
+                    break;
+                } else if( c == '#' ) {
+                    end = text.cur;
+                    for( int d = text.next(); d >= 0 && d != '\n'; d = text.next() ) {
+                    }
+                    break;
+                }
+            }
+            if( start != end ) {
+                parts.push_back( std::string{start, end} );
+                items.push_back( parts.back().data() );
+            }
+        }
+        RETURN_IF_FAILED( parser.parse( items ) );
+        return Result::OK;
+    } );
+    parser.addV( "-h"_sv, "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
+    parser.addV( "--help"_sv, "Show help"_sv, [&parser]( string_view v ) { parser.help(); } );
+    parser.addV( "--nop[=ignored]"_sv, "Ignore this argument"_sv, []( string_view v ) { /*ignore arg*/ } );
+    parser.addV( "--output-dir=dir"_sv, "Output to specified directory"_sv, [&args]( string_view v ) { args.outputDir = v; } );
+    parser.addV( "--tap"_sv, "Use TAP test mode"_sv, [&args]( string_view v ) {
         args.tapTest = true;
         set_diagnostic_fn( &Tap::diagnosticv );
     } );
-    parser.add( "input...", "Input files to compile", [&args]( string_view v ) { args.inputs.emplace_back( v ); } );
+    parser.addV( "input..."_sv, "Input files to compile"_sv, [&args]( string_view v ) { args.inputs.emplace_back( v ); } );
     RETURN_IF_FAILED( parser.parse( make_array_view( argv + 1, argc - 1 ) ) );
-
-    auto smanager = Io::makeSourceManager();
 
     if( args.tapTest == false ) {
         for( auto input : args.inputs ) {
