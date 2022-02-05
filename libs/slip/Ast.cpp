@@ -404,7 +404,7 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
 }
 
 void Ast::print( Expr* node ) {
-    Io::TextOutput out;
+    Io::TextOutput out{Io::TextOutput::Stdout};
     Reflect::Var top{node};
     ::print( top, out, false );
     out.nl();

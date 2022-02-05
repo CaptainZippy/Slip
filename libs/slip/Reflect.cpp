@@ -78,7 +78,7 @@ namespace Slip::Reflect {
 }  // namespace Slip::Reflect
 
 void Slip::Reflect::printVar( Var top ) {
-    Io::TextOutput output;
+    Io::TextOutput output{Io::TextOutput::Stdout};
     Detail::printVar( output, top );
     output.nl();
 }

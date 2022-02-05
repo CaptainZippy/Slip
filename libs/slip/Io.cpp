@@ -59,6 +59,10 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
 }
 
 namespace {
+    struct NullImpl : Slip::Io::TextOutput::Impl {
+        virtual void put( string_view s ) override {}
+    };
+
     struct FileImpl : Slip::Io::TextOutput::Impl {
         FILE* m_file;
         bool m_close;
@@ -82,11 +86,41 @@ namespace {
 Slip::Io::TextOutput::Impl::~Impl() {}
 Slip::Io::TextOutput::~TextOutput() { reinterpret_cast<Impl*>( m_impl )->~Impl(); }
 
-Slip::Io::TextOutput::TextOutput() { new( m_impl ) FileImpl( stdout, false ); }
+Slip::Io::TextOutput::TextOutput( StdStream s ) {
+    new( m_impl ) NullImpl();
+    open( s );
+}
 
-Slip::Io::TextOutput::TextOutput( const char* fname ) { new( m_impl ) FileImpl( fopen( fname, "w" ), true ); }
+Slip::Io::TextOutput::TextOutput( std::vector<char>* vec ) {
+    new( m_impl ) NullImpl();
+    open( vec );
+}
 
-Slip::Io::TextOutput::TextOutput( std::vector<char>* vec ) { new( m_impl ) VecImpl( vec ); }
+Result Slip::Io::TextOutput::open( Io::TextOutput::StdStream s ) {
+    close();
+    new( m_impl ) FileImpl( stdout, false );
+    return Result::OK;
+}
+
+Result Slip::Io::TextOutput::open( const char* fname ) {
+    RETURN_IF_FAILED( close() );
+    FILE* fout = fopen( fname, "w" );
+    RETURN_ERROR_IF_FAILED( !fout, Error::FileNotFound, Io::SourceLocation(), "Unable to open %s for write", fname );
+    new( m_impl ) FileImpl( fout, true );
+    return Result::OK;
+}
+
+Result Slip::Io::TextOutput::open( std::vector<char>* vec ) {
+    close();
+    new( m_impl ) VecImpl( vec );
+    return Result::OK;
+}
+
+Result Slip::Io::TextOutput::close() {
+    reinterpret_cast<Impl*>( m_impl )->~Impl();  // todo check fail on close (flush)
+    new( m_impl ) NullImpl();
+    return Result::OK;
+}
 
 void Slip::Io::TextOutput::_writeImpl( std::string_view s ) { reinterpret_cast<Impl*>( m_impl )->put( s ); }
 

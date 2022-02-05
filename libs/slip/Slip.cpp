@@ -151,7 +151,8 @@ static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManag
     if( suff != std::string::npos ) {
         path.remove_suffix( path.size() - suff );
     }
-    Io::TextOutput out{string_concat( args.outputDir, "/", path, ".cpp" ).c_str()};
+    Io::TextOutput out;
+    RETURN_IF_FAILED( out.open(string_concat( args.outputDir, "/", path, ".cpp" ).c_str() ) );
     RETURN_IF_FAILED( Backend::generate( *ast, out ) );
     return Result::OK;
 }
@@ -253,7 +254,7 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
                     }
                     break;
                 } else if( c < 0 ) {
-                    end - text.cur;
+                    end = text.cur;
                     break;
                 }
             }

@@ -14,12 +14,22 @@ namespace Slip::Io {
             Start,
             Mid,
         };
+        enum StdStream {
+            Stdout,
+        };
+
+
         State m_state{State::Normal};
 
-        TextOutput( /*stdout*/ );
-        TextOutput( const char* fname );
+        TextOutput( StdStream s );
         TextOutput( std::vector<char>* txt );
         ~TextOutput();
+
+        // close current stream and open another
+        Result open( StdStream s );
+        Result open( const char* fname );
+        Result open( std::vector<char>* txt );
+        Result close();
 
         void begin( string_view s ) {
             write( s );
@@ -39,6 +49,7 @@ namespace Slip::Io {
             m_state = State::Start;
         }
 
+       private:
         /// Raw Write
         void _write( string_view s );
         void _writeImpl( string_view s );
