@@ -232,7 +232,7 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
     parser.addV( "--dump-parse"_sv, "Debug print each module after parsing"_sv, [&args]( string_view v ) { args.dumpParse = true; } );
     parser.addV( "--dump-infer"_sv, "Debug print each module after type inference"_sv,
                  [&args]( string_view v ) { args.dumpInfer = true; } );
-    parser.addR( "--options-file=file"_sv, "Read arguments from the given file"_sv, [&parser, &args, &smanager]( string_view v ) -> Result {
+    parser.addR( "--options-file=file"_sv, "Read arguments from the given file"_sv, [&parser, &smanager]( string_view v ) -> Result {
         Io::TextInput text;
         RETURN_IF_FAILED( smanager->load( std::string( v ).c_str(), text ) );
         std::vector<const char*> items;
@@ -243,14 +243,17 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
                 break;
             const char* start = text.cur;
             const char* end = start;
-            for( int c = text.next(); c >= 0; c = text.next() ) {
+            for( int c = text.next(); true; c = text.next() ) {
                 if( isspace(c) ) {
-                    end = text.cur;
+                    end = text.cur - 1;
                     break;
                 } else if( c == '#' ) {
-                    end = text.cur;
+                    end = text.cur - 1;
                     for( int d = text.next(); d >= 0 && d != '\n'; d = text.next() ) {
                     }
+                    break;
+                } else if( c < 0 ) {
+                    end - text.cur;
                     break;
                 }
             }
