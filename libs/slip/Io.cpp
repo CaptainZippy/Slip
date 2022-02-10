@@ -86,6 +86,10 @@ namespace {
 Slip::Io::TextOutput::Impl::~Impl() {}
 Slip::Io::TextOutput::~TextOutput() { reinterpret_cast<Impl*>( m_impl )->~Impl(); }
 
+Slip::Io::TextOutput::TextOutput() {
+    new( m_impl ) NullImpl();
+}
+
 Slip::Io::TextOutput::TextOutput( StdStream s ) {
     new( m_impl ) NullImpl();
     open( s );

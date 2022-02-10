@@ -21,6 +21,7 @@ namespace Slip::Io {
 
         State m_state{State::Normal};
 
+        TextOutput();
         TextOutput( StdStream s );
         TextOutput( std::vector<char>* txt );
         ~TextOutput();
