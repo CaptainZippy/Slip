@@ -26,9 +26,9 @@
     <ClInclude Include="Io.h" />
     <ClInclude Include="Func.h" />
     <ClInclude Include="Errors.h" />
+    <ClInclude Include="Ast.inc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Ast.inc" />
     <None Include="Errors.inc" />
     <None Include="..\..\.clang-format">
       <Filter>other</Filter>
@@ -58,5 +58,10 @@
     <Natvis Include="..\..\slip.natvis">
       <Filter>other</Filter>
     </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="S:\Slip\bench\_debug_cmdline.txt">
+      <Filter>other</Filter>
+    </Text>
   </ItemGroup>
 </Project>

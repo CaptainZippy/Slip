@@ -191,6 +191,9 @@
     <Natvis Include="$(VSInstallDir)\Common7\Packages\Debugger\Visualizers\stl.natvis" />
     <Natvis Include="..\..\slip.natvis" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="S:\Slip\bench\_debug_cmdline.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -72,11 +72,12 @@ namespace {
         Result operator()( Ast::Nop* n, Ast::Environment* env ) { return Result::OK; }
 
         Result operator()( Ast::Number* n, Ast::Environment* env ) {
-            assert( n->m_type == &Ast::s_typeInt );
+            RETURN_ERROR_IF( n->m_type != &Ast::s_typeInt, Error::NotImplemented, n->m_loc, "Only int supported here" );
             auto s = n->m_num.data();
             auto e = s + n->m_num.size();
             auto i = strtoll( s, &e, 10 );  // todo error
             stack_.pushInt( i );
+
             return Result::OK;
         }
 

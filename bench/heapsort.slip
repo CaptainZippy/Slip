@@ -2,7 +2,7 @@
 ; int last = 42;
 
 ; todo generator
-;(coro random (max:double):double
+;(coro rngstate (max:double):double
 ;    (const IM:int 139968)
 ;    (const IA:int 3877)
 ;    (const IC:int 29573)
@@ -13,14 +13,14 @@
 ;            (muld max (dfromi last))
 ;            (dfromi IM)))))
 
-(struct random
+(struct rngstate
     last:int
     max:double)
 
-(func make_random (max:double):random
-    (var ret:random 42 max))
+(func make_rngstate (max:double):rngstate
+    (var ret:rngstate 42 max))
 
-(func next (ran:@ref random):double
+(func next (ran:@ref rngstate):double
     (const IM:int 139968)
     (const IA:int 3877)
     (const IC:int 29573)
@@ -31,7 +31,7 @@
 
 (func main (argv:(array_view string)):int
     (puts "hello ")
-    (var r (make_random 10))
+    (var r (make_rngstate 10))
     (puti r.last)
     (putd r.max)
     (putd (next r))

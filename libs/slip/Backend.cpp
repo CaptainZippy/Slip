@@ -24,30 +24,32 @@ namespace {
         int m_val{-1};
     };
     struct Generator {
-        Io::TextOutput& out;
-        std::unordered_map<Ast::Expr*, istring> dispatched;
+        std::vector<char> body_;
+        Io::TextOutput out;
+        std::unordered_map<Ast::Expr*, istring> dispatched_;
+        std::vector<std::string> decls_;
         int m_counter = 1;
         TriBool m_outerFuncCanFail;
 
-        Generator( Io::TextOutput& o ) : out( o ) {
+        Generator() {
             // populate "dispatched" with intrinsics
         }
 
         std::string newVarId() { return string_format( "_%i", m_counter++ ); }
 
         void addName( Ast::Expr* n, istring name ) {
-            auto it = dispatched.emplace( n, name );
+            auto it = dispatched_.emplace( n, name );
             assert( it.second );  // assert we inserted a new
         }
 
         std::string dispatch( Ast::Expr* n ) {
-            auto it = dispatched.find( n );
-            if( it != dispatched.end() ) {
+            auto it = dispatched_.find( n );
+            if( it != dispatched_.end() ) {
                 return it->second.std_str();
             }
             auto s = Ast::dispatch<std::string>( n, *this );
             if( s.size() ) {
-                dispatched.emplace( n, istring::make( s ) );
+                dispatched_.emplace( n, istring::make( s ) );
             }
             return s;
         }
@@ -274,7 +276,7 @@ namespace {
             if( n->m_intrinsic ) {
                 return sanitize( name );
             }
-            if( n->name() != "main"_sv ) {
+            if( true || n->name() != "main"_sv ) {
                 for( auto p : n->m_params ) {
                     assert( p->m_type );
                     assert( p->m_name.c_str() );
@@ -413,6 +415,7 @@ namespace {
 
         std::string operator()( Ast::StructDecl* n ) {
             out.begin( string_concat( "struct ", n->name(), " {\n" ) );
+            decls_.push_back( string_concat( "struct ", n->name(), ";\n" ) );
             for( auto f : n->m_fields ) {
                 out.write( string_concat( sanitize( f->m_type->name() ), " ", f->name(), ";\n" ) );
             }
@@ -428,7 +431,7 @@ namespace {
             return string_concat( rhs, ".ok" );
         }
 
-        std::string operator()( Ast::Module* n ) {
+        static void _boilerplate( Io::TextOutput& out ) {
             out.begin( "#include<stdio.h>\n" );
             out.write( "#include<string>\n" );
             out.write( "#include<array>\n" );
@@ -530,6 +533,23 @@ namespace {
             out.write( "inline int bitops_40lsl(int a, int b) { return a<<b; } \n" );
             out.write( "inline int bitops_40asr(int a, int b) { return a>>b; } \n" );
             out.write( "inline int bitops_40lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
+        }
+
+        std::string operator()( Ast::Module* n ) {
+            std::vector<char> pass1;
+            out.open( &pass1 );
+            for( auto n : n->exports() ) {
+                dispatch( n.expr );
+            }
+
+            // forward declare decls
+            out.open( &body_ );
+            _boilerplate( out );
+            for( auto decl : decls_ ) {
+                out.write( decl );
+                out.write( "//OK\n" );
+            }
+            out.write( "//OK2\n" );
 
             for( auto inst : n->instantiations() ) {
                 if( inst.second->generic_ == nullptr ) {
@@ -552,15 +572,15 @@ namespace {
                 out.write( string_format( "typedef %s< %s > %s;\n", inst.second->generic_->decl_->m_name.c_str(), cname.c_str(),
                                           sanitize( inst.first ).c_str() ) );
             }
-
-            out.begin( string_concat( "namespace ", n->m_name, " {" ) );
+            out.write( {pass1.data(), pass1.size()} );
 
             istring mainStr = istring::make( "main" );
+            istring mainSym;
             int mainKind = -1;
             for( auto n : n->exports() ) {
-                dispatch( n.expr );
                 if( n.name == mainStr ) {
                     if( auto fd = dynamic_cast<Ast::FunctionDecl*>( n.expr ) ) {
+                        mainSym = dispatched_[fd];
                         mainKind = fd->m_params.size() ? 1 : 0;
                     }
                 }
@@ -569,37 +589,41 @@ namespace {
             switch( mainKind ) {
                 case 0:
                     out.write(
-                        "int main_entry(int argc, const char** argv) {\n"
-                        "   return main();\n"
-                        "}" );
+                        string_format( "int %s_main_entry(int argc, const char** argv) {\n"
+                                       "   return %s();\n"
+                                       "}",
+                                       n->name().c_str(), mainSym.c_str() ) );
                     break;
                 case 1:
                     out.write(
-                        "int main_entry(int argc, const char** argv) {\n"
-                        "   std::vector<builtin__string> args;\n"
-                        "   for( int i = 0; i < argc; ++i ) {\n"
-                        "       args.emplace_back(argv[i]);\n"
-                        "   }\n"
-                        "   builtin_array_view<builtin__string> view{args.data(), args.size()};\n"
-                        "   return main(view);\n"
-                        "}" );
+                        string_format( "int %s_main_entry(int argc, const char** argv) {\n"
+                                       "   std::vector<builtin__string> args;\n"
+                                       "   for( int i = 0; i < argc; ++i ) {\n"
+                                       "       args.emplace_back(argv[i]);\n"
+                                       "   }\n"
+                                       "   builtin_array_view<builtin__string> view{args.data(), args.size()};\n"
+                                       "   return %s(view);\n"
+                                       "}",
+                                       n->name().c_str(), mainSym.c_str() ) );
                     break;
                 default:
                     break;
             }
             if( mainKind != -1 ) {
-                out.write( string_concat( "\nstatic MainReg mainreg(\"", n->m_name, "\", &main_entry );\n" ) );
+                out.write(
+                    string_concat( "\nstatic MainReg ", n->m_name, "_mainreg(\"", n->m_name, "\", &", n->m_name, "_main_entry );\n" ) );
             }
-
-            out.end( "}\n" );
-
             return "";
         }
+
+        void write( Io::TextOutput& txt ) { txt.write( {body_.data(), body_.size()} ); }
     };
 }  // namespace
 
 Slip::Result Slip::Backend::generate( Ast::Module& module, Io::TextOutput& out ) {
-    Generator g{out};
-    Ast::dispatch<std::string>( &module, g );
+    Generator gen;
+    Ast::dispatch<std::string>( &module, gen );
+    gen.write( out );
+
     return Result::OK;
 }

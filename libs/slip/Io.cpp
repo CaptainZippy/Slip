@@ -60,7 +60,7 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
 
 namespace {
     struct NullImpl : Slip::Io::TextOutput::Impl {
-        virtual void put( string_view s ) override {}
+        virtual void put( string_view s ) override { __debugbreak(); }
     };
 
     struct FileImpl : Slip::Io::TextOutput::Impl {
@@ -86,9 +86,7 @@ namespace {
 Slip::Io::TextOutput::Impl::~Impl() {}
 Slip::Io::TextOutput::~TextOutput() { reinterpret_cast<Impl*>( m_impl )->~Impl(); }
 
-Slip::Io::TextOutput::TextOutput() {
-    new( m_impl ) NullImpl();
-}
+Slip::Io::TextOutput::TextOutput() { new( m_impl ) NullImpl(); }
 
 Slip::Io::TextOutput::TextOutput( StdStream s ) {
     new( m_impl ) NullImpl();

@@ -8,10 +8,26 @@
     mass: f64
 )
 
+(func daysPerYear(n:double):double
+        (muld n 365.24) )
+
+(func solarMass(n:double):double
+    (muld n 39.478417604357434475337963999505) )
 
 (func main (args:(array_view string)):int
     (let n (catch (pipe (get args 1) (parsei)) 1000))
-    ;(var bodies: (array_fixed Planet 1) 0)
+    ;(var bodies: (array_fixed Planet 1)
+    ;    (0))
+
+    (var jupiter:Planet
+         4.84143144246472090
+        -1.16032004402742839
+        -0.103622044471123109
+        (daysPerYear 0.00166007664274403694)
+        (daysPerYear 0.00769901118419740425)
+        (daysPerYear -0.0000690460016972063023)
+        (solarMass 0.000954791938424326609)
+    )
 
     (puti n)
     0
