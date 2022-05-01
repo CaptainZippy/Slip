@@ -107,7 +107,7 @@ namespace Slip::Io {
                 ++cur;
             }
         }
-        bool available() const { return cur != end; }
+        bool available(int count=1) const { return (cur + count) <= end; }
         int peek() const {
             assert( cur < end );
             return *cur;
@@ -116,6 +116,12 @@ namespace Slip::Io {
             if( cur == end )
                 return -1;
             return *cur++;
+        }
+        Result skip(int n) {
+            if( cur+n > end )
+                return -1;
+            cur += n;
+            return Result::OK;
         }
         long tell() const { return safe_cast( cur - start ); }
         long tellEnd() const { return safe_cast( end - start ); }

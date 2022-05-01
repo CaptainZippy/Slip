@@ -52,6 +52,23 @@ namespace Slip::Ast {
 
 using namespace Slip;
 
+static Slip::Result read_past_delimiter( Io::TextInput& in, char delim ) {
+    int start = in.tell();
+    while( 1 ) {
+        switch( auto cur = in.next() ) {
+            case -1:
+                RETURN_ERROR( Error::LexPrematureEndOfFile, in.location( start ), "End of file reached while parsing string" );
+            case 0:
+                RETURN_ERROR( Error::LexInvalidCharacter, in.location( start ), "Null in string" );
+            default:
+                if( cur == delim ) {
+                    return Result::OK;
+                }
+                break;
+        }
+    }
+}
+
 Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
     *atom = nullptr;
     while( in.available() ) {
@@ -124,29 +141,30 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                 *atom = new LexNumber( in.location( start, in.tell() ) );
                 return Result::OK;
             }
-            case '\'':
+            case '\'': {  // delimted string - 'abc{string_contents}abc'
+                in.next();
+                auto headDelim = in.tell();
+                RETURN_IF_FAILED( read_past_delimiter( in, '{' ) );
+                auto stringStart = in.tell();
+                int countDelim = stringStart - headDelim - 1;
+                while( true ) {
+                    RETURN_IF_FAILED( read_past_delimiter( in, '}' ) );
+                    RETURN_ERROR_IF( in.available( countDelim + 1 /*'*/ ) == false, Error::LexPrematureEndOfFile, in.location() );
+                    auto tailDelim = in.tell();
+                    if( in.start[tailDelim+countDelim]=='\'' && memcmp( in.start + headDelim, in.start + tailDelim, countDelim ) == 0 ) {
+                        in.skip( countDelim + 1 );
+                        *atom = new LexString( in.location( stringStart, tailDelim-1 ) );
+                        return Result::OK;
+                    }
+                    in.next();
+                }
+            }
             case '"': {  // string
-                auto kind = in.peek();
                 auto start = in.tell();
                 in.next();
-                while( 1 ) {
-                    switch( auto cur = in.next() ) {
-                        case -1:
-                            RETURN_ERROR( Error::LexPrematureEndOfFile, in.location( start ), "End of file reached while parsing string" );
-                        case 0:
-                            RETURN_ERROR( Error::LexInvalidCharacter, in.location( start ), "Null in string" );
-                        case '\'':
-                        case '"': {
-                            if( kind == cur ) {
-                                *atom = new LexString( in.location( start + 1, in.tell() - 1 ) );
-                                return Result::OK;
-                            }
-                        }
-                        default:
-                            break;
-                    }
-                }
-                break;
+                RETURN_IF_FAILED( read_past_delimiter( in, '"' ) );
+                *atom = new LexString( in.location( start + 1, in.tell() - 1 ) );
+                return Result::OK;
             }
             case '#': {
                 auto start = in.tell();
