@@ -151,9 +151,10 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     RETURN_IF_FAILED( read_past_delimiter( in, '}' ) );
                     RETURN_ERROR_IF( in.available( countDelim + 1 /*'*/ ) == false, Error::LexPrematureEndOfFile, in.location() );
                     auto tailDelim = in.tell();
-                    if( in.start[tailDelim+countDelim]=='\'' && memcmp( in.start + headDelim, in.start + tailDelim, countDelim ) == 0 ) {
+                    if( in.start[tailDelim + countDelim] == '\'' &&
+                        memcmp( in.start + headDelim, in.start + tailDelim, countDelim ) == 0 ) {
                         in.skip( countDelim + 1 );
-                        *atom = new LexString( in.location( stringStart, tailDelim-1 ) );
+                        *atom = new LexString( in.location( stringStart, tailDelim - 1 ) );
                         return Result::OK;
                     }
                     in.next();

@@ -336,14 +336,14 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
             char* e = ( (char**)top.addr )[1];
             unsigned count = unsigned( ( e - s ) / et->size );
             for( unsigned i = 0; i < count; ++i ) {
-                Reflect::Var e{s + i * et->size, et};
+                Reflect::Var e{ s + i * et->size, et };
                 print( e, out, false );
             }
             break;
         }
         case Reflect::Kind::Record: {
             if( top.type->fields.empty() && top.type->parent ) {
-                print( {top.addr, top.type->parent}, out, abbrev );
+                print( { top.addr, top.type->parent }, out, abbrev );
                 return;
             }
             std::vector<const Reflect::Type*> chain;
@@ -387,7 +387,7 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
         case Reflect::Kind::Pointer: {
             if( void* obj = *(void**)top.addr ) {
                 auto sub = top.type->sub;
-                Reflect::Var e{obj, sub->dynamicType( obj )};
+                Reflect::Var e{ obj, sub->dynamicType( obj ) };
                 print( e, out, abbrev );
             } else {
                 out.write( "null" );
@@ -399,13 +399,15 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
             out.write( string_concat( "\"", s, "\"" ) );
             break;
         }
-        default: { assert( false ); }
+        default: {
+            assert( false );
+        }
     }
 }
 
 void Ast::print( Expr* node ) {
-    Io::TextOutput out{Io::TextOutput::Stdout};
-    Reflect::Var top{node};
+    Io::TextOutput out{ Io::TextOutput::Stdout };
+    Reflect::Var top{ node };
     ::print( top, out, false );
     out.nl();
 }
@@ -413,7 +415,7 @@ void Ast::print( Expr* node ) {
 void Ast::print( Expr* node, Io::TextOutput& out ) {
     if( !node )
         return;
-    Reflect::Var top{node};
+    Reflect::Var top{ node };
     ::print( top, out, false );
     out.nl();
 }

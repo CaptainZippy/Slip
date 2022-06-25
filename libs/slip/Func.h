@@ -54,11 +54,10 @@ namespace Slip {
         void operator=( const Func& ) = delete;
         Func& operator=( Func&& ) = default;
 
-        template <class Fun,                                                   // can be constructed from a callable F
-                  class = decltype( ( Ret )( std::declval<call_r<Fun>>() ) ),  // that can be invoked with Args... and converted-to-R:
-                  std::enable_if_t<!is_func<Fun>{}, int>* = nullptr>           // and is not this same type:
-        Func( Fun&& fun )
-            : m_pImpl( make_pimpl( std::forward<Fun>( fun ) ) ) {}
+        template <class Fun,                                                 // can be constructed from a callable F
+                  class = decltype( (Ret)( std::declval<call_r<Fun>>() ) ),  // that can be invoked with Args... and converted-to-R:
+                  std::enable_if_t<!is_func<Fun>{}, int>* = nullptr>         // and is not this same type:
+        Func( Fun&& fun ) : m_pImpl( make_pimpl( std::forward<Fun>( fun ) ) ) {}
 
         // the meat: the call operator
         Ret operator()( Args... args ) const { return m_pImpl->invoke( std::forward<Args>( args )... ); }

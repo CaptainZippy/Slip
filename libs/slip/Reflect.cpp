@@ -20,7 +20,7 @@ namespace Slip::Reflect {
                     auto obj = *(void**)top.addr;
                     if( obj ) {
                         auto sub = top.type->sub;
-                        Var e{obj, sub->dynamicType( obj )};
+                        Var e{ obj, sub->dynamicType( obj ) };
                         printVar( out, e );
                     } else {
                         out.write( "null" );
@@ -58,7 +58,7 @@ namespace Slip::Reflect {
                     for( unsigned i = 0; i < count; ++i ) {
                         if( i != 0 )
                             out.nl();
-                        Var e{s + i * et->size, et};
+                        Var e{ s + i * et->size, et };
                         printVar( out, e );
                     }
                     out.end( "]" );
@@ -78,7 +78,7 @@ namespace Slip::Reflect {
 }  // namespace Slip::Reflect
 
 void Slip::Reflect::printVar( Var top ) {
-    Io::TextOutput output{Io::TextOutput::Stdout};
+    Io::TextOutput output{ Io::TextOutput::Stdout };
     Detail::printVar( output, top );
     output.nl();
 }

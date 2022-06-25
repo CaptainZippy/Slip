@@ -39,12 +39,14 @@ namespace {
                         case OpCode::Add: {
                             assert( at( -2 ).kind_ == Kind::Int );
                             assert( at( -1 ).kind_ == Kind::Int );
-                            at( -3 ) = {Kind::Int, at( -2 ).val_ + at( -1 ).val_};
+                            at( -3 ) = { Kind::Int, at( -2 ).val_ + at( -1 ).val_ };
                             vals_.pop_back();
                             vals_.pop_back();
                             break;
                         }
-                        default: { assert( false ); }
+                        default: {
+                            assert( false );
+                        }
                     }
                 }
                 return Result::OK;

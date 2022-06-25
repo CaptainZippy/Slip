@@ -52,9 +52,9 @@ namespace Slip::Parse {
         T* begin() { return m_begin; }
         T* end() { return m_end; }
 
-        T* m_begin{nullptr};
-        T* m_end{nullptr};
-        T* m_start{nullptr};
+        T* m_begin{ nullptr };
+        T* m_end{ nullptr };
+        T* m_start{ nullptr };
     };
     typedef Iter<Ast::LexNode*> Args;
 
@@ -66,7 +66,7 @@ namespace Slip::Parse {
     template <typename... Args>
     static Ast::Type* _makeFuncType( string_view name, Args&&... args ) {
         auto r = new Ast::Type( istring::make( name ), Ast::fixMeDeclContext );
-        r->m_callable = {args...};
+        r->m_callable = { args... };
         return r;
     }
 
@@ -78,7 +78,7 @@ namespace Slip::Parse {
         auto n = istring::make( name );
         auto f = new Ast::FunctionDecl( n, Ast::fixMeDeclContext,
                                         WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = env ) );
-        char pname[2] = {'a', 0};
+        char pname[2] = { 'a', 0 };
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
             auto p = new Ast::Parameter( istring::make( pname ), f, WITH( _.m_type = at ) );
             f->m_params.emplace_back( p );
@@ -134,7 +134,7 @@ static Result matchLex( Ast::Environment* env, Parse::Args& args, HEAD** head, R
 
 template <typename... REST>
 static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest ) {
-    Parse::Args args{list->items()};
+    Parse::Args args{ list->items() };
     RETURN_ERROR_IF( args.empty(), Error::TooFewArguments, list->m_loc );
     args.advance();
     return matchLex( env, args, rest... );
@@ -184,7 +184,7 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
         localEnv->bind( macro->m_params[i]->name(), args[i] );
     }
     localEnv->bind( macro->m_dynEnvSym, env );
-    static Ast::Builtin expander{"expand"_istr, Ast::fixMeDeclContext, &macroExpand1};
+    static Ast::Builtin expander{ "expand"_istr, Ast::fixMeDeclContext, &macroExpand1 };
     localEnv->bind( "expand"_istr, &expander );
     std::vector<Ast::Expr*> body;
     for( auto&& b : macro->m_body ) {
@@ -211,7 +211,7 @@ static Result parse_Stringize( Ast::Environment* env, Ast::LexList* args, Ast::E
     std::vector<char> txt;
     Io::TextOutput txtout( &txt );
     Ast::print( lex1, txtout );
-    *out = new Ast::String( {txt.data(), txt.size()}, WITH( _.m_loc = expr1->m_loc ) );
+    *out = new Ast::String( { txt.data(), txt.size() }, WITH( _.m_loc = expr1->m_loc ) );
     return Result::OK;
 }
 
@@ -787,7 +787,7 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
         if( dynamic_cast<Ast::String*>( part ) ) {
             sparts.push_back( part );
         } else {
-            sparts.push_back( new Ast::NamedFunctionCall( itostring, Ast::fixMeDeclContext, tostringExprs, std::vector<Ast::Expr*>{part},
+            sparts.push_back( new Ast::NamedFunctionCall( itostring, Ast::fixMeDeclContext, tostringExprs, std::vector<Ast::Expr*>{ part },
                                                           WITH( _.m_loc = args->m_loc ) ) );
         }
     }
@@ -841,7 +841,7 @@ struct Parse::ArrayView {
 
    protected:
     // TODO add declcontext to decls
-    static inline istring s_nameFromKind[] = {"builtin_array_view"_istr, "builtin_array_fixed"_istr, "builtin_array_heap"_istr};
+    static inline istring s_nameFromKind[] = { "builtin_array_view"_istr, "builtin_array_fixed"_istr, "builtin_array_heap"_istr };
 
     static Ast::GenericDecl* makeGeneric( Kind kind ) {
         auto g = new Ast::GenericDecl( s_nameFromKind[(int)kind], Ast::fixMeDeclContext, WITH() );
@@ -920,7 +920,7 @@ struct Parse::ArrayView {
     static Result parse_internal( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out, Ast::GenericDecl* genericDecl, Kind kind ) {
         *out = nullptr;
         Ast::LexIdent* lparam;
-        Ast::LexNumber* lcount{nullptr};
+        Ast::LexNumber* lcount{ nullptr };
         std::string count;
         if( kind == Kind::Fixed ) {
             RETURN_IF_FAILED( matchLex( env, args, &lparam, &lcount ) );
@@ -948,17 +948,18 @@ static Ast::GenericDecl* s_resultTDecl{};
 
 Slip::Result Slip::Parse::ResultT_instantiate( Ast::Module* mod, Ast::Type* t, Ast::Type** out ) {
     auto name = istring::make( string_format( "{result %s}", t->name().c_str() ) );
-    RETURN_IF_FAILED( mod->instantiate( name,
-                                        [&]( Ast::Type** ret ) {
-                                            auto r = new Ast::Type( name, Ast::fixMeDeclContext );
-                                            r->m_sum.emplace_back( t );
-                                            r->m_sum.emplace_back( &Ast::s_typeError );
-                                            r->generic_ = new Ast::GenericInstantiation( WITH( _.decl_ = s_resultTDecl ) );
-                                            r->generic_->args_.push_back( new Ast::Parameter( t->name(), r, WITH( _.m_type = t ) ) );
-                                            *ret = r;
-                                            return Result::OK;
-                                        },
-                                        out ) );
+    RETURN_IF_FAILED( mod->instantiate(
+        name,
+        [&]( Ast::Type** ret ) {
+            auto r = new Ast::Type( name, Ast::fixMeDeclContext );
+            r->m_sum.emplace_back( t );
+            r->m_sum.emplace_back( &Ast::s_typeError );
+            r->generic_ = new Ast::GenericInstantiation( WITH( _.decl_ = s_resultTDecl ) );
+            r->generic_->args_.push_back( new Ast::Parameter( t->name(), r, WITH( _.m_type = t ) ) );
+            *ret = r;
+            return Result::OK;
+        },
+        out ) );
     return Result::OK;
 }
 
@@ -1013,13 +1014,13 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
             s_resultTDecl = d;
         }
         {
-            static const Io::SourceNameAndContents generic{"generic.slip",
-                                                           "(generic (TYPE:Type)\n"
-                                                           "  (union result\n"
-                                                           "    ok:TYPE\n"
-                                                           "    fail:i32))\n"};
+            static const Io::SourceNameAndContents generic{ "generic.slip",
+                                                            "(generic (TYPE:Type)\n"
+                                                            "  (union result\n"
+                                                            "    ok:TYPE\n"
+                                                            "    fail:i32))\n" };
             const auto& s = generic.m_contents;
-            Io::TextInput input{s.c_str(), s.c_str() + s.size(), &generic};
+            Io::TextInput input{ s.c_str(), s.c_str() + s.size(), &generic };
             Ast::LexNode* lex;
             Slip::Ast::lex_atom( input, &lex );
             Ast::LexList* list = dynamic_cast<Ast::LexList*>( lex );

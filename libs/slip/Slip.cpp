@@ -104,11 +104,11 @@ namespace Slip::Args {
     };
 
     struct Args {
-        bool dumpParse{false};
-        bool dumpInfer{false};
-        bool tapTest{false};
+        bool dumpParse{ false };
+        bool dumpInfer{ false };
+        bool tapTest{ false };
         std::vector<std::string> inputs;
-        std::string outputDir{"."};
+        std::string outputDir{ "." };
     };
 }  // namespace Slip::Args
 
@@ -122,7 +122,7 @@ static std::string modNameFromPath( const char* path ) {
     }
 
     if( auto e = strrchr( path, '.' ) ) {
-        return {s, size_t( e - s )};
+        return { s, size_t( e - s ) };
     }
     return s;
 }
@@ -130,10 +130,10 @@ static std::string modNameFromPath( const char* path ) {
 static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManager& smanager, const char* fname ) {
     using namespace Slip;
 
-    unique_ptr_del<Ast::LexList> lex{nullptr, nullptr};
+    unique_ptr_del<Ast::LexList> lex{ nullptr, nullptr };
     RETURN_IF_FAILED( Ast::lex_file( smanager, fname, lex ) );
 
-    Slip::unique_ptr_del<Ast::Module> ast{nullptr, nullptr};
+    Slip::unique_ptr_del<Ast::Module> ast{ nullptr, nullptr };
 
     RETURN_IF_FAILED( Parse::module( modNameFromPath( fname ).c_str(), *lex, ast ) );
     if( args.dumpParse )
@@ -142,7 +142,7 @@ static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManag
     if( args.dumpInfer )
         Ast::print( ast.get() );
 
-    string_view path{fname};
+    string_view path{ fname };
     auto slash = path.find_last_of( "\\/"_sv );
     if( slash != std::string::npos ) {
         path.remove_prefix( slash + 1 );
@@ -152,14 +152,14 @@ static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManag
         path.remove_suffix( path.size() - suff );
     }
     Io::TextOutput out;
-    RETURN_IF_FAILED( out.open(string_concat( args.outputDir, "/", path, ".cpp" ).c_str() ) );
+    RETURN_IF_FAILED( out.open( string_concat( args.outputDir, "/", path, ".cpp" ).c_str() ) );
     RETURN_IF_FAILED( Backend::generate( *ast, out ) );
     return Result::OK;
 }
 
 namespace Tap {
     enum State { at_start, in_header, in_diag };
-    static State state{at_start};
+    static State state{ at_start };
 
     static int header( const char* fmt, ... ) {
         va_list ap;
@@ -218,7 +218,7 @@ namespace Tap {
         const char* start = text.cur;
         while( isalnum( text.next() ) ) {
         }
-        expected = string_view{start, size_t( text.cur - start - 1 )};
+        expected = string_view{ start, size_t( text.cur - start - 1 ) };
         return Result::OK;
     }
 
@@ -245,7 +245,7 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
             const char* start = text.cur;
             const char* end = start;
             for( int c = text.next(); true; c = text.next() ) {
-                if( isspace(c) ) {
+                if( isspace( c ) ) {
                     end = text.cur - 1;
                     break;
                 } else if( c == '#' ) {
@@ -259,7 +259,7 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
                 }
             }
             if( start != end ) {
-                parts.push_back( std::string{start, end} );
+                parts.push_back( std::string{ start, end } );
                 items.push_back( parts.back().data() );
             }
         }

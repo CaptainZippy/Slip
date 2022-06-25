@@ -15,20 +15,20 @@ namespace Slip::Sema {
     struct ConstraintBuilder;
 
     struct FuncInfo {
-        TypeInfo* ret{nullptr};
+        TypeInfo* ret{ nullptr };
         std::vector<TypeInfo*> params;
     };
 
     struct TypeInfo {
        private:
         friend struct ConstraintBuilder;
-        Ast::Type* type{nullptr};
+        Ast::Type* type{ nullptr };
 
-        int triggerCount{0};
+        int triggerCount{ 0 };
         std::vector<TypeInfo*> triggerNotify;
         std::function<void( TypeInfo* )> triggerAction;
 
-        FuncInfo* func{nullptr};  // TODO: Union?
+        FuncInfo* func{ nullptr };  // TODO: Union?
        public:
         auto get_type() const {
             assert( type );
@@ -43,8 +43,8 @@ namespace Slip::Sema {
     struct VisitInfo {
         VisitInfo() = delete;
         VisitInfo( Ast::Expr* n, TypeInfo* t ) : node( n ), info( t ) {}
-        Ast::Expr* node{nullptr};
-        TypeInfo* info{nullptr};
+        Ast::Expr* node{ nullptr };
+        TypeInfo* info{ nullptr };
     };
 
     struct ConstraintBuilder {
@@ -329,7 +329,7 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::VariableDecl* n, VisitInfo& vi ) {
-            TypeInfo* varTypeInfo{nullptr};
+            TypeInfo* varTypeInfo{ nullptr };
             if( n->m_type ) {  // known?
                 varTypeInfo = _internKnownType( n->m_type );
             } else if( auto te = n->m_declTypeExpr ) {
@@ -416,7 +416,7 @@ namespace Slip::Sema {
             TypeInfo* fi;
             RETURN_IF_FAILED( dispatch( n->m_false, &fi ) );
             vi.info = new TypeInfo{};
-            _isConvertible( n, vi.info, {{n->m_true, ti}, {n->m_false, fi}} );
+            _isConvertible( n, vi.info, { { n->m_true, ti }, { n->m_false, fi } } );
             return Result::OK;
         }
 
@@ -447,12 +447,12 @@ namespace Slip::Sema {
 
         Result operator()( Ast::PipelineExpr* n, VisitInfo& vi ) {
             RETURN_ERROR_IF( n->m_stages.empty(), Error::PipeWithNoStages, n->m_loc );
-            Ast::Expr* prev{nullptr};
+            Ast::Expr* prev{ nullptr };
             m_autoUnwrap.push_back( true );
-            bool usedUnwrap{false};
+            bool usedUnwrap{ false };
             TypeInfo* ti;
             for( auto&& stage : n->m_stages ) {
-                Ast::NamedFunctionCall* nf{nullptr};
+                Ast::NamedFunctionCall* nf{ nullptr };
                 if( prev ) {
                     RETURN_IF_FAILED( dynCast( stage.expr, &nf ) );
                     nf->m_args.push_back( prev );
@@ -522,17 +522,17 @@ namespace Slip::Sema {
                 TypeInfo* info;
                 Ast::Type* type() const { return info->type; }
             };
-            Convertible( Ast::Expr* ln, TypeInfo* li, Ast::Expr* rn, TypeInfo* ri ) : lhs{ln, li} { rhs.push_back( {rn, ri} ); }
-            Convertible( Ast::Expr* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ln, li}, rhs( rl ) {}
+            Convertible( Ast::Expr* ln, TypeInfo* li, Ast::Expr* rn, TypeInfo* ri ) : lhs{ ln, li } { rhs.push_back( { rn, ri } ); }
+            Convertible( Ast::Expr* ln, TypeInfo* li, std::initializer_list<Pair> rl ) : lhs{ ln, li }, rhs( rl ) {}
             Pair lhs;
             std::vector<Pair> rhs;
-            bool todo{true};
+            bool todo{ true };
         };
         std::deque<VisitInfo> m_visited;
         std::unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         std::vector<Convertible> m_convertible{};
-        std::vector<bool> m_autoUnwrap{false};
+        std::vector<bool> m_autoUnwrap{ false };
         std::vector<Ast::Module*> m_modules{};  // stack of currently active modules
 
         Result build( Ast::Expr* node ) {
@@ -810,7 +810,7 @@ namespace Slip::Sema {
         }
 
         void _isFunction( TypeInfo* ti, TypeInfo* ret, std::vector<TypeInfo*>&& args ) {
-            ti->func = new FuncInfo{ret, args};
+            ti->func = new FuncInfo{ ret, args };
             _addTriggerDep( ti, ret );
             for( auto&& a : args ) {
                 _addTriggerDep( ti, a );

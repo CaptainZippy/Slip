@@ -21,7 +21,7 @@ namespace {
         }
 
        private:
-        int m_val{-1};
+        int m_val{ -1 };
     };
     struct Generator {
         std::vector<char> body_;
@@ -316,8 +316,8 @@ namespace {
         }
 
         std::string operator()( Ast::VariableDecl* n ) {
-            std::string init{""};
-            const char* sep{""};
+            std::string init{ "" };
+            const char* sep{ "" };
             for( auto&& i : n->m_initializer ) {
                 init.append( sep );
                 init.append( dispatch( i ) );
@@ -572,7 +572,7 @@ namespace {
                 out.write( string_format( "typedef %s< %s > %s;\n", inst.second->generic_->decl_->m_name.c_str(), cname.c_str(),
                                           sanitize( inst.first ).c_str() ) );
             }
-            out.write( {pass1.data(), pass1.size()} );
+            out.write( { pass1.data(), pass1.size() } );
 
             istring mainStr = istring::make( "main" );
             istring mainSym;
@@ -616,7 +616,7 @@ namespace {
             return "";
         }
 
-        void write( Io::TextOutput& txt ) { txt.write( {body_.data(), body_.size()} ); }
+        void write( Io::TextOutput& txt ) { txt.write( { body_.data(), body_.size() } ); }
     };
 }  // namespace
 

@@ -40,7 +40,7 @@ namespace Slip::Reflect {
         void* addr;
         const Type* type;
 
-        Var operator[]( const Field& f ) { return Var{(char*)addr + f.offset, f.type}; }
+        Var operator[]( const Field& f ) { return Var{ (char*)addr + f.offset, f.type }; }
     };
 
     struct Type {
@@ -72,7 +72,7 @@ namespace Slip::Reflect {
 
         Var newInstance() const {
             assert( make );
-            return Var{( *make )(), this};
+            return Var{ ( *make )(), this };
         }
     };
     template <typename T>
@@ -101,19 +101,19 @@ namespace Slip::Reflect {
     struct TypeOf<std::pair<T, U> > {
         static inline const Type* value() {
             typedef std::pair<T, U> pair;
-            static const Field f[2] = {{"first", TypeOf<T>::value(), offsetof( pair, first ), 1},
-                                       {"second", TypeOf<U>::value(), offsetof( pair, second ), 1}};
-            static const Type t{Kind::Record, nullptr, nullptr, "Pair<T,U>",   sizeof( std::pair<T, U> ),
-                                nullptr,      nullptr, nullptr, {&f[0], &f[2]}};
+            static const Field f[2] = { { "first", TypeOf<T>::value(), offsetof( pair, first ), 1 },
+                                        { "second", TypeOf<U>::value(), offsetof( pair, second ), 1 } };
+            static const Type t{ Kind::Record, nullptr, nullptr, "Pair<T,U>",     sizeof( std::pair<T, U> ),
+                                 nullptr,      nullptr, nullptr, { &f[0], &f[2] } };
             return &t;
         }
     };
     template <>
     struct TypeOf<std::string> {
         static inline const Type* value() {
-            static const Type t{Kind::String, nullptr, nullptr, "char[]", sizeof( std::string ), nullptr, nullptr, []( const void* addr ) {
-                                    return string_view{( (std::string*)addr )->data(), ( (std::string*)addr )->size()};
-                                }};
+            static const Type t{ Kind::String, nullptr, nullptr, "char[]", sizeof( std::string ), nullptr, nullptr, []( const void* addr ) {
+                                    return string_view{ ( (std::string*)addr )->data(), ( (std::string*)addr )->size() };
+                                } };
             return &t;
         }
     };
@@ -121,8 +121,8 @@ namespace Slip::Reflect {
     template <>
     struct TypeOf<istring> {
         static inline const Type* value() {
-            static const Type t{Kind::String,      nullptr, nullptr, "char[]",
-                                sizeof( istring ), nullptr, nullptr, []( const void* addr ) { return ((istring*)addr)->view(); }};
+            static const Type t{ Kind::String,      nullptr, nullptr, "char[]",
+                                 sizeof( istring ), nullptr, nullptr, []( const void* addr ) { return ((istring*)addr)->view(); } };
             return &t;
         }
     };
@@ -192,6 +192,6 @@ namespace Slip::Reflect {
 
 #define REFLECT_PARENT( NAME ) self.parent = &NAME::s_reflectType;
 #define REFLECT_FIELD2( NAME, FLAGS ) \
-    self.fields.push_back( {#NAME, Reflect::TypeOf<decltype( DECL::NAME )>::value(), offsetof( DECL, NAME ), FLAGS} );
+    self.fields.push_back( { #NAME, Reflect::TypeOf<decltype( DECL::NAME )>::value(), offsetof( DECL, NAME ), FLAGS } );
 #define REFLECT_FIELD( NAME ) REFLECT_FIELD2( NAME, 0 )
 #define REFLECT_TO_STRING( FUNC ) self.toString = FUNC;

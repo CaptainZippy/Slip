@@ -18,8 +18,7 @@ namespace Slip::Io {
             Stdout,
         };
 
-
-        State m_state{State::Normal};
+        State m_state{ State::Normal };
 
         TextOutput();
         TextOutput( StdStream s );
@@ -67,9 +66,9 @@ namespace Slip::Io {
     };
 
     struct SourceLocation {
-        const SourceNameAndContents* m_file{nullptr};
-        size_t m_start{0};
-        size_t m_end{0};
+        const SourceNameAndContents* m_file{ nullptr };
+        size_t m_start{ 0 };
+        size_t m_end{ 0 };
 
         SourceLocation() = default;
 
@@ -85,7 +84,7 @@ namespace Slip::Io {
         string_view text() const {
             auto s = m_file->m_contents.c_str();
             assert( m_end >= 0 );
-            return {s + m_start, m_end - m_start};
+            return { s + m_start, m_end - m_start };
         }
     };
 
@@ -107,7 +106,7 @@ namespace Slip::Io {
                 ++cur;
             }
         }
-        bool available(int count=1) const { return (cur + count) <= end; }
+        bool available( int count = 1 ) const { return ( cur + count ) <= end; }
         int peek() const {
             assert( cur < end );
             return *cur;
@@ -117,8 +116,8 @@ namespace Slip::Io {
                 return -1;
             return *cur++;
         }
-        Result skip(int n) {
-            if( cur+n > end )
+        Result skip( int n ) {
+            if( cur + n > end )
                 return -1;
             cur += n;
             return Result::OK;
@@ -127,9 +126,9 @@ namespace Slip::Io {
         long tellEnd() const { return safe_cast( end - start ); }
         SourceLocation location() const { return SourceLocation( info, tell() ); }
         SourceLocation location( long s, long e = -1 ) const { return SourceLocation( info, s, e >= 0 ? e : s + 1 ); }
-        const char* cur{nullptr};
-        const char* start{nullptr};
-        const char* end{nullptr};
-        const SourceNameAndContents* info{nullptr};
+        const char* cur{ nullptr };
+        const char* start{ nullptr };
+        const char* end{ nullptr };
+        const SourceNameAndContents* info{ nullptr };
     };
 }  // namespace Slip::Io

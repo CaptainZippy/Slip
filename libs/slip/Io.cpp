@@ -15,7 +15,7 @@ namespace Slip::Io {
 using namespace Slip;
 
 Slip::unique_ptr_del<Slip::Io::SourceManager> Slip::Io::makeSourceManager() {
-    return {new SourceManagerImpl, []( SourceManager* s ) { delete s; }};
+    return { new SourceManagerImpl, []( SourceManager* s ) { delete s; } };
 }
 
 int Io::SourceLocation::line() const {
@@ -54,7 +54,7 @@ Slip::Result Io::SourceManagerImpl::load( const char* fname, TextInput& text ) {
             else
                 txt.append( buf, buf + n );
         }
-        m_files[fname] = new SourceNameAndContents{fname, txt};
+        m_files[fname] = new SourceNameAndContents{ fname, txt };
     }
 }
 
@@ -129,7 +129,7 @@ void Slip::Io::TextOutput::_writeImpl( std::string_view s ) { reinterpret_cast<I
 void Slip::Io::TextOutput::_write( std::string_view s ) {
     switch( m_state ) {
         case State::Start:
-            _writeImpl( string_view{m_indent.c_str(), m_indent.size()} );
+            _writeImpl( string_view{ m_indent.c_str(), m_indent.size() } );
             break;
         default:
             break;

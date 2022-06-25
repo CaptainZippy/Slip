@@ -12,7 +12,7 @@ namespace Slip::Ast {
     REFLECT_DECL_VT(); \
     int tag() const override
 
-    static constexpr Expr* fixMeDeclContext{nullptr};
+    static constexpr Expr* fixMeDeclContext{ nullptr };
 
     namespace Flags {
         const unsigned Hidden = 0;  // Default is "ref"
@@ -42,10 +42,10 @@ namespace Slip::Ast {
         virtual Expr* resolve();
 
         size_t m_userData;
-        Ast::Type* m_type{nullptr};
-        Ast::Expr* m_declTypeExpr{nullptr};
+        Ast::Type* m_type{ nullptr };
+        Ast::Expr* m_declTypeExpr{ nullptr };
         SourceLocation m_loc;
-        size_t m_serial{s_serial++};
+        size_t m_serial{ s_serial++ };
     };
 
     struct LexNode : Expr {
@@ -65,7 +65,7 @@ namespace Slip::Ast {
         LexValue( const SourceLocation& loc ) : LexNode( loc ) {}
         string_view text() const {
             auto s = m_loc.m_file->m_contents.c_str();
-            return {s + m_loc.m_start, m_loc.m_end - m_loc.m_start};
+            return { s + m_loc.m_start, m_loc.m_end - m_loc.m_start };
         }
         istring istr() const {
             auto s = m_loc.m_file->m_contents.c_str();
@@ -117,7 +117,7 @@ namespace Slip::Ast {
     struct Decl : Expr {
         AST_DECL();
         Decl( Expr* declContext ) : declContext_( declContext ) {}
-        Expr* declContext_{nullptr};
+        Expr* declContext_{ nullptr };
     };
 
     struct NamedDecl : Decl {
@@ -131,8 +131,8 @@ namespace Slip::Ast {
 
     struct Assignment : Expr {
         AST_DECL();
-        Expr* m_lhs{nullptr};
-        Expr* m_rhs{nullptr};
+        Expr* m_lhs{ nullptr };
+        Expr* m_rhs{ nullptr };
 
         template <typename With>
         Assignment( Expr* lhs, Expr* rhs, With&& with ) : m_lhs( lhs ), m_rhs( rhs ) {
@@ -191,8 +191,8 @@ namespace Slip::Ast {
         AST_DECL();
 
         std::vector<Parameter*> m_params;
-        Ast::Expr* m_declReturnTypeExpr{nullptr};
-        Expr* m_body{nullptr};
+        Ast::Expr* m_declReturnTypeExpr{ nullptr };
+        Expr* m_body{ nullptr };
 
         template <typename With>
         CoroutineDecl( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
@@ -202,8 +202,8 @@ namespace Slip::Ast {
 
     struct CoroutineYield : Expr {
         AST_DECL();
-        Expr* m_expr{nullptr};
-        CoroutineDecl* m_coro{nullptr};
+        Expr* m_expr{ nullptr };
+        CoroutineDecl* m_coro{ nullptr };
     };
 
     struct Definition : NamedDecl {
@@ -248,12 +248,12 @@ namespace Slip::Ast {
         Module* module_{};
         std::multimap<istring, Expr*> syms_{};
         std::vector<std::pair<Module*, istring> > usings_{};
-        std::vector<std::string> suffixes_{""};
+        std::vector<std::string> suffixes_{ "" };
     };
 
     struct FunctionCall : Expr {
         AST_DECL();
-        Expr* m_func{nullptr};
+        Expr* m_func{ nullptr };
         std::vector<Expr*> m_args;
 
         template <typename With>
@@ -332,8 +332,8 @@ namespace Slip::Ast {
 
     struct MacroExpansion : Expr {
         AST_DECL();
-        Expr* m_expansion{nullptr};
-        MacroDecl* m_macro{nullptr};
+        Expr* m_expansion{ nullptr };
+        MacroDecl* m_macro{ nullptr };
         std::vector<Expr*> m_args;
         MacroExpansion( MacroDecl* macro, std::vector<Expr*>&& args ) : m_macro( macro ), m_args( args ) {}
         template <typename With>
@@ -378,7 +378,7 @@ namespace Slip::Ast {
             with( *this );
         }
 
-        Expr* m_resolved{nullptr};  // null until one of the candidates or a generic is chosen.
+        Expr* m_resolved{ nullptr };  // null until one of the candidates or a generic is chosen.
         std::vector<Expr*> m_candidates;
         std::vector<Expr*> m_args;
     };
@@ -404,7 +404,7 @@ namespace Slip::Ast {
 
     struct Parameter : NamedDecl {
         AST_DECL();
-        bool m_ref{false};
+        bool m_ref{ false };
         template <typename With>
         Parameter( istring name, Expr* declContext, With&& with ) : NamedDecl( name, declContext ) {
             with( *this );
@@ -421,7 +421,7 @@ namespace Slip::Ast {
             REFLECT_DECL();
             Stage( Ast::Expr* e ) : expr( e ) {}
             Ast::Expr* expr;
-            bool canFail{false};
+            bool canFail{ false };
         };
         void addStage( Ast::Expr* e ) { m_stages.emplace_back( e ); }
         std::vector<Stage> m_stages;
@@ -438,7 +438,7 @@ namespace Slip::Ast {
     struct Scope : Expr {
         AST_DECL();
         Scope( Expr* c ) : m_child( c ) {}
-        Expr* m_child{nullptr};
+        Expr* m_child{ nullptr };
     };
 
     struct Selector : Expr {
@@ -447,8 +447,8 @@ namespace Slip::Ast {
         Selector( Expr* l, LexIdent* r, With&& with ) : m_lhs( l ), m_rhs( r ) {
             with( *this );
         }
-        Expr* m_lhs{nullptr};
-        LexIdent* m_rhs{nullptr};
+        Expr* m_lhs{ nullptr };
+        LexIdent* m_rhs{ nullptr };
     };
 
     struct Sequence : Expr {
@@ -510,19 +510,19 @@ namespace Slip::Ast {
         Type( istring sym, Expr* declContext );
 
         // callable can fail
-        bool m_callCanFail{false};
+        bool m_callCanFail{ false };
         // non-empty for callable types.
         std::vector<Ast::Type*> m_callable;  //[0]=return [1:]=args
         // TODO remove?
         std::vector<Ast::FunctionDecl*> m_methods;
         // non-empty for record type
-        Ast::StructDecl* m_struct{nullptr};
+        Ast::StructDecl* m_struct{ nullptr };
         // non-empty for array type
-        Ast::Type* m_array{nullptr};
+        Ast::Type* m_array{ nullptr };
         // non-empty for sum type
         std::vector<Ast::Type*> m_sum;
         // Set if this came from a generic
-        Ast::GenericInstantiation* generic_{nullptr};
+        Ast::GenericInstantiation* generic_{ nullptr };
     };
 
     struct TryExpr : Expr {
@@ -548,7 +548,7 @@ namespace Slip::Ast {
             Mutable,    // can change
             Constant,   // immutable, known at compile time
         };
-        Kind m_kind{Kind::Immutable};
+        Kind m_kind{ Kind::Immutable };
     };
 
     struct While : Expr {

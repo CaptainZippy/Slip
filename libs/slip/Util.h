@@ -213,7 +213,7 @@ namespace Slip {
 
     template <typename T>
     Detail::reverse_wrapper<T> reversed( T&& iterable ) {
-        return {iterable};
+        return { iterable };
     }
 
     template <typename Iter>
@@ -236,12 +236,12 @@ namespace Slip {
         }
         template <typename T, typename V>
         auto find( T&& iterable, const V& v ) -> range<typename std::decay_t<T>::iterator> {
-            return {std::find( iterable.begin(), iterable.end(), v ), iterable.end()};
+            return { std::find( iterable.begin(), iterable.end(), v ), iterable.end() };
         }
 
         template <typename T, typename P>
         auto find_if( T&& iterable, P&& p ) -> range<typename std::decay_t<T>::iterator> {
-            return {std::find_if( iterable.begin(), iterable.end(), p ), iterable.end()};
+            return { std::find_if( iterable.begin(), iterable.end(), p ), iterable.end() };
         }
 
         template <typename Cont, typename Lambda>
@@ -280,8 +280,8 @@ namespace Slip {
 
         inline istring() : m_str( &s_empty[sizeof( size_t )] ) {}
 
-        inline operator std::string_view() const { return {m_str, size()}; }
-        inline std::string_view view() const { return {m_str, size()}; }
+        inline operator std::string_view() const { return { m_str, size() }; }
+        inline std::string_view view() const { return { m_str, size() }; }
         inline const char* c_str() const { return m_str; }
         inline std::string std_str() const { return m_str; }
         inline size_t size() const { return reinterpret_cast<const size_t*>( m_str )[-1]; }
@@ -308,7 +308,7 @@ namespace Slip {
 
     template <typename... ARGS>
     std::string string_concat( const ARGS&... args ) {
-        string_view strs[] = {string_view( args )...};
+        string_view strs[] = { string_view( args )... };
         return string_concat( make_array_view( strs ) );
     }
 

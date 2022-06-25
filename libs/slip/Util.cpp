@@ -92,7 +92,7 @@ namespace Slip {
     }
 
     std::string string_concat( array_view<string_view> strs ) {
-        size_t size = rng::accumulate( strs, size_t{0}, []( size_t a, string_view b ) { return a + b.size(); } );
+        size_t size = rng::accumulate( strs, size_t{ 0 }, []( size_t a, string_view b ) { return a + b.size(); } );
         std::string ret;
         ret.reserve( size );
         for( auto s : strs ) {
@@ -109,7 +109,7 @@ namespace Slip {
 
     istring istring::make( string_view s ) {
         struct Item {
-            ssize_t size{-1};
+            ssize_t size{ -1 };
             char data[1];  // actually size+1 bytes
             static Item* make( string_view v ) {
                 auto i = (Item*)malloc( sizeof( Item ) + v.size() + 1 );
@@ -125,7 +125,7 @@ namespace Slip {
             return istring( it->second->data );
         }
         auto item = Item::make( s );
-        string_view key{item->data, s.size()};
+        string_view key{ item->data, s.size() };
         s_items.emplace( key, item );
 
         return istring( item->data );
