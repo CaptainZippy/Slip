@@ -7,6 +7,6 @@
 
 (func main ():int
     (puts (str_add "hello" "world"))
-    (puts (str_add '{hello}' 'abc{world}abc')) # single quote = string with delimiters. 'magic{string_body}magic'
+    (puts (str_add '{hello}' 'abc{world}abc')) ; single quote = string with delimiters. 'magic{string_body}magic'
     (puts (str_add 'ab{hello}tricky}ab' 'ab{hello}ab}ab'))
     0)

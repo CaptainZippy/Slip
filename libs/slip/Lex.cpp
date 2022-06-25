@@ -69,6 +69,27 @@ static Slip::Result read_past_delimiter( Io::TextInput& in, char delim ) {
     }
 }
 
+static Slip::Result lex_list( Io::TextInput& in, Ast::LexNode** atom, int openingChar, int closeChar ) {
+    std::vector<Ast::LexNode*> c;
+    auto start = in.tell();
+    in.next();
+    while( 1 ) {
+        Ast::LexNode* a;
+        RETURN_IF_FAILED( Ast::lex_atom( in, &a ) );
+        if( a ) {
+            c.push_back( a );
+        } else {
+            if( in.next() != closeChar ) {
+                RETURN_ERROR( Error::MissingClosingParen, in.location( start ), "Missing '%c' for list begun here", closeChar );
+            }
+            auto l = new Ast::LexList( in.location( start, in.tell() ), openingChar );
+            l->m_items.swap( c );
+            *atom = l;
+            return Result::OK;
+        }
+    }
+}
+
 Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
     *atom = nullptr;
     while( in.available() ) {
@@ -88,30 +109,11 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     }
                 }
                 break;
-            case '(': {
-                std::vector<LexNode*> c;
-                auto start = in.tell();
-                in.next();
-                while( 1 ) {
-                    LexNode* a;
-                    RETURN_IF_FAILED( lex_atom( in, &a ) );
-                    if( a ) {
-                        c.push_back( a );
-                    } else {
-                        break;
-                    }
-                }
-                if( in.next() != ')' ) {
-                    RETURN_ERROR( Error::MissingClosingParen, in.location( start ), "Missing ')' for list begun here" );
-                }
-
-                auto l = new LexList( in.location( start, in.tell() ) );
-                l->m_items.swap( c );
-                *atom = l;
+            case '(':
+                RETURN_IF_FAILED( lex_list( in, atom, '(', ')' ) );
                 return Result::OK;
-            }
             case ')':
-                return Result::OK;
+                return Result::OK;  // TODO - only valid mid-list
             case '-':
             case '+':
             case '0':
@@ -246,7 +248,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
 }
 
 Slip::Result Ast::lex_input( Io::TextInput& input, Slip::unique_ptr_del<LexList>& lex ) {
-    auto l = make_unique_del<LexList>( input.location( input.tell(), input.tellEnd() ) );
+    auto l = make_unique_del<LexList>( input.location( input.tell(), input.tellEnd() ), '[' );
     while( 1 ) {
         LexNode* a;
         RETURN_IF_FAILED( lex_atom( input, &a ) );

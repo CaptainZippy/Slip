@@ -104,7 +104,9 @@ namespace Slip::Ast {
 
     struct LexList : LexNode {
         AST_DECL();
-        LexList( const SourceLocation& loc ) : LexNode( loc ) {}
+        LexList( const SourceLocation& loc, int openingChar ) : LexNode( loc ), m_openingChar( openingChar ) {
+            assert( openingChar == '(' || openingChar == '[' );
+        }
         size_t size() const { return m_items.size(); }
         LexNode* at( int i ) const { return m_items[i]; }
         LexNode* at( size_t i ) const { return m_items[i]; }
@@ -112,6 +114,7 @@ namespace Slip::Ast {
         void insertAt( int idx, LexNode* a ) { m_items.insert( m_items.begin() + idx, a ); }
         array_view<LexNode*> items() { return m_items; }
         std::vector<LexNode*> m_items;
+        int m_openingChar;  // '{', '[', '(' etc
     };
 
     struct Decl : Expr {

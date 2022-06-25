@@ -87,8 +87,9 @@ namespace Slip {
             static_assert( sizeof( T ) == sizeof( U ), "" );
         }
         template <typename U>
-        array_view( array_view<U> u ) : m_begin( u.m_begin ), m_end( u.m_end ) {
+        array_view<U> reinterpret_as() {
             static_assert( sizeof( T ) == sizeof( U ), "" );
+            return { reinterpret_cast<U*>( m_begin ), reinterpret_cast<U*>( m_end ) };
         }
         array_view( std::vector<T>& a ) : m_begin( a.data() ), m_end( m_begin + a.size() ) {}
         void operator=( array_view<T> a ) {
