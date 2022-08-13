@@ -146,11 +146,11 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
             case '\'': {  // delimted string - 'abc{string_contents}abc'
                 in.next();
                 auto headDelim = in.tell();
-                RETURN_IF_FAILED( read_past_delimiter( in, '{' ) );
+                RETURN_IF_FAILED( read_past_delimiter( in, '[' ) );
                 auto stringStart = in.tell();
                 int countDelim = stringStart - headDelim - 1;
                 while( true ) {
-                    RETURN_IF_FAILED( read_past_delimiter( in, '}' ) );
+                    RETURN_IF_FAILED( read_past_delimiter( in, ']' ) );
                     RETURN_ERROR_IF( in.available( countDelim + 1 /*'*/ ) == false, Error::LexPrematureEndOfFile, in.location() );
                     auto tailDelim = in.tell();
                     if( in.start[tailDelim + countDelim] == '\'' &&

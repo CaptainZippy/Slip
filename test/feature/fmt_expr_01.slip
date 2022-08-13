@@ -9,7 +9,7 @@
 )
 
 (func test3 (argv:(array_view string)):void
-    (puts (fmt '{hello {(catch (get argv 1) "world")}\n}'))
+    (puts (fmt '[hello {(catch (get argv 1) "world")}\n]'))
 )
 
 (func main (argv:(array_view string)):int
