@@ -230,7 +230,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
         if( in.available() ) {
             if( in.peek() == ':' ) {
                 in.next();
-                RETURN_IF_FAILED( lex_term( in, &ret->m_decltype ) );
+                RETURN_IF_FAILED( lex_term( in, &ret->m_declTypeLex ) );
             } else if( in.peek() == '.' ) {
                 in.next();
                 LexNode* b;

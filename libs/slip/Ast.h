@@ -53,7 +53,7 @@ namespace Slip::Ast {
         AST_DECL();
         LexNode( const SourceLocation& loc ) : Expr( loc ) {}
 
-        LexNode* m_decltype = nullptr;
+        LexNode* m_declTypeLex = nullptr;
         std::vector<LexNode*> m_attrs;
 
         LexNode() = default;
