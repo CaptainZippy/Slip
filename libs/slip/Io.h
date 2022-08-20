@@ -123,6 +123,16 @@ namespace Slip::Io {
             return Result::OK;
         }
         long tell() const { return safe_cast( cur - start ); }
+        // bump the read position by a delta
+        void bump( long delta ) {
+            assert( cur+delta >= start && cur+delta <= end );
+            cur += delta;
+        }
+        // seek to absolute position
+        void seek( long pos ) {
+            assert( pos <= end - start );
+            cur = start + pos;
+        }
         long tellEnd() const { return safe_cast( end - start ); }
         SourceLocation location() const { return SourceLocation( info, tell() ); }
         SourceLocation location( long s, long e = -1 ) const { return SourceLocation( info, s, e >= 0 ? e : s + 1 ); }

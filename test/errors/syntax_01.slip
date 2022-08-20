@@ -1,4 +1,4 @@
-; LexSpuriousChars
+; LexUnexpected
 
 (func main ():int
     (var foo (add 1 2))

@@ -69,31 +69,20 @@ static Slip::Result read_past_delimiter( Io::TextInput& in, char delim ) {
     }
 }
 
-static Slip::Result lex_list( Io::TextInput& in, Ast::LexNode** atom, int openingChar, int closeChar ) {
-    std::vector<Ast::LexNode*> c;
-    auto start = in.tell();
-    in.next();
-    while( 1 ) {
-        Ast::LexNode* a;
-        RETURN_IF_FAILED( Ast::lex_atom( in, &a ) );
-        if( a ) {
-            c.push_back( a );
-        } else {
-            if( in.next() != closeChar ) {
-                RETURN_ERROR( Error::MissingClosingParen, in.location( start ), "Missing '%c' for list begun here", closeChar );
-            }
-            auto l = new Ast::LexList( in.location( start, in.tell() ), openingChar );
-            l->m_items.swap( c );
-            *atom = l;
-            return Result::OK;
-        }
-    }
-}
+namespace {
+    struct Token {
+        enum Kind { Invalid, EndOfFile, Number, Identifier, String, ListBegin, ListEnd, LexColon, LexDot, LexHash, LexAt };
+        Token() : kind( Invalid ) {}
+        Token( Kind k, Io::SourceLocation l ) : kind( k ), loc( l ) {}
+        Kind kind;
+        Io::SourceLocation loc;
+    };
+}  // namespace
 
-Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
-    *atom = nullptr;
+static Slip::Result next_token( Io::TextInput& in, Token& tokenOut ) {
     while( in.available() ) {
-        switch( in.peek() ) {
+        int start = in.tell();
+        switch( int c = in.next() ) {
             case '\0':
                 RETURN_ERROR( Error::LexInvalidCharacter, in.location(), "null in input" );
             case ' ':
@@ -102,18 +91,13 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
             case '\t':
                 in.eatwhite();
                 break;
-            case ';':
-                while( int c = in.next() ) {
-                    if( c == '\n' || c == -1 ) {
+            case ';':  // comment to EOL
+                while( int n = in.next() ) {
+                    if( n == '\n' || n == -1 ) {
                         break;
                     }
                 }
                 break;
-            case '(':
-                RETURN_IF_FAILED( lex_list( in, atom, '(', ')' ) );
-                return Result::OK;
-            case ')':
-                return Result::OK;  // TODO - only valid mid-list
             case '-':
             case '+':
             case '0':
@@ -126,8 +110,6 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
             case '7':
             case '8':
             case '9': {  // number
-                auto start = in.tell();
-                in.next();
                 bool isFloat = false;
                 while( in.available() ) {
                     int c = in.peek();
@@ -140,11 +122,16 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     } else
                         break;
                 }
-                *atom = new LexNumber( in.location( start, in.tell() ) );
+                tokenOut = Token( Token::Number, in.location( start, in.tell() ) );
                 return Result::OK;
             }
-            case '\'': {  // delimted string - 'abc{string_contents}abc'
-                in.next();
+            case '(':
+                tokenOut = Token( Token::ListBegin, { in.info, start, in.tell() } );
+                return Result::OK;
+            case ')':
+                tokenOut = Token( Token::ListEnd, { in.info, start, in.tell() } );
+                return Result::OK;
+            case '\'': {  // delimted string - 'abc[string_contents]abc'
                 auto headDelim = in.tell();
                 RETURN_IF_FAILED( read_past_delimiter( in, '[' ) );
                 auto stringStart = in.tell();
@@ -156,94 +143,169 @@ Slip::Result Ast::lex_term( Io::TextInput& in, LexNode** atom ) {
                     if( in.start[tailDelim + countDelim] == '\'' &&
                         memcmp( in.start + headDelim, in.start + tailDelim, countDelim ) == 0 ) {
                         in.skip( countDelim + 1 );
-                        *atom = new LexString( in.location( stringStart, tailDelim - 1 ) );
-                        return Result::OK;
+                        tokenOut = Token( Token::String, in.location( stringStart, tailDelim - 1 ) );
+                        break;
                     }
                     in.next();
                 }
+                return Result::OK;
             }
-            case '"': {  // string
+            case '"': {  // 'plain' string
                 auto start = in.tell();
-                in.next();
                 RETURN_IF_FAILED( read_past_delimiter( in, '"' ) );
-                *atom = new LexString( in.location( start + 1, in.tell() - 1 ) );
+                tokenOut = Token( Token::String, in.location( start, in.tell() - 1 ) );
                 return Result::OK;
             }
-            case '#': {
-                auto start = in.tell();
-                in.next();
-                LexNode* expr;
-                RETURN_IF_FAILED( lex_atom( in, &expr ) );
-                *atom = new LexNowExpr( in.location( start, in.tell() ), expr );
+            case '.':
+                tokenOut = Token( Token::LexDot, { in.info, start, in.tell() } );
                 return Result::OK;
-            }
-            case '@': {
-                std::vector<Ast::LexNode*> attrs;
-                while( in.peek() == '@' ) {
-                    in.next();
-                    LexNode* attr;
-                    RETURN_IF_FAILED( lex_atom( in, &attr ) );
-                    attrs.push_back( attr );
-                    in.eatwhite();
-                }
-                LexNode* expr;
-                RETURN_IF_FAILED( lex_atom( in, &expr ) );
-                if( expr == nullptr ) {
-                    RETURN_ERROR( Error::LexMalformedAttribute, in.location(), "Attribute missing expression" );
-                }
-                expr->m_attrs.swap( attrs );
-                *atom = expr;
+            case ':':
+                tokenOut = Token( Token::LexColon, { in.info, start, in.tell() } );
                 return Result::OK;
-            }
-            case '.': {
+            case '@':
+                tokenOut = Token( Token::LexAt, { in.info, start, in.tell() } );
                 return Result::OK;
-            }
-            default: {  // symbol
-                int c = in.peek();
+            case '#':
+                tokenOut = Token( Token::LexHash, { in.info, start, in.tell() } );
+                return Result::OK;
+            default: {  // symbol?
                 if( isalpha( c ) || c == '_' ) {
-                    auto start = in.tell();
-                    in.next();
                     while( in.available() ) {
-                        int c = in.peek();
-                        if( isdigit( c ) || isalpha( c ) || c == '_' || c == '?' || c == '!' ) {
-                            in.next();
+                        int n = in.next();
+                        if( isdigit( n ) || isalpha( n ) || n == '_' || n == '?' || n == '!' ) {
                         } else {
+                            in.bump( -1 );
                             break;
                         }
                     }
-                    *atom = new LexIdent( in.location( start, in.tell() ) );
+                    tokenOut = Token( Token::Identifier, { in.info, start, in.tell() } );
                     return Result::OK;
+                } else {
+                    RETURN_ERROR( Error::LexInvalidCharacter, in.location( start ), "unexpected character '%c'", c );
                 }
-                RETURN_ERROR( Error::LexInvalidCharacter, in.location(), "unexpected character '%c'", in.peek() );
+                break;
             }
         }
+    }
+    tokenOut = Token( Token::EndOfFile, in.location() );
+    return Result::OK;
+}
+
+// In any case, fills in tokOut.
+// If the next token kind matches, advances the input, returns true.
+// Otherwise don't advance the input and return false.
+static bool expect_token( Token::Kind kind, Io::TextInput& in, Token& tokOut ) {
+    int origPos = in.tell();
+    // TODO caching - we often reparse at the same location
+    // A single cache entry should be enough.
+    if( next_token( in, tokOut ).isOk() && tokOut.kind == kind ) {
+        return true;
+    } else {
+        in.seek( origPos );
+        return false;
+    }
+}
+
+static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut );
+
+Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
+    *atomOut = nullptr;
+    Token tok;
+    RETURN_IF_FAILED( next_token( in, tok ) );
+    switch( tok.kind ) {
+        case Token::Number:
+            *atomOut = new Ast::LexNumber( tok.loc );
+            break;
+        case Token::Identifier:
+            *atomOut = new Ast::LexIdent( tok.loc );
+            return Result::OK;
+        case Token::String:
+            *atomOut = new Ast::LexString( tok.loc );
+            break;
+        case Token::ListBegin: {
+            auto list = new Ast::LexList( in.location(), '(' );
+            int listStart = in.tell();
+            while( true ) {
+                if( expect_token( Token::ListEnd, in, tok ) ) {
+                    break;
+                }
+                RETURN_ERROR_IF( tok.kind == Token::EndOfFile, Error::LexPrematureEndOfFile, in.location( listStart ),
+                                 "End of file while parsing list" );
+                Ast::LexNode* n;
+                RETURN_IF_FAILED( lex_expression( in, &n ) );
+                list->m_items.push_back( n );
+            }
+            *atomOut = list;
+            return Result::OK;
+        }
+        case Token::EndOfFile:
+            break;
+        case Token::ListEnd:
+        case Token::LexColon:
+        case Token::LexHash:
+        case Token::LexAt:
+            RETURN_ERROR( Error::LexUnexpected, tok.loc, "Unexpected character '%.*s' in input", STRING_VIEW_VARG( tok.loc.text() ) );
+        default:
+            assert( false );
+            break;
     }
     return Result::OK;
 }
 
-Slip::Result Ast::lex_atom( Io::TextInput& in, LexNode** atom ) {
-    *atom = nullptr;
-    LexNode* ret;
-    RETURN_IF_FAILED( lex_term( in, &ret ) );
-    while( ret ) {
-        in.eatwhite();
-        if( in.available() ) {
-            if( in.peek() == ':' ) {
-                in.next();
-                RETURN_IF_FAILED( lex_term( in, &ret->m_declTypeLex ) );
-            } else if( in.peek() == '.' ) {
-                in.next();
-                LexNode* b;
-                RETURN_IF_FAILED( lex_term( in, &b ) );
-                ret = new Ast::LexDot( ret, b );
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
+// expr : attr* now? atom type?
+// now  : #
+// attr : '@' atom
+// atom : number list string ident
+// type : ':' attr* atom
+
+static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) {
+    *atomOut = nullptr;
+    std::vector<Ast::LexNode*> attrs;
+    Token tok;
+    if( expect_token( Token::EndOfFile, in, tok ) ) {
+        return Result::OK;
     }
-    *atom = ret;
+
+    while( expect_token( Token::LexAt, in, tok ) ) {
+        Ast::LexNode* a;
+        RETURN_IF_FAILED( lex_atom( in, &a ) );
+        attrs.push_back( a );
+    }
+
+    int lexNowStart = -1;
+    if( expect_token( Token::LexHash, in, tok ) ) {
+        lexNowStart = tok.loc.m_start;
+    }
+
+    Ast::LexNode* atom;
+    RETURN_IF_FAILED( lex_atom( in, &atom ) );
+
+    if( lexNowStart >= 0 ) {
+        atom = new Ast::LexNowExpr( in.location(lexNowStart), atom );
+    }
+    atom->m_attrs.swap( attrs );
+
+    while( expect_token( Token::LexDot, in, tok ) ) {
+        Ast::LexNode* a;
+        RETURN_IF_FAILED( lex_atom( in, &a ) );
+        atom = new Ast::LexDot( atom, a );
+        atom->m_loc = a->m_loc;
+    }
+
+    if( expect_token( Token::LexColon, in, tok ) ) {
+        std::vector<Ast::LexNode*> typeAttrs;
+        while( expect_token( Token::LexAt, in, tok ) ) {
+            Ast::LexNode* a;
+            RETURN_IF_FAILED( lex_atom( in, &a ) );
+            typeAttrs.push_back( a );
+        }
+        Ast::LexNode* a;
+        RETURN_IF_FAILED( lex_atom( in, &a ) );
+        a->m_attrs.swap( typeAttrs );
+        atom->m_declTypeLex = a;
+    }
+
+    *atomOut = atom;
     return Result::OK;
 }
 
@@ -251,14 +313,13 @@ Slip::Result Ast::lex_input( Io::TextInput& input, Slip::unique_ptr_del<LexList>
     auto l = make_unique_del<LexList>( input.location( input.tell(), input.tellEnd() ), '[' );
     while( 1 ) {
         LexNode* a;
-        RETURN_IF_FAILED( lex_atom( input, &a ) );
+        RETURN_IF_FAILED( lex_expression( input, &a ) );
         if( a ) {
             l->append( a );
         } else {
             break;
         }
     }
-    input.eatwhite();
     if( input.available() ) {
         RETURN_ERROR( Error::LexSpuriousChars, input.location( input.tell() ), "Extra characters found after file body" );
     }

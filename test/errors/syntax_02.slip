@@ -1,9 +1,9 @@
-; MissingClosingParen
+; LexPrematureEndOfFile
 
 (func test():int
     0)
 
 (func main () :int
-    (var foo (add 1 2) ##missing paren
+    (var foo (add 1 2) ; missing paren
     (puti foo))
     0
