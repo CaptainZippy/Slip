@@ -110,18 +110,23 @@ static Slip::Result next_token( Io::TextInput& in, Token& tokenOut ) {
             case '7':
             case '8':
             case '9': {  // number
-                bool isFloat = false;
-                while( in.available() ) {
-                    int c = in.peek();
-                    // if(isdigit(c) || isalpha(c) || c == '_'){
-                    if( isdigit( c ) ) {
-                        in.next();
-                    } else if( c == '.' && isFloat == false ) {
-                        isFloat = true;
-                        in.next();
-                    } else
-                        break;
+                // +-[0-9] (.[0-9])? (e[+-][0-9]+)?
+                auto isnum = []( int c ) { return (bool)isdigit( c ); };
+                while( in.acceptP( isnum ) )
+                    ;
+                if( in.accept( '.' ) ) {
+                    while( in.acceptP( isnum ) )
+                        ;
                 }
+                if( in.accept( 'e' ) ) {
+                    if( in.acceptP( []( int c ) { return c == '-' || c == '+'; } ) ) {
+                        while( in.acceptP( isnum ) )
+                            ;
+                    } else {
+                        in.bump( -1 );
+                    }
+                }
+
                 tokenOut = Token( Token::Number, in.location( start, in.tell() ) );
                 return Result::OK;
             }
@@ -274,14 +279,14 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
 
     int lexNowStart = -1;
     if( expect_token( Token::LexHash, in, tok ) ) {
-        lexNowStart = tok.loc.m_start;
+        lexNowStart = int( tok.loc.m_start );
     }
 
     Ast::LexNode* atom;
     RETURN_IF_FAILED( lex_atom( in, &atom ) );
 
     if( lexNowStart >= 0 ) {
-        atom = new Ast::LexNowExpr( in.location(lexNowStart), atom );
+        atom = new Ast::LexNowExpr( in.location( lexNowStart ), atom );
     }
     atom->m_attrs.swap( attrs );
 

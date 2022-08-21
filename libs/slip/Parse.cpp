@@ -641,6 +641,7 @@ static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
 
     Ast::LexIdent* sym;
     std::vector<Ast::LexNode*> inits;
+    // 'var' sym inits* e.g. (var foo 1 2)
     RETURN_IF_FAILED( matchLex( env, args, &sym, &inits, Ellipsis::ZeroOrMore ) );
 
     Ast::Expr* varType;
@@ -799,6 +800,22 @@ static Result parse_Fmt( Ast::Environment* env, Ast::LexList* args, Ast::Expr** 
                                        WITH( _.m_loc = args->m_loc ) );
 
     //*out = new Ast::String( fmt, WITH( _.m_loc = args->m_loc ) ); // debug: return the input string
+    return Result::OK;
+}
+
+static Result parse_List( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+    *out = nullptr;
+    std::vector<Ast::LexNode*> lparts;
+
+    RETURN_IF_FAILED( matchLex( env, args, &lparts, Ellipsis::OneOrMore ) );
+    auto r = new Ast::DataList( WITH(_.m_loc = args->m_loc ) );
+    r->m_loc = args->m_loc;
+    for( auto&& p : args->items().ltrim( 1 ) ) {
+        Ast::Expr* n;
+        RETURN_IF_FAILED( parse1( env, p, Parse::Flags::RValue, &n ) );
+        r->m_items.push_back( n );
+    }
+    *out = r;
     return Result::OK;
 }
 
@@ -1003,6 +1020,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         addBuiltin( env, "struct"_istr, lang0, &parse_Struct );
         addBuiltin( env, "pipe"_istr, lang0, &parse_Pipe );
         addBuiltin( env, "fmt"_istr, lang0, &parse_Fmt );
+        addBuiltin( env, "list"_istr, lang0, &parse_List );
         addBuiltin( env, "array_view"_istr, lang0, &ArrayView::parse_ArrayView );
         addBuiltin( env, "array_fixed"_istr, lang0, &ArrayView::parse_ArrayFixed );
         addBuiltin( env, "array_heap"_istr, lang0, &ArrayView::parse_ArrayHeap );

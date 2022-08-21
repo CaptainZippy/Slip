@@ -107,6 +107,25 @@ namespace Slip::Io {
             }
         }
         bool available( int count = 1 ) const { return ( cur + count ) <= end; }
+        bool accept( int c ) {
+            if( cur < end ) {
+                if( *cur == c ) {
+                    cur += 1;
+                    return true;
+                }
+            }
+            return ( c == -1 ) && ( cur == end );
+        }
+        template<typename Pred>
+        bool acceptP( Pred&& pred ) {
+            if( cur < end ) {
+                if( pred( *cur ) ) {
+                    cur += 1;
+                    return true;
+                }
+            }
+            return ( cur == end ) ? pred( -1 ) : false;
+        }
         int peek() const {
             assert( cur < end );
             return *cur;
@@ -125,7 +144,7 @@ namespace Slip::Io {
         long tell() const { return safe_cast( cur - start ); }
         // bump the read position by a delta
         void bump( long delta ) {
-            assert( cur+delta >= start && cur+delta <= end );
+            assert( cur + delta >= start && cur + delta <= end );
             cur += delta;
         }
         // seek to absolute position

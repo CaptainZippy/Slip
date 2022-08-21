@@ -48,6 +48,7 @@ namespace Slip::Sema {
     };
 
     struct ConstraintBuilder {
+        // Contract : method assigns vi.info and visits any child expressions.
         Result operator()( Ast::Expr* n, VisitInfo& vi ) {
             RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc, "Expression is of kind '%s'",
                              n->dynamicType()->name );
@@ -348,6 +349,9 @@ namespace Slip::Sema {
             if( auto et = varType->m_array ) {
                 auto tt = _internKnownType( et );
                 for( auto&& i : n->m_initializer ) {
+                    assert( i->m_type == nullptr );
+                    assert( i->m_declTypeExpr == nullptr );
+                    i->m_type = et;
                     TypeInfo* d;
                     RETURN_IF_FAILED( dispatch( i, &d ) );
                     _isConvertible( et, tt, i, d );
@@ -389,6 +393,24 @@ namespace Slip::Sema {
 
         Result operator()( Ast::Scope* n, VisitInfo& vi ) {
             RETURN_IF_FAILED( dispatch( n->m_child, &vi.info ) );
+            return Result::OK;
+        }
+
+        Result operator()( Ast::DataList* n, VisitInfo& vi ) {
+            assert( n->m_type );
+            vi.info = _internKnownType( n->m_type );
+            RETURN_ERROR_IF( !n->m_type->m_struct, Error::Fixme, n->m_loc, "Needs struct" );
+            auto decl = n->m_type->m_struct;
+            RETURN_IF_FAILED( decl->m_fields.size() != n->m_items.size() );
+            for( auto i = 0ul; i < decl->m_fields.size(); ++i ) {
+                auto ft = decl->m_fields[i]->m_type;
+                auto fi = _internKnownType( ft );
+                auto iv = n->m_items[i];
+                TypeInfo* id;
+                RETURN_IF_FAILED( dispatch( iv, &id ) );
+                _isConvertible( ft, fi, iv, id );
+            }
+
             return Result::OK;
         }
 

@@ -220,6 +220,17 @@ namespace Slip::Ast {
         }
     };
 
+    struct DataList : Expr {
+        AST_DECL();
+
+        template <typename With>
+        DataList( With&& with ) {
+            with( *this );
+        }
+        array_view<Expr*> items() { return m_items; }
+        std::vector<Expr*> m_items;
+    };
+
     struct Dictlike {
         virtual ~Dictlike() = default;
         virtual void lookupAll( istring sym, std::vector<Expr*>& out ) const = 0;

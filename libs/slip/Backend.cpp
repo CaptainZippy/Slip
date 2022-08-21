@@ -136,6 +136,20 @@ namespace {
             std::replace( s.begin(), s.end(), '\n', ' ' );
             return string_concat( "\"", s, "\"_builtin_str" );
         }
+
+        std::string operator()( Ast::DataList* n ) {
+            std::string s = string_concat( "(", dispatch( n->m_type ), ") {" );
+            const char* sep = "";
+            for( auto a : n->items() ) {
+                out.nl();
+                s += sep;
+                s += dispatch( a );
+                sep = ",";
+            }
+            s += "}";
+            return s;
+        }
+
         std::string operator()( Ast::Definition* n ) {
             auto val = dispatch( n->m_value );
             out.write( string_format( "%s %s = %s", sanitize( n->m_type->name() ).c_str(), n->m_name, val.c_str() ) );
