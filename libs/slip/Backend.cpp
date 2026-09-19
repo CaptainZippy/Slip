@@ -228,9 +228,9 @@ namespace {
             if( hasVar ) {
                 out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             }
-            out.begin( "while(true) {\nif(" );
+            out.begin( "while(true) {\n");
             auto cond = dispatch( n->m_cond );
-            out.write( string_concat( " !", cond, ") { break; }\n" ) );
+            out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
             std::string b = dispatch( n->m_body );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", b, ";\n" ) );

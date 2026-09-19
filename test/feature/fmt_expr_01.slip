@@ -1,4 +1,5 @@
 
+; fmt allows one to stringify expressions within a string using curly braces {}
 
 (func test1 (i:int):void
     (puts (fmt "The answer is {i}\n"))
@@ -16,4 +17,5 @@
     (test1 11)
     (test2 364.9 44)
     (test3 argv)
+    ;(test3 (list "bobby"):(array_fixed string 1))
     0)

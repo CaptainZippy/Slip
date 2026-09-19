@@ -1,17 +1,17 @@
 
+; Attributes apply to the next expression
+
 ; one attr
 @inline
 (func hello():void
     (puts "Hello"))
 
 ; multiple attrs
-
 @(inline) @(doc "hello")
 (func bye():void
     (puts @wat "Bye"))
 
 ; funky positions
-
 (func human():void
     (@unlocked puts @wat @is @this "Human"))
 
