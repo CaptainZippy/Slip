@@ -30,6 +30,11 @@ namespace Slip::Ast {
     REFLECT_PARENT( LexValue )
     REFLECT_END()
 
+    REFLECT_BEGIN( LexMetaExpr )
+    REFLECT_PARENT( LexNode )
+    REFLECT_FIELD2( m_expr, Flags::Child )
+    REFLECT_END()
+
     REFLECT_BEGIN( LexNumber )
     REFLECT_PARENT( LexValue )
     REFLECT_END()
@@ -71,7 +76,7 @@ static Slip::Result read_past_delimiter( Io::TextInput& in, char delim ) {
 
 namespace {
     struct Token {
-        enum Kind { Invalid, EndOfFile, Number, Identifier, String, ListBegin, ListEnd, LexColon, LexDot, LexHash, LexAt };
+        enum Kind { Invalid, EndOfFile, Number, Identifier, String, ListBegin, ListEnd, LexColon, LexDot, LexHash, LexAt, LexDollar };
         Token() : kind( Invalid ) {}
         Token( Kind k, Io::SourceLocation l ) : kind( k ), loc( l ) {}
         Kind kind;
@@ -173,6 +178,9 @@ static Slip::Result next_token( Io::TextInput& in, Token& tokenOut ) {
             case '#':
                 tokenOut = Token( Token::LexHash, { in.info, start, in.tell() } );
                 return Result::OK;
+            case '$':
+                tokenOut = Token( Token::LexDollar, { in.info, start, in.tell() } );
+                return Result::OK;
             default: {  // symbol?
                 if( isalpha( c ) || c == '_' ) {
                     while( in.available() ) {
@@ -213,6 +221,22 @@ static bool expect_token( Token::Kind kind, Io::TextInput& in, Token& tokOut ) {
 
 static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut );
 
+static Slip::Result lex_list( Io::TextInput& in, Ast::LexList* list ) {
+    int listStart = in.tell();
+    Token tok;
+    while( true ) {
+        if( expect_token( Token::ListEnd, in, tok ) ) {
+            break;
+        }
+        RETURN_ERROR_IF( tok.kind == Token::EndOfFile, Error::LexPrematureEndOfFile, in.location( listStart ),
+                         "End of file while parsing list" );
+        Ast::LexNode* n;
+        RETURN_IF_FAILED( lex_expression( in, &n ) );
+        list->m_items.push_back( n );
+    }
+    return Result::OK;
+}
+
 Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
     *atomOut = nullptr;
     Token tok;
@@ -229,24 +253,29 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
             break;
         case Token::ListBegin: {
             auto list = new Ast::LexList( in.location(), '(' );
-            int listStart = in.tell();
-            while( true ) {
-                if( expect_token( Token::ListEnd, in, tok ) ) {
-                    break;
-                }
-                RETURN_ERROR_IF( tok.kind == Token::EndOfFile, Error::LexPrematureEndOfFile, in.location( listStart ),
-                                 "End of file while parsing list" );
-                Ast::LexNode* n;
-                RETURN_IF_FAILED( lex_expression( in, &n ) );
-                list->m_items.push_back( n );
-            }
+            RETURN_IF_FAILED( lex_list( in, list ) );
             *atomOut = list;
+            return Result::OK;
+        }
+        case Token::LexDollar: {
+            auto loc = tok.loc;
+            RETURN_IF_FAILED( next_token( in, tok ) );
+            RETURN_ERROR_IF( tok.kind == Token::EndOfFile, Error::LexPrematureEndOfFile, loc,
+                             "Expected parenthesized form after '$'" );
+            RETURN_ERROR_IF( tok.kind != Token::ListBegin, Error::LexUnexpected, tok.loc,
+                             "Expected parenthesized form after '$'" );
+            auto list = new Ast::LexList( tok.loc, '(' );
+            RETURN_IF_FAILED( lex_list( in, list ) );
+            loc.m_end = in.tell();
+            list->m_loc.m_end = in.tell();
+            *atomOut = new Ast::LexMetaExpr( loc, list );
             return Result::OK;
         }
         case Token::EndOfFile:
             break;
         case Token::ListEnd:
         case Token::LexColon:
+        case Token::LexDot:
         case Token::LexHash:
         case Token::LexAt:
             RETURN_ERROR( Error::LexUnexpected, tok.loc, "Unexpected character '%.*s' in input", STRING_VIEW_VARG( tok.loc.text() ) );
@@ -257,10 +286,11 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
     return Result::OK;
 }
 
-// expr : attr* now? atom type?
+// expr : attr* now? atom ('.' atom)* type?
 // now  : #
 // attr : '@' atom
-// atom : number list string ident
+// atom : number list string ident meta
+// meta : '$' list (cannot immediately follow '#')
 // type : ':' attr* atom
 
 static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) {
@@ -274,16 +304,20 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     while( expect_token( Token::LexAt, in, tok ) ) {
         Ast::LexNode* a;
         RETURN_IF_FAILED( lex_atom( in, &a ) );
+        RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected annotation after '@'" );
         attrs.push_back( a );
     }
 
     int lexNowStart = -1;
     if( expect_token( Token::LexHash, in, tok ) ) {
         lexNowStart = int( tok.loc.m_start );
+        RETURN_ERROR_IF( expect_token( Token::LexDollar, in, tok ), Error::LexUnexpected, tok.loc,
+                         "Cannot stack '#' and '$' prefixes" );
     }
 
     Ast::LexNode* atom;
     RETURN_IF_FAILED( lex_atom( in, &atom ) );
+    RETURN_ERROR_IF( !atom, Error::LexPrematureEndOfFile, in.location(), "Expected expression" );
 
     if( lexNowStart >= 0 ) {
         atom = new Ast::LexNowExpr( in.location( lexNowStart ), atom );
@@ -293,6 +327,7 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     while( expect_token( Token::LexDot, in, tok ) ) {
         Ast::LexNode* a;
         RETURN_IF_FAILED( lex_atom( in, &a ) );
+        RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected expression after '.'" );
         atom = new Ast::LexDot( atom, a );
         atom->m_loc = a->m_loc;
     }
@@ -302,10 +337,12 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
         while( expect_token( Token::LexAt, in, tok ) ) {
             Ast::LexNode* a;
             RETURN_IF_FAILED( lex_atom( in, &a ) );
+            RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected annotation after '@'" );
             typeAttrs.push_back( a );
         }
         Ast::LexNode* a;
         RETURN_IF_FAILED( lex_atom( in, &a ) );
+        RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected type after ':'" );
         a->m_attrs.swap( typeAttrs );
         atom->m_declTypeLex = a;
     }

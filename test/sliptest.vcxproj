@@ -182,6 +182,34 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="errors\meson.build" />
+    <None Include="errors\meta_payload_01.slip" />
+    <None Include="errors\meta_payload_02.slip" />
+    <None Include="errors\meta_payload_03.slip" />
+    <None Include="errors\meta_payload_04.slip" />
+    <None Include="errors\meta_payload_05.slip" />
+    <None Include="errors\meta_payload_06.slip" />
+    <None Include="errors\meta_prefix_01.slip" />
+    <None Include="errors\meta_prefix_02.slip" />
+    <None Include="errors\meta_prefix_03.slip" />
+    <None Include="errors\meta_prefix_04.slip" />
+    <None Include="errors\meta_prefix_05.slip" />
+    <None Include="errors\meta_prefix_06.slip" />
+    <None Include="errors\meta_eof_01.slip" />
+    <None Include="errors\meta_eof_02.slip" />
+    <None Include="errors\meta_eof_03.slip" />
+    <None Include="errors\meta_eof_04.slip" />
+    <None Include="errors\meta_eof_05.slip" />
+    <None Include="errors\meta_eof_06.slip" />
+    <None Include="errors\meta_eof_07.slip" />
+    <None Include="errors\meta_eof_08.slip" />
+    <None Include="errors\meta_eof_09.slip" />
+    <None Include="errors\meta_eof_10.slip" />
+    <None Include="errors\meta_syntax_01.slip" />
+    <None Include="errors\meta_syntax_02.slip" />
+    <None Include="errors\meta_syntax_03.slip" />
+    <None Include="errors\meta_syntax_04.slip" />
+    <None Include="errors\meta_syntax_05.slip" />
+    <None Include="errors\meta_syntax_06.slip" />
     <None Include="errors\overload_01.slip" />
     <None Include="errors\parse_cond_01.slip" />
     <None Include="errors\parse_err_01.slip" />

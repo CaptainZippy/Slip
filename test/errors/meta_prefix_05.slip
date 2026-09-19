@@ -1,0 +1,3 @@
+; LexUnexpected
+# ; Comments do not make stacked prefixes valid.
+$(insert name)

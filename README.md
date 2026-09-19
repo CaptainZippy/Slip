@@ -28,6 +28,20 @@ If there are several annotations, they are all added.
 
 From ";" to the end of the line
 
+## Compile-time operations
+
+`#(expression...)` evaluates `expression...` during compilation.
+
+## Syntax operations (lexer support only)
+
+`$(operation ...)` is a distinct syntax-operation form. The lexer preserves
+the parenthesized contents without interpreting
+the operation name.
+
+Forms may nest, for example `$(let body_env $(child_env env))`, and may appear
+in declaration-name, type, and annotation positions. Leading annotations and
+trailing type annotations or member selectors attach to the complete form.
+
 ## Developing
 
 Run 'tools/meson-init' to generate build configurations.
