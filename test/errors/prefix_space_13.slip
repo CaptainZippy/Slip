@@ -1,0 +1,4 @@
+; LexUnexpected
+; Type annotations use the same adjacency rule.
+(func read (value:@ ref int):int value)
+(func main ():int 0)

@@ -1,0 +1,4 @@
+; LexUnexpected
+@; Comments cannot separate a prefix from its operand.
+inline
+(func main ():int 0)

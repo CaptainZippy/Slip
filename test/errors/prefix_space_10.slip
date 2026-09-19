@@ -1,0 +1,3 @@
+; LexUnexpected
+(func main ():int
+    #	(add 0 0))

@@ -219,6 +219,13 @@ static bool expect_token( Token::Kind kind, Io::TextInput& in, Token& tokOut ) {
     }
 }
 
+static Slip::Result check_prefix_spacing( const Io::TextInput& in, const Token& tok ) {
+    RETURN_ERROR_IF( in.available() && ( isspace( static_cast<unsigned char>( in.peek() ) ) || in.peek() == ';' ),
+                     Error::LexUnexpected, tok.loc, "Whitespace or comments are not allowed after '%.*s'",
+                     STRING_VIEW_VARG( tok.loc.text() ) );
+    return Result::OK;
+}
+
 static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut );
 
 static Slip::Result lex_list( Io::TextInput& in, Ast::LexList* list ) {
@@ -258,6 +265,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
             return Result::OK;
         }
         case Token::LexDollar: {
+            RETURN_IF_FAILED( check_prefix_spacing( in, tok ) );
             auto loc = tok.loc;
             RETURN_IF_FAILED( next_token( in, tok ) );
             RETURN_ERROR_IF( tok.kind == Token::EndOfFile, Error::LexPrematureEndOfFile, loc,
@@ -292,6 +300,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
 // atom : number list string ident meta
 // meta : '$' list (cannot immediately follow '#')
 // type : ':' attr* atom
+// '$', '@', and '#' must be adjacent to their operands.
 
 static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) {
     *atomOut = nullptr;
@@ -302,6 +311,7 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     }
 
     while( expect_token( Token::LexAt, in, tok ) ) {
+        RETURN_IF_FAILED( check_prefix_spacing( in, tok ) );
         Ast::LexNode* a;
         RETURN_IF_FAILED( lex_atom( in, &a ) );
         RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected annotation after '@'" );
@@ -310,6 +320,7 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
 
     int lexNowStart = -1;
     if( expect_token( Token::LexHash, in, tok ) ) {
+        RETURN_IF_FAILED( check_prefix_spacing( in, tok ) );
         lexNowStart = int( tok.loc.m_start );
         RETURN_ERROR_IF( expect_token( Token::LexDollar, in, tok ), Error::LexUnexpected, tok.loc,
                          "Cannot stack '#' and '$' prefixes" );
@@ -335,6 +346,7 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     if( expect_token( Token::LexColon, in, tok ) ) {
         std::vector<Ast::LexNode*> typeAttrs;
         while( expect_token( Token::LexAt, in, tok ) ) {
+            RETURN_IF_FAILED( check_prefix_spacing( in, tok ) );
             Ast::LexNode* a;
             RETURN_IF_FAILED( lex_atom( in, &a ) );
             RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected annotation after '@'" );

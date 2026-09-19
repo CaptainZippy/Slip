@@ -1,0 +1,13 @@
+; Adjacent prefixes work; whitespace and comments elsewhere remain valid.
+
+@(doc "Prefix adjacency")
+(func increment (value:@ref int):void
+    (set! value (add value 1)))
+
+(func main ():int
+    (var value #(add 1 2))
+    (increment value)
+    ; $ @ # followed by spaces in comments are not prefixes.
+    (puts @label "$ (not code) @ spaced # spaced")
+    (puts 'sigils[$ (not code) @ spaced # spaced]sigils')
+    (cond ((eq? value 4) 0) (true 1)))

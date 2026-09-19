@@ -6,6 +6,11 @@ A pre-alpha compiler with an emphasis on simplicity and extensibility.
 
 S-expressions.
 
+The prefix sigils `$`, `@`, and `#` must be adjacent to their operands:
+`$(operation ...)`, `@ref`, `@(doc "...")`, and `#(expression ...)`.
+Spaces, tabs, newlines, and comments are not allowed between a prefix and its
+operand. Whitespace inside forms and between expressions is unaffected.
+
 ## Types
 
 Use ":" for specifying types. In many cases they can be deduced.

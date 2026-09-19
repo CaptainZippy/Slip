@@ -1,0 +1,3 @@
+; LexUnexpected
+$; Comments cannot separate a prefix from its operand.
+(insert name)

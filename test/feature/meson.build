@@ -18,6 +18,7 @@ slip_tests = [
     'module_01',
     'now_expr_01',
     'now_expr_02',
+    'prefix_expr_01',
     'recursive_01',
     'string_type_01',
     'struct_type_01',

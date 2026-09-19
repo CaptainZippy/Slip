@@ -35,6 +35,19 @@ slip_errs = [
     'meta_syntax_04',
     'meta_syntax_05',
     'meta_syntax_06',
+    'prefix_space_01',
+    'prefix_space_02',
+    'prefix_space_03',
+    'prefix_space_04',
+    'prefix_space_05',
+    'prefix_space_06',
+    'prefix_space_07',
+    'prefix_space_08',
+    'prefix_space_09',
+    'prefix_space_10',
+    'prefix_space_11',
+    'prefix_space_12',
+    'prefix_space_13',
 ]
 
 # These tests don't produce an executable.

@@ -1,0 +1,4 @@
+; LexUnexpected
+@
+inline
+(func main ():int 0)

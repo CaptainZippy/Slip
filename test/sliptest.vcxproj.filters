@@ -64,6 +64,9 @@
     <None Include="feature\now_expr_02.slip">
       <Filter>feature</Filter>
     </None>
+    <None Include="feature\prefix_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
     <None Include="feature\recursive_01.slip">
       <Filter>feature</Filter>
     </None>
@@ -104,6 +107,45 @@
       <Filter>feature</Filter>
     </None>
     <None Include="errors\meson.build">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_02.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_03.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_04.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_05.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_06.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_07.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_08.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_09.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_10.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_11.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_12.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\prefix_space_13.slip">
       <Filter>errors</Filter>
     </None>
     <None Include="errors\meta_payload_01.slip">
