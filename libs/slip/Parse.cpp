@@ -181,9 +181,9 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
                      macro->m_params.size() );
     auto localEnv = new Ast::Environment( macro->m_staticEnv );
     for( unsigned i = 0; i < macro->m_params.size(); ++i ) {
-        localEnv->bind( macro->m_params[i]->name(), args[i] );
+        RETURN_IF_FAILED( localEnv->bind( macro->m_params[i]->name(), args[i] ) );
     }
-    localEnv->bind( macro->m_dynEnvSym, env );
+    RETURN_IF_FAILED( localEnv->bind( macro->m_dynEnvSym, env ) );
     static Ast::Builtin expander{ "expand"_istr, Ast::fixMeDeclContext, &macroExpand1 };
     localEnv->bind( "expand"_istr, &expander );
     std::vector<Ast::Expr*> body;
@@ -351,7 +351,7 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
     std::vector<Ast::LexNode*> lbody;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
     auto coro = new Ast::CoroutineDecl( istring::make( lname->text() ), Ast::fixMeDeclContext, WITH( _.m_loc = lname->m_loc ) );
-    env->bind( coro->m_name, coro );
+    RETURN_IF_FAILED( env->bind( coro->m_name, coro ) );
     auto inner = new Ast::Environment( env );
     Parse::addBuiltin( inner, "yield"_istr, coro, [coro]( auto env, auto args, auto out ) -> Result {
         RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, args->m_loc, "Expected 2, got %i", args->size() );
@@ -375,9 +375,8 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
         auto param = new Ast::Parameter( sym->istr(), coro, WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
         coro->m_params.push_back( param );
     }
-    // TODO check unique names
     for( auto p : coro->m_params ) {
-        inner->bind( p->m_name, p );
+        RETURN_IF_FAILED( inner->bind( p->m_name, p ) );
     }
     Ast::Expr* body;
     if( lbody.size() == 1 ) {
@@ -404,7 +403,7 @@ static Result parse_Define( Ast::Environment* env, Ast::LexList* args, Ast::Expr
     RETURN_IF_FAILED( parse1( env, lval, Parse::Flags::RValue, &nval ) );
 
     auto ret = new Ast::Definition( lname->istr(), Ast::fixMeDeclContext, nval, WITH( _.m_loc = lname->m_loc ) );
-    env->bind( lname->text(), ret );
+    RETURN_IF_FAILED( env->bind( lname->text(), ret ) );
 
     *out = ret;
     return Result::OK;
@@ -418,7 +417,7 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     std::vector<Ast::LexNode*> lbody;
     RETURN_IF_FAILED( matchLex( env, args, &lname, &largs, &lbody, Ellipsis::OneOrMore ) );
     auto func = new Ast::FunctionDecl( lname->istr(), Ast::fixMeDeclContext, WITH( _.m_loc = lname->m_loc, _.environment_ = env ) );
-    env->bind( func->m_name, func );
+    RETURN_IF_FAILED( env->bind( func->m_name, func ) );
     auto inner = new Ast::Environment( env );
     if( auto a = largs->m_declTypeLex ) {
         Ast::Expr* te;
@@ -442,9 +441,8 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
         }
         func->m_params.push_back( param );
     }
-    // TODO check unique names
     for( auto p : func->m_params ) {
-        inner->bind( p->m_name, p );
+        RETURN_IF_FAILED( inner->bind( p->m_name, p ) );
     }
     Ast::Expr* body;
     if( lbody.size() == 1 ) {
@@ -610,7 +608,7 @@ static Result parse_Block( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     auto seq = new Ast::Sequence;
     auto ret = new Ast::Block( name->istr(), Ast::fixMeDeclContext, seq );
     auto inner = new Ast::Environment( env );
-    inner->bind( name->text(), ret );
+    RETURN_IF_FAILED( inner->bind( name->text(), ret ) );
     for( auto c : contents ) {
         Ast::Expr* n;
         RETURN_IF_FAILED( parse1( inner, c, Parse::Flags::RValue, &n ) );

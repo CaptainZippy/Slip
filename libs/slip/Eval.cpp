@@ -129,11 +129,11 @@ namespace {
 
 Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out ) {
     *out = nullptr;
-    Sema::type_check( node );
+    RETURN_IF_FAILED( Sema::type_check( node ) );
 
     Evaluator ev;
     // Evaluator::Value val;
-    ev.dispatch( node, env );
+    RETURN_IF_FAILED( ev.dispatch( node, env ) );
     if( ev.stack_.size() == 0 ) {
         *out = new Ast::Nop();
         return Result::OK;
