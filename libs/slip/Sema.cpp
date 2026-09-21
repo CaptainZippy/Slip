@@ -277,22 +277,31 @@ namespace Slip::Sema {
                 }
             }
             if( bestCandidate == nullptr || bestCandidate->score >= WrongType ) {
+                // AST types are assigned after solving; diagnostics need the partial inference state.
+                auto typeName = []( const TypeInfo* info ) {
+                    return info->type ? info->type->name().c_str() : "<undeduced>";
+                };
                 std::string proto = string_concat( n->name(), "( " );
                 const char* sep = "";
                 for( auto&& a : args ) {
                     proto += sep;
-                    proto += a->get_type()->name();
+                    proto += typeName( a );
                     sep = ", ";
                 }
                 Result::failed( Error::OverloadResolutionFailed, n->m_loc, "For function call '%s)", proto.c_str() );
                 Slip::diagnostic( "Candidates are:\n" );
                 for( auto&& c : candidates ) {
-                    auto n = dynamic_cast<Ast::NamedDecl*>( c.node );
-                    auto av = make_array_view( n->m_type->m_callable );
-                    std::string x = string_concat( av[0]->name().c_str(), " ", n ? n->name().c_str() : "?", "(" );
+                    auto declaration = dynamic_cast<Ast::NamedDecl*>( c.node );
+                    auto name = declaration ? declaration->name().c_str() : "<unnamed>";
+                    auto function = c.info->func;
+                    if( !function ) {
+                        Result::failed( Error::Continued, c.node->m_loc, "%s: %s (not callable)", name, typeName( c.info ) );
+                        continue;
+                    }
+                    std::string x = string_concat( typeName( function->ret ), " ", name, "(" );
                     sep = "";
-                    for( auto&& a : av.ltrim( 1 ) ) {
-                        x += string_concat( sep, a->name() );
+                    for( auto&& a : function->params ) {
+                        x += string_concat( sep, typeName( a ) );
                         sep = ", ";
                     }
                     Result::failed( Error::Continued, c.node->m_loc, "%s)", x.c_str() );

@@ -1,0 +1,9 @@
+; OverloadResolutionFailed
+; An inner overload set does not fall back to an ancestor's overloads.
+(func pick (value:int):int
+    value)
+(func main ():int
+    (scope
+        (func pick (value:string):int
+            40)
+        (pick 1:int)))

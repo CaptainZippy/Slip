@@ -132,8 +132,23 @@ namespace {
             return string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
         }
         std::string operator()( Ast::String* n ) {
-            std::string s = n->m_str;
-            std::replace( s.begin(), s.end(), '\n', ' ' );
+            std::string s;
+            for( unsigned char c : n->m_str ) {
+                switch( c ) {
+                    case '\\': s += "\\\\"; break;
+                    case '"': s += "\\\""; break;
+                    case '\n': s += "\\n"; break;
+                    case '\r': s += "\\r"; break;
+                    case '\t': s += "\\t"; break;
+                    default:
+                        if( c < 32 || c == 127 ) {
+                            s += string_format( "\\%03o", static_cast<unsigned>( c ) );
+                        } else {
+                            s += c;
+                        }
+                        break;
+                }
+            }
             return string_concat( "\"", s, "\"_builtin_str" );
         }
 

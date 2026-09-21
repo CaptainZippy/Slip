@@ -1,0 +1,6 @@
+; OverloadResolutionFailed
+; A user-defined candidate's AST type is not assigned yet.
+(func local_only (value:string):int
+    0)
+(func main ():int
+    (local_only 1:int))

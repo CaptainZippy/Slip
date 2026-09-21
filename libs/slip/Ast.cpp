@@ -235,24 +235,30 @@ Ast::Expr* Ast::Expr::resolve() { return this; }
 
 void Ast::Environment::lookupAll( istring sym, std::vector<Ast::Expr*>& out ) const {
     std::unordered_set<const Environment*> queued;
-    std::vector<const Environment*> todo;
-    todo.push_back( this );
-    queued.insert( this );
-    while( !todo.empty() ) {
-        auto env = todo.back();
-        todo.pop_back();
-        for( auto it = env->syms_.lower_bound( sym ); it != env->syms_.end() && it->first == sym; ++it ) {
-            out.push_back( it->second );
-        }
-        for( auto it : env->usings_ ) {
-            if( it.second == sym ) {
-                out.push_back( it.first );
-            } else if( it.second.empty() && queued.insert( it.first->env() ).second ) {
-                todo.push_back( it.first->env() );
+    for( auto scope = this; scope; scope = scope->parent_ ) {
+        auto start = out.size();
+        std::vector<const Environment*> todo{ scope };
+        queued.insert( scope );
+        while( !todo.empty() ) {
+            auto env = todo.back();
+            todo.pop_back();
+            auto localStart = out.size();
+            for( auto it = env->syms_.lower_bound( sym ); it != env->syms_.end() && it->first == sym; ++it ) {
+                out.push_back( it->second );
+            }
+            if( out.size() != localStart ) {
+                continue; // matches in scope override usings
+            }
+            for( auto it : env->usings_ ) {
+                if( it.second == sym ) {
+                    out.push_back( it.first );
+                } else if( it.second.empty() && queued.insert( it.first->env() ).second ) {
+                    todo.push_back( it.first->env() );
+                }
             }
         }
-        if( env->parent_ && queued.insert( env->parent_ ).second ) {
-            todo.push_back( env->parent_ );
+        if( out.size() != start ) {
+            return; // found matches in this scope, no need to check parent scopes
         }
     }
 }

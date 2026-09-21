@@ -235,6 +235,24 @@
     <None Include="errors\overload_01.slip">
       <Filter>errors</Filter>
     </None>
+    <None Include="errors\overload_02.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_03.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_04.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_05.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_06.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\overload_07.slip">
+      <Filter>errors</Filter>
+    </None>
     <None Include="errors\parse_cond_01.slip">
       <Filter>errors</Filter>
     </None>

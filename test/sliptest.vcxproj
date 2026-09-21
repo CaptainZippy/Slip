@@ -211,6 +211,12 @@
     <None Include="errors\meta_syntax_05.slip" />
     <None Include="errors\meta_syntax_06.slip" />
     <None Include="errors\overload_01.slip" />
+    <None Include="errors\overload_02.slip" />
+    <None Include="errors\overload_03.slip" />
+    <None Include="errors\overload_04.slip" />
+    <None Include="errors\overload_05.slip" />
+    <None Include="errors\overload_06.slip" />
+    <None Include="errors\overload_07.slip" />
     <None Include="errors\parse_cond_01.slip" />
     <None Include="errors\parse_err_01.slip" />
     <None Include="errors\prefix_space_01.slip" />
