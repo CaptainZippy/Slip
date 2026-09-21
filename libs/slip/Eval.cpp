@@ -61,8 +61,7 @@ namespace {
         Result dispatch( Ast::Expr* n, Ast::Environment* env ) { return Ast::dispatch<Result>( n, *this, env ); }
 
         Result operator()( Ast::Expr* n, Ast::Environment* env ) {
-            assert( false );
-            return Result::OK;
+            RETURN_ERROR( Error::NotImplemented, n->m_loc, "Cannot evaluate '%s' at compile time", n->dynamicType()->name );
         }
 
         Result operator()( Ast::String* n, Ast::Environment* env ) {
