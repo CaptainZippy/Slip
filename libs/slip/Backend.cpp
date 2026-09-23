@@ -153,7 +153,9 @@ namespace {
         }
 
         std::string operator()( Ast::DataList* n ) {
-            std::string s = string_concat( "(", dispatch( n->m_type ), ") {" );
+            // Use standard C++ brace-init ("Type{...}") rather than a C99-style
+            // compound literal ("(Type) {...}"), which MSVC rejects under /permissive-.
+            std::string s = string_concat( dispatch( n->m_type ), "{" );
             const char* sep = "";
             for( auto a : n->items() ) {
                 out.nl();
@@ -244,8 +246,15 @@ namespace {
                 out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             }
             out.begin( "while(true) {\n");
+            // Evaluate the condition (and any temporaries it needs) in its own
+            // nested scope so they go out of scope before the loop body, which
+            // may contain a coroutine resume label ("case_N:") that a goto can
+            // jump directly into; otherwise MSVC (rightly) rejects jumping past
+            // the temporaries' initialization with C2362.
+            out.begin( "{\n" );
             auto cond = dispatch( n->m_cond );
             out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
+            out.end( "}\n" );
             std::string b = dispatch( n->m_body );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", b, ";\n" ) );
