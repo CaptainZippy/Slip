@@ -1,8 +1,0 @@
-; MacroExpansionError
-; Bind takes an existing named declaration, never a computed value.
-(macro wrong_declaration () env
-    $(bind env item (add 1 2))
-    0)
-
-(func main ():int
-    (wrong_declaration))

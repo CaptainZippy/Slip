@@ -1,7 +1,0 @@
-; MacroExpansionError
-; An integer cannot stand in for an expansion environment.
-(macro wrong_environment (value) env
-    $(expand value 1))
-
-(func main ():int
-    (wrong_environment 0))

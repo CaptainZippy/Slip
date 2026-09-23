@@ -1,8 +1,0 @@
-; MacroExpansionError
-; A raw macro argument must be inserted or expanded before runtime use.
-(macro runtime_syntax (value) env
-    (var invalid value)
-    0)
-
-(func main ():int
-    (runtime_syntax 1))

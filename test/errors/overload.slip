@@ -1,0 +1,51 @@
+; CannotOverload
+
+(func main ():int
+    (var foo:int 1)
+    (var foo:int 2)
+    (puti foo)
+    0)
+;===
+; OverloadResolutionFailed
+; Wrong arity before the argument types have been deduced.
+(func local_only (value:int):int
+    value)
+(func main ():int
+    (local_only 1 2))
+;===
+; OverloadResolutionFailed
+; A user-defined candidate's AST type is not assigned yet.
+(func local_only (value:string):int
+    0)
+(func main ():int
+    (local_only 1:int))
+;===
+; OverloadResolutionFailed
+; The candidate's return type is still being inferred.
+(func local_only (value:int)
+    value)
+(func main ():int
+    (local_only 1:int 2:int))
+;===
+; OverloadResolutionFailed
+; Non-callable candidates have no function signature.
+(func main ():int
+    (var not_callable 1:int)
+    (not_callable 2:int))
+;===
+; OverloadResolutionFailed
+; A local declaration hides the imported integer overload.
+(func add (left:string right:string):int
+    40)
+(func main ():int
+    (add 1:int 2:int))
+;===
+; OverloadResolutionFailed
+; An inner overload set does not fall back to an ancestor's overloads.
+(func pick (value:int):int
+    value)
+(func main ():int
+    (scope
+        (func pick (value:string):int
+            40)
+        (pick 1:int)))

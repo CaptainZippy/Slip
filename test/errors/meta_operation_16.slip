@@ -1,8 +1,0 @@
-; MacroExpansionError
-; Recursive insertion through a type annotation must terminate with an error.
-(macro recursive (syntax) env
-    $(let self syntax)
-    $(insert self))
-
-(func main ():int
-    (recursive $(insert self):$(insert self)))

@@ -1,0 +1,18 @@
+; LexUnexpected
+$$(insert name)
+;===
+; LexUnexpected
+$#(add 1 2)
+;===
+; LexUnexpected
+#$(insert name)
+;===
+; LexUnexpected
+# $(insert name)
+;===
+; LexUnexpected
+# ; Comments do not make stacked prefixes valid.
+$(insert name)
+;===
+; LexUnexpected
+$(insert #$(name))

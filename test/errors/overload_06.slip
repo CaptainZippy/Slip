@@ -1,6 +1,0 @@
-; OverloadResolutionFailed
-; A local declaration hides the imported integer overload.
-(func add (left:string right:string):int
-    40)
-(func main ():int
-    (add 1:int 2:int))

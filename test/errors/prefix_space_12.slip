@@ -1,4 +1,0 @@
-; LexUnexpected
-(func main ():int
-    #; Comments cannot separate a prefix from its operand.
-    (add 0 0))

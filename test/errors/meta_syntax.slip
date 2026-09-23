@@ -1,0 +1,17 @@
+; LexUnexpected
+$(@)
+;===
+; LexUnexpected
+$(#)
+;===
+; LexUnexpected
+$(.)
+;===
+; LexUnexpected
+$(name.)
+;===
+; LexUnexpected
+$(name:)
+;===
+; LexUnexpected
+$(name:@)

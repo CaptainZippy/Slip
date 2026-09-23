@@ -1,5 +1,0 @@
-; OverloadResolutionFailed
-; Non-callable candidates have no function signature.
-(func main ():int
-    (var not_callable 1:int)
-    (not_callable 2:int))

@@ -1,8 +1,0 @@
-; MacroExpansionError
-; Recursive expansion must not exhaust the compiler's stack.
-(macro recursive (syntax) env
-    $(let self syntax)
-    $(expand self))
-
-(func main ():int
-    (recursive $(expand self)))

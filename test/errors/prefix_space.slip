@@ -1,0 +1,54 @@
+; LexUnexpected
+$ (insert name)
+;===
+; LexUnexpected
+$	(insert name)
+;===
+; LexUnexpected
+$
+(insert name)
+;===
+; LexUnexpected
+$; Comments cannot separate a prefix from its operand.
+(insert name)
+;===
+; LexUnexpected
+@ inline
+(func main ():int 0)
+;===
+; LexUnexpected
+@	inline
+(func main ():int 0)
+;===
+; LexUnexpected
+@
+inline
+(func main ():int 0)
+;===
+; LexUnexpected
+@; Comments cannot separate a prefix from its operand.
+inline
+(func main ():int 0)
+;===
+; LexUnexpected
+(func main ():int
+    # (add 0 0))
+;===
+; LexUnexpected
+(func main ():int
+    #	(add 0 0))
+;===
+; LexUnexpected
+(func main ():int
+    #
+    (add 0 0))
+;===
+; LexUnexpected
+(func main ():int
+    #; Comments cannot separate a prefix from its operand.
+    (add 0 0))
+;===
+; LexUnexpected
+; Type annotations use the same adjacency rule.
+(func read (value:@ ref int):int value)
+(func main ():int 0)

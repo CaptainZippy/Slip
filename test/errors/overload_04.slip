@@ -1,6 +1,0 @@
-; OverloadResolutionFailed
-; The candidate's return type is still being inferred.
-(func local_only (value:int)
-    value)
-(func main ():int
-    (local_only 1:int 2:int))

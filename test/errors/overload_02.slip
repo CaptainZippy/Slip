@@ -1,6 +1,0 @@
-; OverloadResolutionFailed
-; Wrong arity before the argument types have been deduced.
-(func local_only (value:int):int
-    value)
-(func main ():int
-    (local_only 1 2))

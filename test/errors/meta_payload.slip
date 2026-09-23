@@ -1,0 +1,18 @@
+; LexUnexpected
+; A bare identifier is not a parenthesized meta form.
+$name
+;===
+; LexUnexpected
+$42
+;===
+; LexUnexpected
+$"text"
+;===
+; LexUnexpected
+$'[text]'
+;===
+; LexUnexpected
+$)
+;===
+; LexUnexpected
+$@attr

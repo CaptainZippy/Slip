@@ -1,0 +1,30 @@
+; LexUnexpected
+$
+;===
+; LexPrematureEndOfFile
+$(; Missing closing parenthesis after a comment.
+;===
+; LexPrematureEndOfFile
+$(
+;===
+; LexPrematureEndOfFile
+$(insert
+;===
+; LexPrematureEndOfFile
+; The inner form is complete, but the outer form is not.
+$(let env $(child_env env)
+;===
+; LexUnexpected
+$(insert @
+;===
+; LexUnexpected
+$(insert #
+;===
+; LexPrematureEndOfFile
+$(insert name.
+;===
+; LexPrematureEndOfFile
+$(insert name:
+;===
+; LexUnexpected
+$(insert name:@

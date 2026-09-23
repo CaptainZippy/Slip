@@ -1,3 +1,10 @@
+; LexUnexpected
+
+(func main ():int
+    (var foo (add 1 2))
+    (puti foo)
+    0)))
+;===
 ; LexPrematureEndOfFile
 
 (func test():int

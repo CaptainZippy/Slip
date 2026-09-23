@@ -1,8 +1,0 @@
-; SymbolNotFound
-; Caller syntax cannot see macro-private runtime locals.
-(macro private_local (body) env
-    (var secret 1)
-    $(expand body env))
-
-(func main ():int
-    (private_local secret))

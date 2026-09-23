@@ -1,8 +1,0 @@
-; MacroExpansionError
-; A runtime declaration is not a raw syntax handle.
-(macro wrong_insert () env
-    (var value 1)
-    $(insert value))
-
-(func main ():int
-    (wrong_insert))

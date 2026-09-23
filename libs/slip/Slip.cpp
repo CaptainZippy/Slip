@@ -127,22 +127,25 @@ static std::string modNameFromPath( const char* path ) {
     return s;
 }
 
-static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManager& smanager, const char* fname ) {
+// Compile already-lexed text. `displayName` is used only for the module name and
+// (potential) generated output filename; it need not correspond to a real file, so
+// that a single file on disk can be split into several independently-compiled cases.
+static Slip::Result compileText( const Slip::Args::Args& args, Slip::Io::TextInput text, const char* displayName ) {
     using namespace Slip;
 
     unique_ptr_del<Ast::LexList> lex{ nullptr, nullptr };
-    RETURN_IF_FAILED( Ast::lex_file( smanager, fname, lex ) );
+    RETURN_IF_FAILED( Ast::lex_input( text, lex ) );
 
     Slip::unique_ptr_del<Ast::Module> ast{ nullptr, nullptr };
 
-    RETURN_IF_FAILED( Parse::module( modNameFromPath( fname ).c_str(), *lex, ast ) );
+    RETURN_IF_FAILED( Parse::module( modNameFromPath( displayName ).c_str(), *lex, ast ) );
     if( args.dumpParse )
         Ast::print( ast.get() );
     RETURN_IF_FAILED( Sema::type_check( ast.get() ) );
     if( args.dumpInfer )
         Ast::print( ast.get() );
 
-    string_view path{ fname };
+    string_view path{ displayName };
     auto slash = path.find_last_of( "\\/"_sv );
     if( slash != std::string::npos ) {
         path.remove_prefix( slash + 1 );
@@ -155,6 +158,13 @@ static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManag
     RETURN_IF_FAILED( out.open( string_concat( args.outputDir, "/", path, ".cpp" ).c_str() ) );
     RETURN_IF_FAILED( Backend::generate( *ast, out ) );
     return Result::OK;
+}
+
+static Slip::Result compile( const Slip::Args::Args& args, Slip::Io::SourceManager& smanager, const char* fname ) {
+    using namespace Slip;
+    Io::TextInput text;
+    RETURN_IF_FAILED( smanager.load( fname, text ) );
+    return compileText( args, text, fname );
 }
 
 namespace Tap {
@@ -208,11 +218,9 @@ namespace Tap {
         return 0;
     }
 
-    Slip::Result getExpectedError( Slip::Io::SourceManager& smanager, const char* filename, std::string_view& expected ) {
-        // First line of file contains a comment with the expected error. e.g. "; LexInvalidCharacter"
+    Slip::Result getExpectedError( Slip::Io::TextInput text, std::string_view& expected ) {
+        // The first line of a case contains a comment with the expected error. e.g. "; LexInvalidCharacter"
         using namespace Slip;
-        Io::TextInput text;
-        RETURN_IF_FAILED( smanager.load( filename, text ) );
         RETURN_ERROR_IF( text.next() != ';', Error::MalformedTestResult, text.location() );
         text.eatwhite();
         const char* start = text.cur;
@@ -220,6 +228,50 @@ namespace Tap {
         }
         expected = string_view{ start, size_t( text.cur - start - 1 ) };
         return Result::OK;
+    }
+
+    /// A single independently-lexed/compiled case within a (possibly multi-case) file.
+    struct Case {
+        Slip::Io::TextInput text;
+        std::string name;
+    };
+
+    /// Split `file` into cases at lines consisting solely of ";===". Case boundaries never
+    /// cross a real syntax expression, so this is plain text scanning, not lexing: a delimiter
+    /// line only ever separates two otherwise-independent snippets that each start with their
+    /// own "; ExpectedError" header.
+    static void splitCases( const char* fname, Slip::Io::TextInput file, std::vector<Case>& out ) {
+        using namespace Slip;
+        static const string_view kDelim = ";==="_sv;
+        const char* bufStart = file.start;
+        const char* bufEnd = file.end;
+        const Io::SourceNameAndContents* info = file.info;
+
+        std::vector<std::pair<const char*, const char*>> ranges;
+        const char* segStart = bufStart;
+        const char* p = bufStart;
+        while( p < bufEnd ) {
+            const char* nl = static_cast<const char*>( memchr( p, '\n', bufEnd - p ) );
+            const char* lineEnd = nl ? nl : bufEnd;
+            const char* trimEnd = lineEnd;
+            if( trimEnd > p && trimEnd[-1] == '\r' ) {
+                --trimEnd;
+            }
+            if( string_view( p, size_t( trimEnd - p ) ) == kDelim ) {
+                ranges.emplace_back( segStart, p );
+                segStart = nl ? nl + 1 : bufEnd;
+            }
+            p = nl ? nl + 1 : bufEnd;
+        }
+        ranges.emplace_back( segStart, bufEnd );
+
+        bool multi = ranges.size() > 1;
+        for( size_t i = 0; i != ranges.size(); ++i ) {
+            Case c;
+            c.text = Io::TextInput( bufStart, ranges[i].first, ranges[i].second, info );
+            c.name = multi ? string_concat( fname, "#", string_format( "%02zu", i + 1 ) ) : fname;
+            out.push_back( std::move( c ) );
+        }
     }
 
 };  // namespace Tap
@@ -282,23 +334,31 @@ Slip::Result Slip::Main::main( int argc, const char* argv[] ) {
             RETURN_IF_FAILED( compile( args, *smanager, input.c_str() ) );
         }
     } else {
-        Tap::header( "1..%i\n", args.inputs.size() );
+        // Each input file may hold one case, or several independent cases separated by ";===" lines.
+        std::vector<Tap::Case> cases;
+        for( auto& input : args.inputs ) {
+            Io::TextInput text;
+            RETURN_IF_FAILED( smanager->load( input.c_str(), text ) );
+            Tap::splitCases( input.c_str(), text, cases );
+        }
+
+        Tap::header( "1..%i\n", int( cases.size() ) );
         int i = 0;
-        for( auto input : args.inputs ) {
-            auto result = compile( args, *smanager, input.c_str() );
+        for( auto& c : cases ) {
+            auto result = compileText( args, c.text, c.name.c_str() );
             string_view expected;
             const char* actual = Error::toString( result.code );
-            if( Tap::getExpectedError( *smanager, input.c_str(), expected ).isOk() ) {
+            if( Tap::getExpectedError( c.text, expected ).isOk() ) {
                 if( result.isOk() ) {
-                    Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, STRING_VIEW_VARG( expected ), input.c_str() );
+                    Tap::header( "not ok %i - succeeded but expected %.*s in %s\n", ++i, STRING_VIEW_VARG( expected ), c.name.c_str() );
                 } else if( actual != expected ) {
                     Tap::header( "not ok %i - expected %.*s but got E%04i(%s) in %s\n", ++i, STRING_VIEW_VARG( expected ), result.code,
-                                 actual, input.c_str() );
+                                 actual, c.name.c_str() );
                 } else {
-                    Tap::header( "ok %i - %s\n", ++i, input.c_str() );
+                    Tap::header( "ok %i - %s\n", ++i, c.name.c_str() );
                 }
             } else {
-                Tap::header( "not ok %i - Error code missing from first line in %s %s\n", ++i, input.c_str(), actual );
+                Tap::header( "not ok %i - Error code missing from first line in %s %s\n", ++i, c.name.c_str(), actual );
             }
         }
     }
