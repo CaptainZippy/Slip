@@ -1,0 +1,13 @@
+; CannotOverload
+; Bind cannot create an overload group, even for distinct function signatures.
+(macro duplicate_bind () env
+    $(let target $(child_env env))
+    (func first (value:int):int 1)
+    (func second (value:double):int 2)
+    $(bind target item first)
+    $(bind target item second)
+    0)
+
+(duplicate_bind)
+
+(func main ():int 0)

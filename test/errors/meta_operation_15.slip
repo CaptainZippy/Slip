@@ -1,0 +1,10 @@
+; MacroExpansionError
+; A declaration handle is not an implicit runtime alias of its declaration.
+(macro runtime_declaration () env
+    (var source 7)
+    $(let declaration source)
+    (var invalid declaration)
+    0)
+
+(func main ():int
+    (runtime_declaration))

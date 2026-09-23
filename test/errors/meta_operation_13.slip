@@ -1,0 +1,11 @@
+; SymbolNotFound
+; A fresh body binding must not be installed in the caller environment.
+(macro local_binding (body) env
+    $(let target $(child_env env))
+    (var source 7)
+    $(bind target item source)
+    $(expand body target))
+
+(func main ():int
+    (local_binding item)
+    item)

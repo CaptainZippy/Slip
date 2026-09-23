@@ -1,0 +1,14 @@
+; Nested operations, comments between operands, and inserted names/types.
+
+(macro identity (value) env
+    $(expand value
+        ; Comments between operands remain allowed.
+        $(child_env env)))
+
+(macro local_value (vname vtype initial) env
+    (let $(insert vname):$(insert vtype) $(expand initial env))
+    $(expand vname))
+
+(func main ():int
+    (var answer (local_value result int (identity #(add 1 2))))
+    (cond ((eq? answer 3) 0) (true 1)))

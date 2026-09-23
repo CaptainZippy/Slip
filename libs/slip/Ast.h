@@ -251,8 +251,10 @@ namespace Slip::Ast {
 
         void lookupAll( istring sym, std::vector<Expr*>& out ) const override;
         Result lookup( string_view sym, Expr** out ) const override;
-        Result bind( istring sym, Expr* value );
-        auto bind( string_view sym, Expr* value ) { return bind( istring::make( sym ), value ); }
+        Result bind( istring sym, Expr* value, bool allowOverload = true );
+        auto bind( string_view sym, Expr* value, bool allowOverload = true ) {
+            return bind( istring::make( sym ), value, allowOverload );
+        }
         auto parent() const { return parent_; }
         Result importAll( Environment* other );
         // Each env knows the module in which it is contained
@@ -360,6 +362,12 @@ namespace Slip::Ast {
         MacroExpansion( MacroDecl* macro, std::vector<Expr*>&& args, With&& with ) : m_macro( macro ), m_args( args ) {
             with( *this );
         }
+    };
+
+    struct MetaBinding : Expr {
+        AST_DECL();
+        MetaBinding( Expr* value, const SourceLocation& loc ) : Expr( loc ), m_value( value ) {}
+        Expr* m_value;
     };
 
     struct Module : NamedDecl {

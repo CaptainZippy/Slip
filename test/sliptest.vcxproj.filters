@@ -58,6 +58,24 @@
     <None Include="feature\macro_expr_03.slip">
       <Filter>feature</Filter>
     </None>
+    <None Include="feature\meta_expr_01.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\meta_expr_02.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\meta_expr_03.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\meta_expr_04.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\meta_expr_05.slip">
+      <Filter>feature</Filter>
+    </None>
+    <None Include="feature\meta_expr_06.slip">
+      <Filter>feature</Filter>
+    </None>
     <None Include="feature\now_expr_01.slip">
       <Filter>feature</Filter>
     </None>
@@ -107,6 +125,57 @@
       <Filter>feature</Filter>
     </None>
     <None Include="errors\meson.build">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_01.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_02.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_03.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_04.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_05.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_06.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_07.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_08.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_09.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_10.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_11.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_12.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_13.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_14.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_15.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_16.slip">
+      <Filter>errors</Filter>
+    </None>
+    <None Include="errors\meta_operation_17.slip">
       <Filter>errors</Filter>
     </None>
     <None Include="errors\prefix_space_01.slip">

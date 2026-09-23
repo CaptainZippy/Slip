@@ -1,0 +1,8 @@
+; LexUnexpected
+; Insertion does not make a list a valid ordinary declaration name.
+(macro named_value (name) env
+    (var $(insert name) 1)
+    0)
+
+(func main ():int
+    (named_value (add 1 2)))

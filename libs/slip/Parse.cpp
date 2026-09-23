@@ -94,8 +94,73 @@ namespace Slip::Parse {
 using namespace Slip;
 enum class Ellipsis { ZeroOrMore, OneOrMore };
 
-static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out );
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out, unsigned metaDepth = 0 );
 static Result parse_Var( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out );
+static Result evalMeta( Ast::Environment* env, Ast::LexMetaExpr* meta, Parse::Flags flags, Ast::Expr** out, unsigned depth = 0 );
+
+static Ast::LexNode* copySyntax( Ast::LexNode* node ) {
+    Ast::LexNode* copy;
+    if( auto list = dynamic_cast<Ast::LexList*>( node ) ) {
+        auto result = new Ast::LexList( list->m_loc, list->m_openingChar );
+        result->m_items = list->m_items;
+        copy = result;
+    } else if( auto dot = dynamic_cast<Ast::LexDot*>( node ) ) {
+        copy = new Ast::LexDot( dot->m_lhs, dot->m_rhs );
+    } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( node ) ) {
+        copy = new Ast::LexNowExpr( now->m_loc, now->m_expr );
+    } else if( auto meta = dynamic_cast<Ast::LexMetaExpr*>( node ) ) {
+        copy = new Ast::LexMetaExpr( meta->m_loc, meta->m_expr );
+    } else if( dynamic_cast<Ast::LexIdent*>( node ) ) {
+        copy = new Ast::LexIdent( node->m_loc );
+    } else if( dynamic_cast<Ast::LexString*>( node ) ) {
+        copy = new Ast::LexString( node->m_loc );
+    } else {
+        assert( dynamic_cast<Ast::LexNumber*>( node ) );
+        copy = new Ast::LexNumber( node->m_loc );
+    }
+    copy->m_loc = node->m_loc;
+    copy->m_attrs = node->m_attrs;
+    copy->m_declTypeLex = node->m_declTypeLex;
+    return copy;
+}
+
+// Resolve inserted syntax only when its consumer is ready, not inside captured macro bodies.
+static Result prepareSyntax( Ast::Environment* env, Ast::LexNode* node, Ast::LexNode** out, unsigned depth = 0 ) {
+    *out = node;
+    if( !node ) {
+        return Result::OK;
+    }
+    RETURN_ERROR_IF( depth >= 128, Error::MacroExpansionError, node->m_loc, "Syntax expansion is too deeply nested" );
+    if( auto meta = dynamic_cast<Ast::LexMetaExpr*>( node ) ) {
+        auto op = meta->m_expr->size() ? dynamic_cast<Ast::LexIdent*>( meta->m_expr->at( 0 ) ) : nullptr;
+        if( op && op->text() == "insert" ) {
+            Ast::Expr* value;
+            RETURN_IF_FAILED( evalMeta( env, meta, Parse::Flags::None, &value, depth + 1 ) );
+            auto syntax = dynamic_cast<Ast::LexNode*>( value );
+            RETURN_ERROR_IF( !syntax, Error::MacroExpansionError, meta->m_loc, "insert requires syntax" );
+            return prepareSyntax( env, syntax, out, depth + 1 );
+        }
+    }
+    Ast::LexNode* type;
+    RETURN_IF_FAILED( prepareSyntax( env, node->m_declTypeLex, &type, depth + 1 ) );
+    std::vector<Ast::LexNode*> attrs;
+    bool changed = type != node->m_declTypeLex;
+    for( auto attr : node->m_attrs ) {
+        Ast::LexNode* prepared;
+        RETURN_IF_FAILED( prepareSyntax( env, attr, &prepared, depth + 1 ) );
+        RETURN_ERROR_IF( dynamic_cast<Ast::LexMetaExpr*>( prepared ), Error::MacroExpansionError, prepared->m_loc,
+                         "An annotation requires syntax, not a meta value" );
+        attrs.push_back( prepared );
+        changed |= prepared != attr;
+    }
+    if( changed ) {
+        auto copy = copySyntax( node );
+        copy->m_declTypeLex = type;
+        copy->m_attrs = std::move( attrs );
+        *out = copy;
+    }
+    return Result::OK;
+}
 
 static Result matchLex( Ast::Environment* env, Parse::Args& args ) {
     RETURN_ERROR_IF( !args.empty(), Error::TooManyArguments, args.cur()->m_loc );
@@ -117,16 +182,13 @@ static Result matchLex( Ast::Environment* env, Parse::Args& args, std::vector<As
 template <typename HEAD, typename... REST>
 static Result matchLex( Ast::Environment* env, Parse::Args& args, HEAD** head, REST... rest ) {
     RETURN_ERROR_IF( args.empty(), Error::TooFewArguments, args.loc() );
-    auto h = dynamic_cast<HEAD*>( args.cur() );
-    if( !h ) {
-        if( auto now = dynamic_cast<Ast::LexNowExpr*>( args.cur() ) ) {
-            Ast::Expr* n;
-            RETURN_IF_FAILED( parse1( env, now, Parse::Flags::None, &n ) );
-            h = dynamic_cast<HEAD*>( args.cur() );
-        }
+    Ast::LexNode* prepared = args.cur();
+    if constexpr( !std::is_same_v<HEAD, Ast::LexNode> ) {
+        RETURN_IF_FAILED( prepareSyntax( env, prepared, &prepared ) );
     }
+    auto h = dynamic_cast<HEAD*>( prepared );
     RETURN_ERROR_IF( !h, Error::LexUnexpected, args.cur()->m_loc, "Expected '%s', got '%s'", Reflect::getType<HEAD>()->name,
-                     args.cur()->dynamicType()->name );
+                     prepared->dynamicType()->name );
     args.advance();
     *head = h;
     return matchLex( env, args, rest... );
@@ -140,38 +202,102 @@ static Result matchLex( Ast::Environment* env, Ast::LexList* list, REST... rest 
     return matchLex( env, args, rest... );
 }
 
-static Result macroExpand1( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-    RETURN_ERROR_IF( args->size() < 2 || args->size() > 3, Error::WrongNumberOfArguments, args->m_loc );
-    Ast::LexIdent* larg;
-    Ast::LexIdent* lenv = nullptr;
-    switch( args->size() ) {
-        case 2:
-            RETURN_IF_FAILED( matchLex( env, args, &larg ) );
-            break;
-        case 3:
-            RETURN_IF_FAILED( matchLex( env, args, &larg, &lenv ) );
-            break;
+static Result metaValue( Ast::Environment* env, Ast::LexNode* arg, Ast::Expr** out, unsigned depth ) {
+    *out = nullptr;
+    if( auto meta = dynamic_cast<Ast::LexMetaExpr*>( arg ) ) {
+        return evalMeta( env, meta, Parse::Flags::None, out, depth + 1 );
     }
+    auto name = dynamic_cast<Ast::LexIdent*>( arg );
+    RETURN_ERROR_IF( !name, Error::MacroExpansionError, arg->m_loc, "Expected a bound meta value or a '$' operation" );
+    RETURN_ERROR_IF_FAILED( env->lookup( name->text(), out ), Error::SymbolNotFound, name->m_loc, "Symbol '%.*s' not found",
+                            STRING_VIEW_VARG( name->text() ) );
+    if( auto binding = dynamic_cast<Ast::MetaBinding*>( *out ) ) {
+        *out = binding->m_value;
+    }
+    return Result::OK;
+}
 
-    Ast::Expr* repl;
-    RETURN_IF_FAILED( env->lookup( larg->text(), &repl ) );
-    auto text = dynamic_cast<Ast::LexNode*>( repl );
-    RETURN_ERROR_IF( text == nullptr, Error::MacroExpansionError, repl->m_loc, "Replacement expected" );
+static Result metaEnvironment( Ast::Environment* env, Ast::LexNode* arg, Ast::Environment** out, unsigned depth ) {
+    Ast::Expr* value;
+    RETURN_IF_FAILED( metaValue( env, arg, &value, depth + 1 ) );
+    *out = dynamic_cast<Ast::Environment*>( value );
+    RETURN_ERROR_IF( !*out, Error::MacroExpansionError, arg->m_loc, "Expected an environment" );
+    return Result::OK;
+}
 
-    Ast::Environment* xenv;
-    if( lenv ) {
-        Ast::Expr* val;
-        RETURN_IF_FAILED( env->lookup( lenv->text(), &val ) );
-        xenv = dynamic_cast<Ast::Environment*>( val );
-        RETURN_ERROR_IF( xenv == nullptr, Error::MacroExpansionError, val->m_loc, "Environment expected" );
+static Result evalMeta( Ast::Environment* env, Ast::LexMetaExpr* meta, Parse::Flags flags, Ast::Expr** out, unsigned depth ) {
+    *out = nullptr;
+    RETURN_ERROR_IF( depth >= 128, Error::MacroExpansionError, meta->m_loc, "Syntax expansion is too deeply nested" );
+    auto args = meta->m_expr;
+    auto op = args->size() ? dynamic_cast<Ast::LexIdent*>( args->at( 0 ) ) : nullptr;
+    RETURN_ERROR_IF( !op, Error::MacroExpansionError, meta->m_loc, "A '$' operation must start with an operation name" );
+    auto name = op->text();
+    if( name == "insert" || name == "expand" || name == "stringize" ) {
+        RETURN_ERROR_IF( args->size() != 2 && !( name == "expand" && args->size() == 3 ),
+                         Error::WrongNumberOfArguments, meta->m_loc );
+        Ast::Expr* value;
+        RETURN_IF_FAILED( metaValue( env, args->at( 1 ), &value, depth + 1 ) );
+        auto syntax = dynamic_cast<Ast::LexNode*>( value );
+        RETURN_ERROR_IF( !syntax, Error::MacroExpansionError, args->at( 1 )->m_loc, "Expected syntax" );
+        if( name == "insert" ) {
+            // Use-site decorations must not change the reusable macro argument.
+            auto copy = copySyntax( syntax );
+            std::vector<Ast::LexNode*> attrs;
+            for( auto attr : meta->m_attrs ) {
+                Ast::LexNode* prepared;
+                RETURN_IF_FAILED( prepareSyntax( env, attr, &prepared, depth + 1 ) );
+                attrs.push_back( prepared );
+            }
+            copy->m_attrs.insert( copy->m_attrs.begin(), attrs.begin(), attrs.end() );
+            if( meta->m_declTypeLex ) {
+                RETURN_IF_FAILED( prepareSyntax( env, meta->m_declTypeLex, &copy->m_declTypeLex, depth + 1 ) );
+            }
+            *out = copy;
+        } else if( name == "expand" ) {
+            auto target = env;
+            if( args->size() == 3 ) {
+                RETURN_IF_FAILED( metaEnvironment( env, args->at( 2 ), &target, depth + 1 ) );
+            }
+            RETURN_IF_FAILED( parse1( target, syntax, flags, out, depth + 1 ) );
+        } else {
+            *out = new Ast::String( syntax->m_loc.text(), WITH( _.m_loc = meta->m_loc ) );
+        }
+    } else if( name == "child_env" ) {
+        RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, meta->m_loc );
+        Ast::Environment* parent;
+        RETURN_IF_FAILED( metaEnvironment( env, args->at( 1 ), &parent, depth + 1 ) );
+        *out = new Ast::Environment( parent );
+        ( *out )->m_loc = meta->m_loc;
+    } else if( name == "let" ) {
+        RETURN_ERROR_IF( args->size() != 3, Error::WrongNumberOfArguments, meta->m_loc );
+        Ast::LexNode* syntax;
+        RETURN_IF_FAILED( prepareSyntax( env, args->at( 1 ), &syntax, depth + 1 ) );
+        auto ident = dynamic_cast<Ast::LexIdent*>( syntax );
+        RETURN_ERROR_IF( !ident, Error::MacroExpansionError, syntax->m_loc, "Expected a binding name" );
+        Ast::Expr* value;
+        RETURN_IF_FAILED( metaValue( env, args->at( 2 ), &value, depth + 1 ) );
+        RETURN_ERROR_IF( !dynamic_cast<Ast::Environment*>( value ) && !dynamic_cast<Ast::LexNode*>( value ) &&
+                             !dynamic_cast<Ast::NamedDecl*>( value ),
+                         Error::MacroExpansionError, args->at( 2 )->m_loc, "Expected a syntax, environment, or declaration handle" );
+        RETURN_IF_FAILED( env->bind( ident->istr(), new Ast::MetaBinding( value, meta->m_loc ), false ) );
+        *out = new Ast::Nop();
+    } else if( name == "bind" ) {
+        RETURN_ERROR_IF( args->size() != 4, Error::WrongNumberOfArguments, meta->m_loc );
+        Ast::Environment* target;
+        RETURN_IF_FAILED( metaEnvironment( env, args->at( 1 ), &target, depth + 1 ) );
+        Ast::LexNode* syntax;
+        RETURN_IF_FAILED( prepareSyntax( env, args->at( 2 ), &syntax, depth + 1 ) );
+        auto ident = dynamic_cast<Ast::LexIdent*>( syntax );
+        RETURN_ERROR_IF( !ident, Error::MacroExpansionError, syntax->m_loc, "Expected an identifier to bind" );
+        Ast::Expr* declaration;
+        RETURN_IF_FAILED( metaValue( env, args->at( 3 ), &declaration, depth + 1 ) );
+        RETURN_ERROR_IF( !dynamic_cast<Ast::NamedDecl*>( declaration ), Error::MacroExpansionError, args->at( 3 )->m_loc,
+                         "bind requires an existing declaration" );
+        RETURN_IF_FAILED( target->bind( ident->istr(), declaration, false ) );
+        *out = new Ast::Nop();
     } else {
-        xenv = env;
+        RETURN_ERROR( Error::MacroExpansionError, op->m_loc, "Unknown '$' operation '%.*s'", STRING_VIEW_VARG( name ) );
     }
-
-    // run macros in a sub environment
-    xenv = new Ast::Environment( xenv );
-
-    RETURN_IF_FAILED( parse1( xenv, text, Parse::Flags::None, out ) );
     return Result::OK;
 }
 
@@ -184,12 +310,10 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
         RETURN_IF_FAILED( localEnv->bind( macro->m_params[i]->name(), args[i] ) );
     }
     RETURN_IF_FAILED( localEnv->bind( macro->m_dynEnvSym, env ) );
-    static Ast::Builtin expander{ "expand"_istr, Ast::fixMeDeclContext, &macroExpand1 };
-    localEnv->bind( "expand"_istr, &expander );
     std::vector<Ast::Expr*> body;
     for( auto&& b : macro->m_body ) {
         Ast::Expr* p;
-        RETURN_IF_FAILED( parse1( localEnv, b, Parse::Flags::None, &p ) );
+        RETURN_IF_FAILED( parse1( localEnv, b, Parse::Flags::RValue, &p ) );
         body.push_back( p );
     }
     if( body.size() == 1 ) {
@@ -200,48 +324,18 @@ static Result macroExpand( Ast::MacroDecl* macro, Ast::Environment* env, Ast::Le
     return Result::OK;
 }
 
-static Result parse_Stringize( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
+static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out, unsigned metaDepth ) {
     *out = nullptr;
-    RETURN_ERROR_IF( args->size() != 2, Error::Failed, args->m_loc );
-    auto expr1 = dynamic_cast<Ast::LexIdent*>( args->at( 1 ) );
-    Ast::Expr* node1;
-    RETURN_IF_FAILED( env->lookup( expr1->text(), &node1 ) );
-    auto lex1 = dynamic_cast<Ast::LexNode*>( node1 );
-
-    std::vector<char> txt;
-    Io::TextOutput txtout( &txt );
-    Ast::print( lex1, txtout );
-    *out = new Ast::String( { txt.data(), txt.size() }, WITH( _.m_loc = expr1->m_loc ) );
-    return Result::OK;
-}
-
-static Result parse_Bind( Ast::Environment* env, Ast::LexList* args, Ast::Expr** out ) {
-    Ast::LexIdent* lenv;
-    Ast::LexIdent* lname;
-    Ast::LexIdent* lval;
-    RETURN_IF_FAILED( matchLex( env, args, &lenv, &lname, &lval ) );
-    Ast::Expr* nenv;
-    RETURN_IF_FAILED( env->lookup( lenv->text(), &nenv ) );
-    auto env2 = dynamic_cast<Ast::Environment*>( nenv );
-
-    Ast::Expr* nname;
-    RETURN_IF_FAILED( env->lookup( lname->text(), &nname ) );
-    Ast::Expr* nval;
-    RETURN_IF_FAILED( env->lookup( lval->text(), &nval ) );
-    RETURN_IF_FAILED( env2->bind( dynamic_cast<Ast::LexIdent*>( nname )->text(), nval ) );
-
-    *out = new Ast::Nop();
-    return Result::OK;
-}
-
-static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags flags, Ast::Expr** out ) {
-    *out = nullptr;
+    RETURN_IF_FAILED( prepareSyntax( env, atom, &atom, metaDepth ) );
     if( atom == nullptr ) {
         return Result::OK;
     } else if( auto sym = dynamic_cast<Ast::LexIdent*>( atom ) ) {
         Ast::Expr* node;
         RETURN_ERROR_IF_FAILED( env->lookup( sym->text(), &node ), Error::SymbolNotFound, atom->m_loc, "Symbol '%.*s' not found",
                                 STRING_VIEW_VARG( sym->text() ) );
+        RETURN_ERROR_IF( dynamic_cast<Ast::Environment*>( node ) || dynamic_cast<Ast::LexNode*>( node ) ||
+                             dynamic_cast<Ast::MetaBinding*>( node ),
+                         Error::MacroExpansionError, atom->m_loc, "Meta values require a '$' operation" );
         switch( flags ) {
             case Parse::Flags::None:
                 *out = node;
@@ -259,17 +353,24 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
 
         auto items = list->items();
         auto first = items[0];
+        RETURN_IF_FAILED( prepareSyntax( env, first, &first ) );
         if( auto dot = dynamic_cast<Ast::LexDot*>( first ) ) {
             std::string name;
             Ast::LexIdent* ident;
-            RETURN_IF_FAILED( dynCast( dot->m_lhs, &ident ) );
+            Ast::LexNode* left;
+            RETURN_IF_FAILED( prepareSyntax( env, dot->m_lhs, &left ) );
+            RETURN_IF_FAILED( dynCast( left, &ident ) );
             Ast::Expr* out;
             name += ident->text();
             RETURN_IF_FAILED( env->lookup( ident->text(), &out ) );
+            RETURN_ERROR_IF( dynamic_cast<Ast::Environment*>( out ) || dynamic_cast<Ast::MetaBinding*>( out ),
+                             Error::MacroExpansionError, ident->m_loc, "Meta values require a '$' operation" );
             Ast::Dictlike* dict;
             RETURN_IF_FAILED( dynCast( out, &dict ) );
             Ast::LexIdent* identr;
-            RETURN_IF_FAILED( dynCast( dot->m_rhs, &identr ) );
+            Ast::LexNode* right;
+            RETURN_IF_FAILED( prepareSyntax( env, dot->m_rhs, &right ) );
+            RETURN_IF_FAILED( dynCast( right, &identr ) );
             Ast::Expr* e;
             RETURN_IF_FAILED( dict->lookup( identr->text(), &e ) );
             name += "_";
@@ -283,6 +384,9 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
             // sym can resolve to a builtin or macro or function. Only functions can be overloaded.
             env->lookupAll( istring::make( sym->text() ), candidates );
             for( Ast::Expr* p : candidates ) {
+                RETURN_ERROR_IF( dynamic_cast<Ast::Environment*>( p ) || dynamic_cast<Ast::LexNode*>( p ) ||
+                                     dynamic_cast<Ast::MetaBinding*>( p ),
+                                 Error::MacroExpansionError, sym->m_loc, "Meta values cannot be called" );
                 if( auto b = dynamic_cast<Ast::Builtin*>( p ) ) {
                     RETURN_ERROR_IF( candidates.size() != 1, Error::CannotOverload, sym->m_loc, "Builtins can't be overloaded" );
                     return b->parse( env, list, out );
@@ -320,20 +424,24 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
     } else if( auto dot = dynamic_cast<Ast::LexDot*>( atom ) ) {
         Ast::Expr* lhs;
         RETURN_IF_FAILED( parse1( env, dot->m_lhs, Parse::Flags::None, &lhs ) );
-        auto rhs = dynamic_cast<Ast::LexIdent*>( dot->m_rhs );
+        Ast::LexNode* right;
+        RETURN_IF_FAILED( prepareSyntax( env, dot->m_rhs, &right ) );
+        auto rhs = dynamic_cast<Ast::LexIdent*>( right );
         RETURN_ERROR_IF( !rhs, Error::SymbolExpectedAfterDot, dot->m_rhs->m_loc );  // todo:now
         auto r = new Ast::Selector( lhs, rhs, WITH( _.m_loc = dot->m_loc ) );
         *out = r;
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
-        auto inner = new Ast::Environment( env );
-        Parse::addBuiltin( inner, "stringize"_istr, Ast::fixMeDeclContext, &parse_Stringize );
-        Parse::addBuiltin( inner, "bind"_istr, Ast::fixMeDeclContext, &parse_Bind );
         Ast::Expr* parsed;
-        RETURN_IF_FAILED( parse1( inner, now->m_expr, Parse::Flags::None, &parsed ) );
+        RETURN_IF_FAILED( parse1( env, now->m_expr, Parse::Flags::None, &parsed ) );
         Ast::Expr* replacement = nullptr;
         RETURN_IF_FAILED( Eval::evaluate( env, parsed, &replacement ) );
         *out = replacement;
+        return Result::OK;
+    } else if( auto meta = dynamic_cast<Ast::LexMetaExpr*>( atom ) ) {
+        RETURN_IF_FAILED( evalMeta( env, meta, flags, out, metaDepth + 1 ) );
+        RETURN_ERROR_IF( dynamic_cast<Ast::Environment*>( *out ) || dynamic_cast<Ast::LexNode*>( *out ),
+                         Error::MacroExpansionError, meta->m_loc, "Meta values cannot be used as runtime expressions" );
         return Result::OK;
     }
     RETURN_ERROR( Error::NotImplemented, atom->m_loc );
@@ -368,6 +476,7 @@ static Result parse_Coroutine( Ast::Environment* env, Ast::LexList* args, Ast::E
         coro->m_declReturnTypeExpr = te;
     }
     for( auto item : largs->items() ) {
+        RETURN_IF_FAILED( prepareSyntax( inner, item, &item ) );
         auto sym = dynamic_cast<Ast::LexIdent*>( item );
         RETURN_ERROR_IF( sym == nullptr, Error::ParameterIdentifierExpected, item->m_loc );
         Ast::Expr* te;
@@ -425,19 +534,20 @@ static Result parse_Func( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
         func->m_declReturnTypeExpr = te;
     }
     for( auto item : largs->items() ) {
+        RETURN_IF_FAILED( prepareSyntax( inner, item, &item ) );
         auto sym = dynamic_cast<Ast::LexIdent*>( item );
         RETURN_ERROR_IF( sym == nullptr, Error::ParameterIdentifierExpected, item->m_loc );
         Ast::Expr* te;
         RETURN_IF_FAILED( parse1( inner, item->m_declTypeLex, Parse::Flags::None, &te ) );
         auto param = new Ast::Parameter( sym->istr(), func, WITH( _.m_loc = sym->m_loc, _.m_declTypeExpr = te ) );
-        auto it = rng::find_if( item->m_declTypeLex->m_attrs, []( Ast::LexNode* n ) {
-            if( auto i = dynamic_cast<Ast::LexIdent*>( n ) ) {
-                return i->text() == "ref";
-            }
-            return false;
-        } );
-        if( !it.empty() ) {
-            param->m_ref = true;
+        if( auto type = item->m_declTypeLex ) {
+            auto it = rng::find_if( type->m_attrs, []( Ast::LexNode* n ) {
+                if( auto i = dynamic_cast<Ast::LexIdent*>( n ) ) {
+                    return i->text() == "ref";
+                }
+                return false;
+            } );
+            param->m_ref = !it.empty();
         }
         func->m_params.push_back( param );
     }
@@ -559,7 +669,9 @@ static Result parse_Cond( Ast::Environment* env, Ast::LexList* args, Ast::Expr**
     RETURN_ERROR_IF( args->size() < 2, Error::TooFewArguments, args->m_loc, "Expected 2, got %i", args->size() );
     std::vector<std::pair<Ast::Expr*, Ast::Expr*>> cases;
     for( auto&& arg : args->items().ltrim( 1 ) ) {
-        auto pair = dynamic_cast<Ast::LexList*>( arg );
+        Ast::LexNode* prepared;
+        RETURN_IF_FAILED( prepareSyntax( env, arg, &prepared ) );
+        auto pair = dynamic_cast<Ast::LexList*>( prepared );
         RETURN_ERROR_IF( pair == nullptr, Error::ListExpected, arg->m_loc );
         RETURN_ERROR_IF( pair->size() != 2, Error::WrongNumberOfArguments, arg->m_loc, "Expected 2, got %i", pair->size() );
 
@@ -718,6 +830,7 @@ static Result parse_Macro( Ast::Environment* env, Ast::LexList* args, Ast::Expr*
     RETURN_IF_FAILED( matchLex( env, args, &lname, &largs, &lenv, &lbody, Ellipsis::OneOrMore ) );
     auto macro = new Ast::MacroDecl( lname->istr(), Ast::fixMeDeclContext, lenv->text(), env, WITH( _.m_loc = lname->m_loc ) );
     for( auto item : largs->items() ) {
+        RETURN_IF_FAILED( prepareSyntax( env, item, &item ) );
         auto sym = dynamic_cast<Ast::LexIdent*>( item );
         RETURN_ERROR_IF( sym == nullptr, Error::ParameterIdentifierExpected, item->m_loc );
         auto param = new Ast::Parameter( sym->istr(), macro, WITH( _.m_loc = sym->m_loc ) );
@@ -828,7 +941,9 @@ static Result parse_Struct( Ast::Environment* env, Ast::LexList* args, Ast::Expr
     type->m_struct = decl;
     RETURN_IF_FAILED( env->bind( decl->m_name, type ) );
     for( auto&& lf : lfields ) {
-        auto li = dynamic_cast<Ast::LexIdent*>( lf );
+        Ast::LexNode* prepared;
+        RETURN_IF_FAILED( prepareSyntax( env, lf, &prepared ) );
+        auto li = dynamic_cast<Ast::LexIdent*>( prepared );
         RETURN_ERROR_IF( li == nullptr, Error::FieldIdentifierExpected, lf->m_loc );
         RETURN_ERROR_IF( li->m_declTypeLex == nullptr, Error::FieldTypeExpected, lf->m_loc );
         Ast::Expr* ft;
@@ -992,6 +1107,22 @@ static Result parse_ResultT( Ast::Environment* env, Ast::LexList* args, Ast::Exp
     return Result::OK;
 }
 
+static Result exportModuleExpr( Ast::Module* module, Ast::Expr* expr ) {
+    if( dynamic_cast<Ast::Nop*>( expr ) ) {
+        return Result::OK;
+    }
+    if( auto sequence = dynamic_cast<Ast::Sequence*>( expr ) ) {
+        for( auto item : sequence->items() ) {
+            RETURN_IF_FAILED( exportModuleExpr( module, item ) );
+        }
+        return Result::OK;
+    }
+    auto declaration = dynamic_cast<Ast::NamedDecl*>( expr );
+    RETURN_ERROR_IF( !declaration, Error::MacroExpansionError, expr->m_loc, "Only declarations are allowed at module scope" );
+    module->addExport( declaration->name(), declaration );
+    return Result::OK;
+}
+
 Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_ptr_del<Ast::Module>& mod ) {
     auto module = make_unique_del<Ast::Module>( istring::make( name ), Ast::fixMeDeclContext );
 
@@ -1142,9 +1273,7 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     for( auto c : lex.items() ) {
         Ast::Expr* e;
         RETURN_IF_FAILED( parse1( module->env(), c, Parse::Flags::RValue, &e ), "Failed to parse" );
-        Ast::NamedDecl* n;
-        RETURN_IF_FAILED( dynCast( e, &n ) );
-        module->addExport( n->name(), n );
+        RETURN_IF_FAILED( exportModuleExpr( module.get(), e ) );
     }
     builtin.release();  //< FIXME leak
     bitops.release();   //< FIXME leak

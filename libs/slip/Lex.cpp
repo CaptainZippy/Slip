@@ -259,8 +259,9 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
             *atomOut = new Ast::LexString( tok.loc );
             break;
         case Token::ListBegin: {
-            auto list = new Ast::LexList( in.location(), '(' );
+            auto list = new Ast::LexList( tok.loc, '(' );
             RETURN_IF_FAILED( lex_list( in, list ) );
+            list->m_loc.m_end = in.tell();
             *atomOut = list;
             return Result::OK;
         }
@@ -331,7 +332,7 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     RETURN_ERROR_IF( !atom, Error::LexPrematureEndOfFile, in.location(), "Expected expression" );
 
     if( lexNowStart >= 0 ) {
-        atom = new Ast::LexNowExpr( in.location( lexNowStart ), atom );
+        atom = new Ast::LexNowExpr( in.location( lexNowStart, in.tell() ), atom );
     }
     atom->m_attrs.swap( attrs );
 
@@ -339,8 +340,10 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
         Ast::LexNode* a;
         RETURN_IF_FAILED( lex_atom( in, &a ) );
         RETURN_ERROR_IF( !a, Error::LexPrematureEndOfFile, in.location(), "Expected expression after '.'" );
+        auto loc = atom->m_loc;
+        loc.m_end = a->m_loc.m_end;
         atom = new Ast::LexDot( atom, a );
-        atom->m_loc = a->m_loc;
+        atom->m_loc = loc;
     }
 
     if( expect_token( Token::LexColon, in, tok ) ) {

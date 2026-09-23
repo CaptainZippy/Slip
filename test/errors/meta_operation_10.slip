@@ -1,0 +1,9 @@
+; MacroExpansionError
+; A saved environment handle is not a runtime value.
+(macro runtime_environment () env
+    $(let target env)
+    (var invalid target)
+    0)
+
+(func main ():int
+    (runtime_environment))

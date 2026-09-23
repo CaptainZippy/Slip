@@ -1,0 +1,35 @@
+; Normal declarations overload locally; aliases do not create overload groups.
+
+(func outer_pick (value:int):int
+    99)
+
+(macro publish_overloads (fname) env
+    ; The ancestor alias has a different emitted name from the local overloads.
+    $(bind env pick outer_pick)
+    (func pick (value:int):int
+        value)
+    (func pick (value:double):int
+        8)
+    (func $(insert fname) ():int
+        (add (pick 5:int) (pick 1.5:double)))
+    $(bind env $(insert fname) $(expand fname)))
+
+(publish_overloads check_overloads)
+
+$(let saved_function pick)
+
+(macro with_function_alias (body) env
+    $(let body_env $(child_env env))
+    $(bind body_env alias saved_function)
+    $(expand body body_env))
+
+(func main ():int
+    (var result (check_overloads))
+    (var caller (pick 5))
+    (var aliased (with_function_alias (alias 5)))
+    (cond
+        ((eq? result 13)
+            (cond
+                ((eq? caller 99) (cond ((eq? aliased 99) 0) (true 1)))
+                (true 1)))
+        (true 1)))

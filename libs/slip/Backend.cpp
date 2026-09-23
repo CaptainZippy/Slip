@@ -339,7 +339,11 @@ namespace {
             out.write( ") {\n" );
             std::string ret = dispatch( n->m_body );
             m_outerFuncCanFail.undefine();
-            out.write( string_concat( "return ", ret, ";\n" ) );
+            if( n->m_type->m_callable[0] == &Ast::s_typeVoid ) {
+                out.write( "return;\n" );
+            } else {
+                out.write( string_concat( "return ", ret, ";\n" ) );
+            }
             out.end( "}\n" );
             return symbol;
         }

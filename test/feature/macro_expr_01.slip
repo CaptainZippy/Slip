@@ -2,12 +2,15 @@
 
 (macro if2 (condition iftrue iffalse) env
     (cond
-        ((expand condition env) (expand iftrue env))
+        ($(expand condition env) $(expand iftrue env))
         (true     (begin
             (puts "Test failed:")
-            (puts #(stringize condition))
-            (expand iffalse env)))
+            (puts $(stringize condition))
+            $(expand iffalse env)))
 ))
+
+(macro source_text (value) env
+    $(stringize value))
 
 (func main ():int
     (var x 4:int)
@@ -16,4 +19,10 @@
             
     (puts (if2 (eq? x y) "true" "false"))
     (puts (if2 (eq? x z) "true" "false"))
+    (puts (source_text (missing_name "quoted text"
+        "second line")))
+    (puts (source_text (missing_name never_lookup)))
+    (puts (source_text never_lookup.member))
+    (puts (source_text #(add 1 2)))
+    (puts (source_text $(unknown never_lookup)))
     0)

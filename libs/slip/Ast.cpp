@@ -150,6 +150,11 @@ namespace Slip::Ast {
     REFLECT_FIELD2( m_args, Flags::Child )
     REFLECT_END()
 
+    REFLECT_BEGIN( MetaBinding )
+    REFLECT_PARENT( Expr )
+    REFLECT_FIELD2( m_value, Flags::Abbrev )
+    REFLECT_END()
+
     REFLECT_BEGIN( NamedFunctionCall )
     REFLECT_PARENT( NamedDecl )
     REFLECT_FIELD2( m_resolved, Flags::Hidden )
@@ -276,7 +281,7 @@ Result Ast::Environment::lookup( string_view sym, Expr** out ) const {
     return Result::OK;
 }
 
-Result Ast::Environment::bind( istring sym, Expr* value ) {
+Result Ast::Environment::bind( istring sym, Expr* value, bool allowOverload ) {
     auto it = syms_.lower_bound( sym );
     if( it == syms_.end() || it->first != sym ) {  // new element
         syms_.emplace( sym, value );
@@ -286,10 +291,9 @@ Result Ast::Environment::bind( istring sym, Expr* value ) {
     auto fdVal = dynamic_cast<Ast::FunctionDecl*>( value );
     auto fdCur = dynamic_cast<Ast::FunctionDecl*>( it->second );
     auto& loc = it->second->m_loc;
-    RETURN_ERROR_IF( fdVal == nullptr || fdCur == nullptr, Error::CannotOverload, value->m_loc,
-                     "Only functions can be overloaded. '%s' is already defined\n"
-                     "%s:%i:%i: Previously defined here",
-                     sym.c_str(), loc.filename(), loc.line(), loc.col() );
+    RETURN_ERROR_IF( !allowOverload || fdVal == nullptr || fdCur == nullptr, Error::CannotOverload, value->m_loc,
+                     "%s'%s' is already defined\n%s:%i:%i: Previously defined here",
+                     allowOverload ? "Only functions can be overloaded. " : "", sym.c_str(), loc.filename(), loc.line(), loc.col() );
     syms_.emplace_hint( it, sym, value );
     return Result::OK;
 }

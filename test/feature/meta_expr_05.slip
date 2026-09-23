@@ -1,0 +1,22 @@
+; Explicit expand reuses exactly its environment; bind aliases, not copies.
+
+(macro declare_then_read (declaration use) env
+    $(let target $(child_env env))
+    $(let same_target target)
+    $(expand declaration same_target)
+    $(expand use target))
+
+(macro expose_alias (body) env
+    (var original 5)
+    $(let declaration original)
+    $(bind env exposed declaration)
+    ; The alias is intentionally visible to caller syntax in this runtime scope.
+    $(expand body env)
+    original)
+
+(func main ():int
+    (var declared (declare_then_read (var shared 12) shared))
+    (var aliased (expose_alias (set! exposed 19)))
+    (cond
+        ((eq? declared 12) (cond ((eq? aliased 19) 0) (true 1)))
+        (true 1)))

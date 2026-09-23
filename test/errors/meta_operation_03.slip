@@ -1,0 +1,3 @@
+; MacroExpansionError
+; Unknown syntax operations are not ordinary function calls.
+$(unknown_operation)

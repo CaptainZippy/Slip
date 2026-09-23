@@ -1,0 +1,47 @@
+; Insert raw names without resolving them first; decorations must not persist.
+
+(macro named_declarations (tname field fname param kind annotation head) env
+    (struct $(insert tname)
+        $(insert field):$(insert kind))
+    @$(insert annotation)
+    (func $(insert fname) ($(insert param):$(insert kind)):$(insert kind)
+        ($(insert head) $(insert param) 1))
+    $(bind env $(insert tname) $(expand tname))
+    $(bind env $(insert fname) $(expand fname)))
+
+(named_declarations Box value next argument int inline add)
+
+(macro named_members (tname field fname local) env
+    $(let saved_name local)
+    (var $(insert $(insert saved_name)):$(insert tname)
+        ($(insert fname) 6))
+    (var selected $(insert saved_name).$(insert field))
+    ; Reusing local must still produce the whole struct, not its selected field.
+    (var whole $(insert saved_name))
+    (add selected whole.$(insert field)))
+
+(macro typed_functions (ref_name plain_name kind) env
+    (func $(insert ref_name) (value:@ref $(insert kind)):void
+        (set! value (add value 1)))
+    ; Reusing kind must not retain @ref from the preceding parameter.
+    (func $(insert plain_name) (value:$(insert kind)):$(insert kind)
+        value)
+    $(bind env $(insert ref_name) $(expand ref_name))
+    $(bind env $(insert plain_name) $(expand plain_name)))
+
+(typed_functions increment by_value int)
+
+(macro folded (value) env
+    #(add $(insert value) 1))
+
+(func main ():int
+    (var names (named_members Box value next object))
+    (var types (by_value 4))
+    (increment types)
+    (var constant (folded 3))
+    (cond
+        ((eq? names 14)
+            (cond
+                ((eq? types 5) (cond ((eq? constant 4) 0) (true 1)))
+                (true 1)))
+        (true 1)))
