@@ -1,7 +1,7 @@
 ; Explicit expand reuses exactly its environment; bind aliases, not copies.
 
 (macro declare_then_read (declaration use) env
-    $(let target $(child_env env))
+    $(let target $(make_env env))
     $(let same_target target)
     $(expand declaration same_target)
     $(expand use target))

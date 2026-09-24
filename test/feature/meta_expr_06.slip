@@ -19,7 +19,7 @@
 $(let saved_function pick)
 
 (macro with_function_alias (body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     $(bind body_env alias saved_function)
     $(expand body body_env))
 

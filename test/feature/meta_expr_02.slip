@@ -1,13 +1,13 @@
 ; Inserted and literal bindings, private locals, shadowing, and nested expansion.
 
 (macro with_value (vname initial body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     (var current $(expand initial env))
     $(bind body_env $(insert vname) current)
     $(expand body body_env))
 
 (macro with_literal (body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     (var current 42)
     $(bind body_env item current)
     $(expand body body_env))

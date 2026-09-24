@@ -1,7 +1,7 @@
 ; The exposed loop variable aliases an explicit per-iteration copy, not cur.
 
 (macro count_copies (vname limit body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     (var cur 0:int)
     (var end $(expand limit env))
     (while (lt? cur end)

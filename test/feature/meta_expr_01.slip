@@ -3,7 +3,7 @@
 (macro identity (value) env
     $(expand value
         ; Comments between operands remain allowed.
-        $(child_env env)))
+        $(make_env env)))
 
 (macro local_value (vname vtype initial) env
     (let $(insert vname):$(insert vtype) $(expand initial env))

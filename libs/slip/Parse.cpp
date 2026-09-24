@@ -262,7 +262,7 @@ static Result evalMeta( Ast::Environment* env, Ast::LexMetaExpr* meta, Parse::Fl
         } else {
             *out = new Ast::String( syntax->m_loc.text(), WITH( _.m_loc = meta->m_loc ) );
         }
-    } else if( name == "child_env" ) {
+    } else if( name == "make_env" ) {
         RETURN_ERROR_IF( args->size() != 2, Error::WrongNumberOfArguments, meta->m_loc );
         Ast::Environment* parent;
         RETURN_IF_FAILED( metaEnvironment( env, args->at( 1 ), &parent, depth + 1 ) );

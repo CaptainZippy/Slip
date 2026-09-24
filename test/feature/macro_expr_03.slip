@@ -1,6 +1,6 @@
 ; 
 (macro countup (vname limit body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     (var cur 0:int)
     (var end $(expand limit body_env))
     (while (lt? cur end)

@@ -65,12 +65,12 @@ functions are not closures. A generated function named by the syntax parameter
 | --- | --- |
 | `$(insert value)` | Replace one syntax node with a raw syntax handle from a macro parameter, an expansion-time binding, or a nested syntax operation. Do not look up the inserted identifier while inserting it. |
 | `$(let name value)` | Create a read-only expansion-time binding to a syntax, environment, or declaration handle. Produce no runtime value; do not replace a same-scope name. |
-| `$(child_env env)` | Create a fresh child of the supplied environment. |
+| `$(make_env env)` | Create a fresh child of the supplied environment. |
 | `$(bind env name declaration)` | Alias an existing named declaration into exactly `env`. The name is literal identifier syntax or `$(insert parameter)`. A computed value is not a declaration, and binding never copies a runtime value. |
 | `$(expand syntax [env])` | Parse bound syntax in exactly the supplied environment, or the current macro environment when omitted. No implicit child is created, so declarations remain visible to later expansions in that environment. |
 | `$(stringize syntax)` | Produce a runtime string containing the bound syntax. |
 
-Forms may nest, for example `$(let body_env $(child_env env))`. Inserted syntax
+Forms may nest, for example `$(let body_env $(make_env env))`. Inserted syntax
 works in expression and call-head positions, declaration, function, parameter
 and field names, types, annotations, and member selectors. For example:
 
@@ -93,7 +93,7 @@ code. Use a fresh body environment to keep exposed names local:
 
 ```slip
 (macro countup (vname limit body) env
-    $(let body_env $(child_env env))
+    $(let body_env $(make_env env))
     (var cur 0:int)
     (var end $(expand limit env))
     (while (lt? cur end)

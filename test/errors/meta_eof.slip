@@ -12,7 +12,7 @@ $(insert
 ;===
 ; LexPrematureEndOfFile
 ; The inner form is complete, but the outer form is not.
-$(let env $(child_env env)
+$(let env $(make_env env)
 ;===
 ; LexUnexpected
 $(insert @

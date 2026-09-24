@@ -11,7 +11,7 @@ $(7)
 $(unknown_operation)
 ;===
 ; WrongNumberOfArguments
-$(child_env)
+$(make_env)
 ;===
 ; MacroExpansionError
 ; An integer cannot stand in for an expansion environment.
@@ -54,7 +54,7 @@ $(child_env)
 ; CannotOverload
 ; Bind cannot create an overload group, even for distinct function signatures.
 (macro duplicate_bind () env
-    $(let target $(child_env env))
+    $(let target $(make_env env))
     (func first (value:int):int 1)
     (func second (value:double):int 2)
     $(bind target item first)
@@ -96,7 +96,7 @@ $(child_env)
 ; SymbolNotFound
 ; A fresh body binding must not be installed in the caller environment.
 (macro local_binding (body) env
-    $(let target $(child_env env))
+    $(let target $(make_env env))
     (var source 7)
     $(bind target item source)
     $(expand body target))
