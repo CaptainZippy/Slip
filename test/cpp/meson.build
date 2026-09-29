@@ -1,4 +1,5 @@
 cpp_tests = [
+    'backend_result',
     'intrinsic_callback',
 ]
 

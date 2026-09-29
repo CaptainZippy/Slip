@@ -46,7 +46,7 @@ namespace Slip {
     }
 
     namespace Backend {
-        /// Generate output
+        /// Generate a checked module; failure leaves the output unchanged.
         Result generate( Ast::Module& mod, Io::TextOutput& out );
     }  // namespace Backend
 

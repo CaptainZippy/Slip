@@ -1,6 +1,7 @@
 #include "slip/pch/Pch.h"
 
 #include "Ast.h"
+#include "Errors.h"
 #include "Io.h"
 
 namespace {
@@ -42,43 +43,54 @@ namespace {
             assert( it.second );  // assert we inserted a new
         }
 
-        std::string dispatch( Ast::Expr* n ) {
+        Result dispatch( Ast::Expr* n, std::string& value ) {
+            value.clear();
             auto it = dispatched_.find( n );
             if( it != dispatched_.end() ) {
-                return it->second.std_str();
+                value = it->second.std_str();
+                return Result::OK;
             }
-            auto s = Ast::dispatch<std::string>( n, *this );
+            std::string s;
+            RETURN_IF_FAILED( Ast::dispatch<Result>( n, *this, s ) );
             if( s.size() ) {
                 dispatched_.emplace( n, istring::make( s ) );
             }
-            return s;
+            value = std::move( s );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Expr* n ) {
-            assert( 0 );
-            return "";
+        Result operator()( Ast::Expr* n, std::string& value ) {
+            RETURN_ERROR( Error::NotImplemented, n->m_loc, "Cannot generate C++ for '%s'", n->dynamicType()->name );
         }
 
-        std::string operator()( Ast::Type* n ) { return n->name().std_str(); }
+        Result operator()( Ast::Type* n, std::string& value ) {
+            value = n->name().std_str();
+            return Result::OK;
+        }
 
-        std::string operator()( Ast::CatchExpr* n ) {
-            auto rhs = dispatch( n->m_expr );
+        Result operator()( Ast::CatchExpr* n, std::string& value ) {
+            std::string rhs;
+            RETURN_IF_FAILED( dispatch( n->m_expr, rhs ) );
             out.write( string_concat( "if(", rhs, ".fail) {\n" ) );
-            auto fail = dispatch( n->m_fail );
+            std::string fail;
+            RETURN_IF_FAILED( dispatch( n->m_fail, fail ) );
             out.write( string_concat( rhs, ".ok = ", fail, ";\n" ) );
             out.write( "}\n" );
-            return string_concat( rhs, ".ok" );
+            value = string_concat( rhs, ".ok" );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::CoroutineYield* n ) {
-            auto r = dispatch( n->m_expr );
+        Result operator()( Ast::CoroutineYield* n, std::string& value ) {
+            std::string r;
+            RETURN_IF_FAILED( dispatch( n->m_expr, r ) );
             out.write( string_concat( "state_ = 1;\n" ) );
             out.write( string_concat( "return ", r, ";\n" ) );
             out.write( string_concat( "case_1: /*yield*/\n" ) );
-            return "/*yield*/";  // FIXME.coro
+            value = "/*yield*/";  // FIXME.coro
+            return Result::OK;
         }
 
-        std::string operator()( Ast::CoroutineDecl* n ) {
+        Result operator()( Ast::CoroutineDecl* n, std::string& value ) {
             out.begin( string_concat( "struct ", n->name(), "{" ) );
             out.write( "int state_{0};\n" );
             for( auto p : n->m_params ) {
@@ -97,7 +109,8 @@ namespace {
                 sep2 = ",";
             }
             out.write( "{}\n" );
-            std::string name = dispatch( n->m_declReturnTypeExpr );
+            std::string name;
+            RETURN_IF_FAILED( dispatch( n->m_declReturnTypeExpr, name ) );
             out.begin( string_concat( name, " operator()(int& status) {\n" ) );
             out.begin( "switch( state_ ) {\n" );
             out.write( "case 0: goto case_0;\n" );
@@ -109,29 +122,39 @@ namespace {
 
             out.write( "case_0:\n" );
             m_outerFuncCanFail.define( true );
-            dispatch( n->m_body );
+            std::string ignored;
+            RETURN_IF_FAILED( dispatch( n->m_body, ignored ) );
             m_outerFuncCanFail.undefine();
             out.write( "goto case_err;\n" );
             out.begin( "}\n" );
             out.end( "};" );
-            return n->name().std_str();
+            value = n->name().std_str();
+            return Result::OK;
         }
-        std::string operator()( Ast::MacroDecl* n ) { return ""; }
+        Result operator()( Ast::MacroDecl* n, std::string& value ) {
+            value.clear();
+            return Result::OK;
+        }
 
-        std::string operator()( Ast::MacroExpansion* n ) { return dispatch( n->m_expansion ); }
+        Result operator()( Ast::MacroExpansion* n, std::string& value ) { return dispatch( n->m_expansion, value ); }
 
-        std::string operator()( Ast::Reference* n ) { return dispatch( n->m_target ); }
-        std::string operator()( Ast::Parameter* n ) {
+        Result operator()( Ast::Reference* n, std::string& value ) { return dispatch( n->m_target, value ); }
+        Result operator()( Ast::Parameter* n, std::string& value ) {
             addName( n, n->name() );
-            return n->m_name.std_str();
+            value = n->m_name.std_str();
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Nop* n ) { return ""; }
-
-        std::string operator()( Ast::Number* n ) {
-            return string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
+        Result operator()( Ast::Nop* n, std::string& value ) {
+            value.clear();
+            return Result::OK;
         }
-        std::string operator()( Ast::String* n ) {
+
+        Result operator()( Ast::Number* n, std::string& value ) {
+            value = string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
+            return Result::OK;
+        }
+        Result operator()( Ast::String* n, std::string& value ) {
             std::string s;
             for( unsigned char c : n->m_str ) {
                 switch( c ) {
@@ -149,97 +172,103 @@ namespace {
                         break;
                 }
             }
-            return string_concat( "\"", s, "\"_builtin_str" );
+            value = string_concat( "\"", s, "\"_builtin_str" );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::DataList* n ) {
+        Result operator()( Ast::DataList* n, std::string& value ) {
             // Use standard C++ brace-init ("Type{...}") rather than a C99-style
             // compound literal ("(Type) {...}"), which MSVC rejects under /permissive-.
-            std::string s = string_concat( dispatch( n->m_type ), "{" );
+            std::string type;
+            RETURN_IF_FAILED( dispatch( n->m_type, type ) );
+            std::string s = string_concat( type, "{" );
             const char* sep = "";
             for( auto a : n->items() ) {
                 out.nl();
                 s += sep;
-                s += dispatch( a );
+                std::string item;
+                RETURN_IF_FAILED( dispatch( a, item ) );
+                s += item;
                 sep = ",";
             }
             s += "}";
-            return s;
+            value = std::move( s );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Definition* n ) {
-            auto val = dispatch( n->m_value );
+        Result operator()( Ast::Definition* n, std::string& value ) {
+            std::string val;
+            RETURN_IF_FAILED( dispatch( n->m_value, val ) );
             out.write( string_format( "%s %s = %s", sanitize( n->m_type->name() ).c_str(), n->m_name, val.c_str() ) );
-            return n->m_name.std_str();
+            value = n->m_name.std_str();
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Sequence* n ) {
+        Result operator()( Ast::Sequence* n, std::string& value ) {
             for( auto a : n->items().rtrim( 1 ) ) {
-                dispatch( a );
+                std::string ignored;
+                RETURN_IF_FAILED( dispatch( a, ignored ) );
                 out.nl();
             }
-            return dispatch( n->m_items.back() );
+            return dispatch( n->m_items.back(), value );
         }
 
-        std::string operator()( Ast::Scope* n ) { return dispatch( n->m_child ); }
+        Result operator()( Ast::Scope* n, std::string& value ) { return dispatch( n->m_child, value ); }
 
-        std::string operator()( Ast::Block* n ) {
+        Result operator()( Ast::Block* n, std::string& value ) {
             std::string var;
             if( n->m_type != &Ast::s_typeVoid ) {
                 var = string_format( "v_%s", n->name().c_str() );
                 out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), var.c_str() ) );
             }
             out.begin( "{\n" );
-            std::string s = dispatch( n->m_contents );
+            std::string s;
+            RETURN_IF_FAILED( dispatch( n->m_contents, s ) );
             if( var.size() ) {
                 out.end( string_format( "\n%s = %s;\n}\n", var.c_str(), s.c_str() ) );
             }
             out.write( string_format( "\nL%s:\n", n->name().c_str() ) );
-            return var;
+            value = std::move( var );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Break* n ) {
-            std::string s = dispatch( n->m_value );
+        Result operator()( Ast::Break* n, std::string& value ) {
+            std::string s;
+            RETURN_IF_FAILED( dispatch( n->m_value, s ) );
             out.write( string_format( "v_%s = %s;\n", n->m_target->m_name.c_str(), s.c_str() ) );
             out.write( string_format( "goto L%s;\n", n->m_target->m_name.c_str() ) );
-            return s;
+            value = std::move( s );
+            return Result::OK;
         }
-#if 0
-        std::string operator()(Ast::Scope* n) {
-            auto id = newVarId();
-            out.write(string_format("%s %s", n->m_type->m_name.c_str(), n->m_name));
-            out.begin(" {\n");
-            auto r = dispatch(n->m_child);
-            out.end("}\n");
-            out.write(string_format("%s = %s", id.c_str(), n->m_name));
-            return id;
-        }
-#endif
-        std::string operator()( Ast::If* n ) {
+        Result operator()( Ast::If* n, std::string& value ) {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
                 out.write( string_format( "%s %s;\n", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             }
             out.begin( " {\n" );
-            auto cond = dispatch( n->m_cond );
+            std::string cond;
+            RETURN_IF_FAILED( dispatch( n->m_cond, cond ) );
             out.begin( string_format( "if(%s) {\n", cond.c_str() ) );
-            std::string t = dispatch( n->m_true );
+            std::string t;
+            RETURN_IF_FAILED( dispatch( n->m_true, t ) );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", t, ";\n" ) );
             }
             out.end( "}\n" );
             out.begin( "else {\n" );
-            std::string f = dispatch( n->m_false );
+            std::string f;
+            RETURN_IF_FAILED( dispatch( n->m_false, f ) );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", f, ";\n" ) );
             }
             out.end( "}" );
             out.end( "}\n" );
-            return ret;
+            value = std::move( ret );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::While* n ) {
+        Result operator()( Ast::While* n, std::string& value ) {
             bool hasVar = n->m_type != &Ast::s_typeVoid;
             auto ret = hasVar ? newVarId() : "";
             if( hasVar ) {
@@ -252,25 +281,30 @@ namespace {
             // jump directly into; otherwise MSVC (rightly) rejects jumping past
             // the temporaries' initialization with C2362.
             out.begin( "{\n" );
-            auto cond = dispatch( n->m_cond );
+            std::string cond;
+            RETURN_IF_FAILED( dispatch( n->m_cond, cond ) );
             out.write( string_concat( "if(!", cond, ") { break; }\n" ) );
             out.end( "}\n" );
-            std::string b = dispatch( n->m_body );
+            std::string b;
+            RETURN_IF_FAILED( dispatch( n->m_body, b ) );
             if( hasVar ) {
                 out.write( string_concat( ret, " = ", b, ";\n" ) );
             }
             out.end( "}\n" );
-            return ret;
+            value = std::move( ret );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Cond* n ) {
+        Result operator()( Ast::Cond* n, std::string& value ) {
             auto ret = newVarId();
             out.write( string_format( "%s %s;", sanitize( n->m_type->name() ).c_str(), ret.c_str() ) );
             out.begin( " {\n" );
             for( auto c : n->m_cases ) {
-                auto cond = dispatch( c.first );
+                std::string cond;
+                RETURN_IF_FAILED( dispatch( c.first, cond ) );
                 out.begin( string_format( "if(%s) {\n", cond.c_str() ) );
-                std::string t = dispatch( c.second );
+                std::string t;
+                RETURN_IF_FAILED( dispatch( c.second, t ) );
                 out.write( string_concat( ret, " = ", t, ";\n" ) );
                 out.end( "}\n" );
                 out.begin( "else {\n" );
@@ -280,7 +314,8 @@ namespace {
                 out.end( "}" );
             }
             out.end( "\n}\n" );
-            return ret;
+            value = std::move( ret );
+            return Result::OK;
         }
 
         static std::string sanitize( string_view inp, string_view badchars ) {
@@ -305,14 +340,15 @@ namespace {
 
         static std::string sanitize( string_view inp ) { return sanitize( inp, "<>{}.!?"_sv ); }
 
-        std::string operator()( Ast::FunctionDecl* n ) {
+        Result operator()( Ast::FunctionDecl* n, std::string& value ) {
             std::string name = n->m_name.std_str();
             if( n->environment_ ) {
                 name.insert( 0, "@" );
                 name.insert( 0, n->environment_->module()->name().view() );
             }
             if( n->m_intrinsic ) {
-                return sanitize( name );
+                value = sanitize( name );
+                return Result::OK;
             }
             if( true || n->name() != "main"_sv ) {
                 for( auto p : n->m_params ) {
@@ -346,7 +382,8 @@ namespace {
                 sep = ", ";
             }
             out.write( ") {\n" );
-            std::string ret = dispatch( n->m_body );
+            std::string ret;
+            RETURN_IF_FAILED( dispatch( n->m_body, ret ) );
             m_outerFuncCanFail.undefine();
             if( n->m_type->m_callable[0] == &Ast::s_typeVoid ) {
                 out.write( "return;\n" );
@@ -354,15 +391,18 @@ namespace {
                 out.write( string_concat( "return ", ret, ";\n" ) );
             }
             out.end( "}\n" );
-            return symbol;
+            value = std::move( symbol );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::VariableDecl* n ) {
+        Result operator()( Ast::VariableDecl* n, std::string& value ) {
             std::string init{ "" };
             const char* sep{ "" };
             for( auto&& i : n->m_initializer ) {
                 init.append( sep );
-                init.append( dispatch( i ) );
+                std::string item;
+                RETURN_IF_FAILED( dispatch( i, item ) );
+                init.append( item );
                 sep = ", ";
             }
             std::string name = string_format( "%s_%lu", n->name().c_str(), n->m_serial );
@@ -384,23 +424,30 @@ namespace {
                 out.write( init );
             }
             out.end( "};"_sv );
-            return name;
+            value = std::move( name );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Assignment* n ) {
-            auto lhs = dispatch( n->m_lhs );
-            out.write( string_concat( lhs, " = "_sv, dispatch( n->m_rhs ), ";\n"_sv ) );
-            return lhs;
+        Result operator()( Ast::Assignment* n, std::string& value ) {
+            std::string lhs, rhs;
+            RETURN_IF_FAILED( dispatch( n->m_lhs, lhs ) );
+            RETURN_IF_FAILED( dispatch( n->m_rhs, rhs ) );
+            out.write( string_concat( lhs, " = "_sv, rhs, ";\n"_sv ) );
+            value = std::move( lhs );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::FunctionCall* n ) {
-            auto func = dispatch( n->m_func );
+        Result operator()( Ast::FunctionCall* n, std::string& value ) {
+            std::string func;
+            RETURN_IF_FAILED( dispatch( n->m_func, func ) );
             if( n->m_func->m_type->m_callCanFail && m_outerFuncCanFail.get() == false ) {
                 out.write( "int status{0};\n" );
             }
             std::vector<std::string> args;
             for( auto a : n->m_args ) {
-                args.push_back( dispatch( a ) );
+                std::string arg;
+                RETURN_IF_FAILED( dispatch( a, arg ) );
+                args.push_back( std::move( arg ) );
             }
             std::string retId;
             if( n->m_type != &Ast::s_typeVoid ) {
@@ -420,21 +467,22 @@ namespace {
                 sep = ", ";
             }
             out.write( ");\n" );
-            return retId;
+            value = std::move( retId );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::NamedFunctionCall* n ) {
-            assert( n->m_resolved );
-            return dispatch( n->m_resolved );
+        Result operator()( Ast::NamedFunctionCall* n, std::string& value ) {
+            RETURN_ERROR_IF( !n->m_resolved, Error::UnresolvedCall, n->m_loc );
+            return dispatch( n->m_resolved, value );
         }
 
-        std::string operator()( Ast::PipelineExpr* n ) {
+        Result operator()( Ast::PipelineExpr* n, std::string& value ) {
             std::string ret = newVarId();
             out.write( string_concat( sanitize( n->m_type->m_name ), " ", ret, ";\n" ) );
             std::string cur;
             std::string closing = "";
             for( auto&& stage : n->m_stages ) {
-                cur = dispatch( stage.expr );
+                RETURN_IF_FAILED( dispatch( stage.expr, cur ) );
                 if( stage.canFail ) {
                     out.write( string_concat( "if(", cur, ".fail) { ", ret, ".setFail(", cur, ".fail); } else {\n" ) );
                     closing += "}";
@@ -442,35 +490,43 @@ namespace {
             }
             out.write( string_concat( ret, " = ", cur, ".ok;\n", closing, "\n" ) );
 
-            return ret;
+            value = std::move( ret );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::UnwrapResult* n ) {
-            auto c = dispatch( n->m_src );
-            return string_concat( c, ".ok" );
+        Result operator()( Ast::UnwrapResult* n, std::string& value ) {
+            std::string c;
+            RETURN_IF_FAILED( dispatch( n->m_src, c ) );
+            value = string_concat( c, ".ok" );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::Selector* n ) {
-            auto lhs = dispatch( n->m_lhs );
-            return string_concat( lhs.c_str(), ".", n->m_rhs->text() );
+        Result operator()( Ast::Selector* n, std::string& value ) {
+            std::string lhs;
+            RETURN_IF_FAILED( dispatch( n->m_lhs, lhs ) );
+            value = string_concat( lhs.c_str(), ".", n->m_rhs->text() );
+            return Result::OK;
         }
 
-        std::string operator()( Ast::StructDecl* n ) {
+        Result operator()( Ast::StructDecl* n, std::string& value ) {
             out.begin( string_concat( "struct ", n->name(), " {\n" ) );
             decls_.push_back( string_concat( "struct ", n->name(), ";\n" ) );
             for( auto f : n->m_fields ) {
                 out.write( string_concat( sanitize( f->m_type->name() ), " ", f->name(), ";\n" ) );
             }
             out.end( "};" );
-            return n->name().std_str();
+            value = n->name().std_str();
+            return Result::OK;
         }
 
-        std::string operator()( Ast::TryExpr* n ) {
-            auto rhs = dispatch( n->m_expr );
+        Result operator()( Ast::TryExpr* n, std::string& value ) {
+            std::string rhs;
+            RETURN_IF_FAILED( dispatch( n->m_expr, rhs ) );
             out.write( string_concat( "if(", rhs, ".fail) {\n" ) );
             out.write( string_concat( "return ", rhs, ".fail;\n" ) );
             out.write( "}\n" );
-            return string_concat( rhs, ".ok" );
+            value = string_concat( rhs, ".ok" );
+            return Result::OK;
         }
 
         static void _boilerplate( Io::TextOutput& out ) {
@@ -577,15 +633,16 @@ namespace {
             out.write( "inline int bitops_40lsr(int a, int b) { return int(unsigned(a)>>b); } \n" );
         }
 
-        std::string operator()( Ast::Module* n ) {
+        Result operator()( Ast::Module* n, std::string& value ) {
             std::vector<char> pass1;
-            out.open( &pass1 );
+            RETURN_IF_FAILED( out.open( &pass1 ) );
             for( auto n : n->exports() ) {
-                dispatch( n.expr );
+                std::string ignored;
+                RETURN_IF_FAILED( dispatch( n.expr, ignored ) );
             }
 
             // forward declare decls
-            out.open( &body_ );
+            RETURN_IF_FAILED( out.open( &body_ ) );
             _boilerplate( out );
             for( auto decl : decls_ ) {
                 out.write( decl );
@@ -608,7 +665,8 @@ namespace {
                     } else if( auto c = dynamic_cast<Ast::LexNumber*>( i ) ) {
                         cname.append( c->text() );
                     } else {
-                        assert( false );
+                        RETURN_ERROR( Error::NotImplemented, i->m_loc, "Cannot generate C++ for generic argument '%s'",
+                                      i->dynamicType()->name );
                     }
                 }
                 out.write( string_format( "typedef %s< %s > %s;\n", inst.second->generic_->decl_->m_name.c_str(), cname.c_str(),
@@ -655,7 +713,8 @@ namespace {
                 out.write(
                     string_concat( "\nstatic MainReg ", n->m_name, "_mainreg(\"", n->m_name, "\", &", n->m_name, "_main_entry );\n" ) );
             }
-            return "";
+            value.clear();
+            return Result::OK;
         }
 
         void write( Io::TextOutput& txt ) { txt.write( { body_.data(), body_.size() } ); }
@@ -664,7 +723,8 @@ namespace {
 
 Slip::Result Slip::Backend::generate( Ast::Module& module, Io::TextOutput& out ) {
     Generator gen;
-    Ast::dispatch<std::string>( &module, gen );
+    std::string ignored;
+    RETURN_IF_FAILED( gen.dispatch( &module, ignored ) );
     gen.write( out );
 
     return Result::OK;
