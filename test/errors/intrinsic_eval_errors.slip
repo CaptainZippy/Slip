@@ -1,0 +1,48 @@
+; CompileTimeUnsupported
+(func main ():int #(puti 1))
+;===
+; CompileTimeUnsupported
+(func add (a:int b:int):int (sub a b))
+(func main ():int #(add 7 2))
+;===
+; OverloadResolutionFailed
+(func main ():int #(add 1))
+;===
+; OverloadResolutionFailed
+(func main ():int #(add 1 2 3))
+;===
+; OverloadResolutionFailed
+(func main ():int #(add (div 1 0) "bad"))
+;===
+; CompileTimeInvalidInteger
+(func main ():int #(add 2147483648 0))
+;===
+; CompileTimeInvalidInteger
+(func main ():int #(add -2147483649 0))
+;===
+; CompileTimeInvalidInteger
+(func main ():int #(add 1.5 2))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(add 2147483647 1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(sub -2147483648 1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mul 2147483647 2))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(div 1 0))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mod 1 0))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(div -2147483648 -1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mod -2147483648 -1))
+;===
+; CompileTimeUnsupported
+(func main ():(add 1 2) 0)

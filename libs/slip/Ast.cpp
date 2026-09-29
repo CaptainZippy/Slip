@@ -323,7 +323,10 @@ Result Ast::Module::instantiate( istring name, const Func<Result( Ast::Type** )>
     return Result::OK;
 }
 
-Result Ast::FunctionDecl::NotImplemented( array_view<Ast::Expr*> args, Ast::Expr** out ) { return Error::NotImplemented; }
+Result Ast::FunctionDecl::NotImplemented( const SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+    *out = nullptr;
+    RETURN_ERROR( Error::CompileTimeUnsupported, loc, "This intrinsic has no compile-time implementation" );
+}
 
 Ast::Expr* Ast::Reference::resolve() { return m_target; }
 

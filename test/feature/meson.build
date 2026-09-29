@@ -9,6 +9,7 @@ slip_tests = [
     'function_overload_01',
     'fmt_expr_01',
     'intrinsic_01',
+    'intrinsic_eval',
    # 'iterable_01',
     'let_expr_01',
     'loop_expr_01',
@@ -46,6 +47,7 @@ srcs = []
 foreach t : slip_tests
     srcs += '@0@.slip'.format(t)
 endforeach
+
 cpps = slip_compile.process(srcs)
 
 exe = executable('feature', cpps, '../util/main.cpp',

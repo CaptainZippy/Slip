@@ -2,159 +2,84 @@
 
 #include "Ast.h"
 #include "Errors.h"
+#include "Intrinsic.h"
 #include "Slip.h"
 
 using namespace Slip;
 
 namespace {
-    using namespace Slip;
     struct Evaluator {
-        enum class OpCode { Add };
+        Result dispatch( Ast::Expr* n, Ast::Expr** out ) { return Ast::dispatch<Result>( n, *this, out ); }
 
-        struct Stack {
-            enum class Kind { Invalid = 0, Code, Int, String };
-            struct Value {
-                Value( Kind k, intptr_t v ) : kind_( k ), val_( v ) {}
-                Kind kind_;
-                intptr_t val_;
-            };
-            typedef std::vector<OpCode> ByteCode;
+        Result operator()( Ast::Expr* n, Ast::Expr** out ) {
+            RETURN_ERROR( Error::CompileTimeUnsupported, n->m_loc, "Cannot evaluate '%s' at compile time", n->dynamicType()->name );
+        }
 
-            size_t size() const { return vals_.size(); }
+        Result operator()( Ast::String* n, Ast::Expr** out ) {
+            *out = new Ast::String( n->m_str, [&]( auto& value ) {
+                value.m_type = n->m_type;
+                value.m_loc = n->m_loc;
+            } );
+            return Result::OK;
+        }
 
-            void pushInt( intptr_t l ) { vals_.emplace_back( Kind::Int, l ); }
-            void pushString( const char* s ) { vals_.emplace_back( Kind::String, bit_cast<intptr_t>( istring::make( s ) ) ); }
-            void pushCode( const ByteCode* l ) { vals_.emplace_back( Kind::Code, (intptr_t)l ); }
+        Result operator()( Ast::Nop* n, Ast::Expr** out ) {
+            auto value = new Ast::Nop();
+            value->m_type = n->m_type;
+            value->m_loc = n->m_loc;
+            *out = value;
+            return Result::OK;
+        }
 
-            // const ByteCode* toByteCode( int idx ) { vals_.emplace_back( Kind::Code, (intptr_t)l ); }
-            // intptr_t toInt( int idx ) { vals_.emplace_back( Kind::Code, (intptr_t)l ); }
-
-            Value& at( int i ) { return i < 0 ? vals_[vals_.size() + i] : vals_[i]; }
-
-            Result call( int n ) {
-                assert( at( -n - 1 ).kind_ == Kind::Code );
-                auto ops = (const std::vector<OpCode>*)at( -n - 1 ).val_;
-                for( auto op : *ops ) {
-                    switch( op ) {
-                        case OpCode::Add: {
-                            assert( at( -2 ).kind_ == Kind::Int );
-                            assert( at( -1 ).kind_ == Kind::Int );
-                            at( -3 ) = { Kind::Int, at( -2 ).val_ + at( -1 ).val_ };
-                            vals_.pop_back();
-                            vals_.pop_back();
-                            break;
-                        }
-                        default: {
-                            assert( false );
-                        }
-                    }
-                }
-                return Result::OK;
+        Result operator()( Ast::Number* n, Ast::Expr** out ) {
+            std::string text;
+            if( n->m_type == &Ast::s_typeInt ) {
+                int64_t value;
+                RETURN_IF_FAILED( Intrinsic::integer( n, value ) );
+                text = std::to_string( value );
+            } else if( n->m_type == &Ast::s_typeBool && ( n->m_num == "true" || n->m_num == "false" ) ) {
+                text = n->m_num;
+            } else {
+                RETURN_ERROR( Error::CompileTimeUnsupported, n->m_loc, "Only integer and boolean numbers are supported" );
             }
-
-            std::vector<Value> vals_;
-        };
-        Stack stack_;
-
-        std::map<Ast::FunctionDecl*, std::vector<OpCode> > funcs_;
-
-        Result dispatch( Ast::Expr* n, Ast::Environment* env ) { return Ast::dispatch<Result>( n, *this, env ); }
-
-        Result operator()( Ast::Expr* n, Ast::Environment* env ) {
-            RETURN_ERROR( Error::NotImplemented, n->m_loc, "Cannot evaluate '%s' at compile time", n->dynamicType()->name );
-        }
-
-        Result operator()( Ast::String* n, Ast::Environment* env ) {
-            assert( n->m_type == &Ast::s_typeString );
-            stack_.pushString( n->m_str.c_str() );
+            *out = new Ast::Number( istring::make( text ), [&]( auto& value ) {
+                value.m_type = n->m_type;
+                value.m_loc = n->m_loc;
+            } );
             return Result::OK;
         }
 
-        Result operator()( Ast::Nop* n, Ast::Environment* env ) { return Result::OK; }
+        Result operator()( Ast::Reference* n, Ast::Expr** out ) { return dispatch( n->m_target, out ); }
 
-        Result operator()( Ast::Number* n, Ast::Environment* env ) {
-            RETURN_ERROR_IF( n->m_type != &Ast::s_typeInt, Error::NotImplemented, n->m_loc, "Only int supported here" );
-            auto s = n->m_num.data();
-            auto e = s + n->m_num.size();
-            auto i = strtoll( s, &e, 10 );  // todo error
-            stack_.pushInt( i );
-
-            return Result::OK;
+        Result operator()( Ast::NamedFunctionCall* n, Ast::Expr** out ) {
+            RETURN_ERROR_IF( !n->m_resolved, Error::UnresolvedCall, n->m_loc );
+            return dispatch( n->m_resolved, out );
         }
 
-        Result operator()( Ast::Reference* ref, Ast::Environment* env ) {
-            RETURN_IF_FAILED( dispatch( ref->m_target, env ) );
-            return Result::OK;
-        }
-
-        Result operator()( Ast::FunctionDecl* n, Ast::Environment* env ) {
-            auto it = funcs_.find( n );
-            if( it == funcs_.end() ) {
-                std::vector<OpCode> code;
-                code.emplace_back( OpCode::Add );
-                auto p = funcs_.emplace( n, code );
-                assert( p.second );
-                it = p.first;
+        Result operator()( Ast::FunctionCall* n, Ast::Expr** out ) {
+            auto function = dynamic_cast<Ast::FunctionDecl*>( n->m_func->resolve() );
+            RETURN_ERROR_IF( !function || !function->m_intrinsic, Error::CompileTimeUnsupported, n->m_loc,
+                             "Ordinary function calls are not supported at compile time" );
+            std::vector<Ast::Expr*> args;
+            for( auto arg : n->m_args ) {
+                Ast::Expr* value;
+                RETURN_IF_FAILED( dispatch( arg, &value ) );
+                args.push_back( value );
             }
-            stack_.pushCode( &it->second );
-            return Result::OK;
-        }
-
-        // Result callFunc( const Value& vfunc, const vector<Value>& args ) {
-        //    assert( vfunc.kind_ == ValueKind::FunctionDecl );
-        //    auto func = vfunc.func_;
-        //    assert( func->m_args.size() == args.size() );
-
-        //    return Result::OK;
-        //}
-
-        Result operator()( Ast::FunctionCall* n, Ast::Environment* env ) {
-            RETURN_IF_FAILED( dispatch( n->m_func, env ) );
-            for( auto a : n->m_args ) {
-                RETURN_IF_FAILED( dispatch( a, env ) );
-            }
-            return stack_.call( (int)n->m_args.size() );
-        }
-
-        Result operator()( Ast::NamedFunctionCall* n, Ast::Environment* env ) {
-            RETURN_ERROR_IF( n->m_resolved == nullptr, Error::UnresolvedCall, n->m_loc );
-            RETURN_IF_FAILED( dispatch( n->m_resolved, env ) );
-            return Result::OK;
+            Ast::Expr* value = nullptr;
+            RETURN_IF_FAILED( function->m_intrinsic( n->m_loc, args, &value ) );
+            RETURN_ERROR_IF(
+                !value || value->m_type != n->m_type ||
+                    ( !dynamic_cast<Ast::Number*>( value ) && !dynamic_cast<Ast::String*>( value ) && !dynamic_cast<Ast::Nop*>( value ) ),
+                Error::InternalIntrinsicResult, n->m_loc, "Intrinsic must return a constant of the declared result type" );
+            return dispatch( value, out );
         }
     };
 }  // namespace
 
-#define WITH( ... ) [&]( auto& _ ) { __VA_ARGS__; }
-
 Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out ) {
     *out = nullptr;
     RETURN_IF_FAILED( Sema::type_check( node ) );
-
-    Evaluator ev;
-    // Evaluator::Value val;
-    RETURN_IF_FAILED( ev.dispatch( node, env ) );
-    if( ev.stack_.size() == 0 ) {
-        *out = new Ast::Nop();
-        return Result::OK;
-    }
-    assert( ev.stack_.size() == 1 );
-    switch( ev.stack_.at( 0 ).kind_ ) {
-        case Evaluator::Stack::Kind::Int: {
-            static char foo[111];
-            int n = snprintf( foo, sizeof( foo ), "%zu", ev.stack_.at( 0 ).val_ );
-            auto v = istring::make( foo, n );
-            *out = new Ast::Number( v, WITH( _.m_type = &Ast::s_typeInt ) );
-            return Result::OK;
-        }
-        case Evaluator::Stack::Kind::String: {
-            auto s = bit_cast<istring>( ev.stack_.at( 0 ).val_ );
-            *out = new Ast::String( s, WITH( _.m_type = &Ast::s_typeString ) );
-            return Result::OK;
-        }
-
-        default:
-            assert( false );
-            break;
-    }
-    return Result::ERR;
+    Evaluator evaluator;
+    return evaluator.dispatch( node, out );
 }

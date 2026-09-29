@@ -1,0 +1,31 @@
+(func same_value? (a:int b:int):bool (eq? a b))
+(func same_value? (a:bool b:bool):bool (if a b (if b false true)))
+
+(func main ():int
+    (var errors 0:int)
+    (macro check_eval (expression) caller
+        ; A syntax-expanding call avoids stacking the # and $ prefixes.
+        (macro operand () unused $(expand expression caller))
+        (if (same_value? #(operand) (operand))
+            0:int
+            (begin
+                (puts "Compile-time/runtime mismatch:")
+                (puts $(stringize expression))
+                (set! errors (add errors 1)))))
+
+    (check_eval (sub 2 7))
+    (check_eval (mul -6 7))
+    (check_eval (div -17 5))
+    (check_eval (mod -17 5))
+    (check_eval (add (sub 9 12) (mul 2 4)))
+    (check_eval (add #(sub 9 12) 8))
+    (check_eval (eq? 4 4))
+    (check_eval (eq? 4 5))
+    (check_eval (lt? -2 3))
+    (check_eval (lt? 3 3))
+    (check_eval (ge? 3 3))
+    (check_eval (ge? -2 3))
+    (check_eval (add 2147483647 0))
+    (check_eval (sub -2147483648 0))
+    (puts #"Compile-time string")
+    errors)

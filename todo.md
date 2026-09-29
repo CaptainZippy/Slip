@@ -16,6 +16,8 @@
 * ranges/iterators
 * debug logging
 * tail recursion
+* splice expression (splat list into args)
+* Ast::Number contains real number
 
 # Syntax 
 

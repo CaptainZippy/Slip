@@ -2,6 +2,7 @@
 
 #include "Ast.h"
 #include "Errors.h"
+#include "Intrinsic.h"
 #include "Slip.h"
 
 #define WITH( ... ) [&]( auto& _ ) { __VA_ARGS__; }
@@ -74,10 +75,11 @@ namespace Slip::Parse {
         env->bind( name, new Ast::Builtin( name, declContext, std::move( fun ) ) );
     }
 
-    static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type ) -> Ast::FunctionDecl* {
+    static auto addIntrinsic( Ast::Environment* env, string_view name, Ast::Type* type,
+                              Ast::FunctionDecl::IntrinsicProto* intrinsic = Ast::FunctionDecl::NotImplemented ) -> Ast::FunctionDecl* {
         auto n = istring::make( name );
         auto f = new Ast::FunctionDecl( n, Ast::fixMeDeclContext,
-                                        WITH( _.m_type = type, _.m_intrinsic = Ast::FunctionDecl::NotImplemented, _.environment_ = env ) );
+                                        WITH( _.m_type = type, _.m_intrinsic = intrinsic, _.environment_ = env ) );
         char pname[2] = { 'a', 0 };
         for( auto&& at : array_view( type->m_callable ).ltrim( 1 ) ) {
             auto p = new Ast::Parameter( istring::make( pname ), f, WITH( _.m_type = at ) );
@@ -1239,14 +1241,30 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
     auto builtin = make_unique_del<Ast::Module>( "builtin"_istr, lang0 );
     {
         auto env = builtin->env();
-        addIntrinsic( env, "eq?", b_ii );
-        addIntrinsic( env, "lt?", b_ii );
-        addIntrinsic( env, "ge?", b_ii );
-        addIntrinsic( env, "add", i_ii );
-        addIntrinsic( env, "mod", i_ii );
-        addIntrinsic( env, "mul", i_ii );
-        addIntrinsic( env, "div", i_ii );
-        addIntrinsic( env, "sub", i_ii );
+        addIntrinsic( env, "eq?", b_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a == b; } );
+        } );
+        addIntrinsic( env, "lt?", b_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a < b; } );
+        } );
+        addIntrinsic( env, "ge?", b_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a >= b; } );
+        } );
+        addIntrinsic( env, "add", i_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a + b; } );
+        } );
+        addIntrinsic( env, "mod", i_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary<true>( loc, args, out, []( int64_t a, int64_t b ) { return a % b; } );
+        } );
+        addIntrinsic( env, "mul", i_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a * b; } );
+        } );
+        addIntrinsic( env, "div", i_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary<true>( loc, args, out, []( int64_t a, int64_t b ) { return a / b; } );
+        } );
+        addIntrinsic( env, "sub", i_ii, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) {
+            return Intrinsic::integerBinary( loc, args, out, []( int64_t a, int64_t b ) { return a - b; } );
+        } );
         addIntrinsic( env, "puts", v_s );
         addIntrinsic( env, "puti", v_i );
         addIntrinsic( env, "putd", v_d );

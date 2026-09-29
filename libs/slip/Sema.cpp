@@ -88,7 +88,8 @@ namespace Slip::Sema {
                 vi.info = _internKnownType( n->m_type );
             } else {
                 vi.info = new TypeInfo{};
-                auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
+                TypeInfo* ret;
+                RETURN_IF_FAILED( _evalTypeExpr( n->m_declReturnTypeExpr, &ret ) );
                 std::vector<TypeInfo*> params;
                 for( auto&& p : n->m_params ) {
                     TypeInfo* t;
@@ -127,7 +128,7 @@ namespace Slip::Sema {
             if( auto t = n->m_type ) {
                 vi.info = _internKnownType( t );
             } else {
-                vi.info = _evalTypeExpr( n->m_declTypeExpr );
+                RETURN_IF_FAILED( _evalTypeExpr( n->m_declTypeExpr, &vi.info ) );
             }
             return Result::OK;
         }
@@ -140,7 +141,8 @@ namespace Slip::Sema {
         Result operator()( Ast::StructDecl* n, VisitInfo& vi ) {
             auto type = new Ast::Type( n->name(), Ast::fixMeDeclContext );
             for( auto&& f : n->m_fields ) {
-                auto i = _evalTypeExpr( f->m_declTypeExpr );
+                TypeInfo* i;
+                RETURN_IF_FAILED( _evalTypeExpr( f->m_declTypeExpr, &i ) );
                 f->m_type = i->get_type();
             }
             type->m_struct = n;
@@ -167,12 +169,12 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::Parameter* n, VisitInfo& vi ) {
-            vi.info = _evalTypeExpr( n->m_declTypeExpr );
+            RETURN_IF_FAILED( _evalTypeExpr( n->m_declTypeExpr, &vi.info ) );
             return Result::OK;
         }
 
         Result operator()( Ast::MacroDecl* n, VisitInfo& vi ) {
-            vi.info = _evalTypeExpr( &Ast::s_typeVoid );
+            RETURN_IF_FAILED( _evalTypeExpr( &Ast::s_typeVoid, &vi.info ) );
             return Result::OK;
         }
 
@@ -321,7 +323,8 @@ namespace Slip::Sema {
                 vi.info = _internKnownType( n->m_type );
             } else {
                 vi.info = new TypeInfo{};
-                auto ret = _evalTypeExpr( n->m_declReturnTypeExpr );
+                TypeInfo* ret;
+                RETURN_IF_FAILED( _evalTypeExpr( n->m_declReturnTypeExpr, &ret ) );
                 std::vector<TypeInfo*> params;
                 for( auto&& p : n->m_params ) {
                     TypeInfo* t;
@@ -343,7 +346,7 @@ namespace Slip::Sema {
             if( n->m_type ) {  // known?
                 varTypeInfo = _internKnownType( n->m_type );
             } else if( auto te = n->m_declTypeExpr ) {
-                varTypeInfo = _evalTypeExpr( te );
+                RETURN_IF_FAILED( _evalTypeExpr( te, &varTypeInfo ) );
             } else if( n->m_initializer.size() == 1 ) {
                 RETURN_IF_FAILED( dispatch( n->m_initializer[0], &vi.info ) );
                 return Result::OK;
@@ -729,32 +732,27 @@ namespace Slip::Sema {
             return it.first->second;
         }
 
-        TypeInfo* _evalTypeExpr( Ast::Expr* te ) {
+        Result _evalTypeExpr( Ast::Expr* te, TypeInfo** out ) {
+            *out = nullptr;
             if( !te ) {
-                return new TypeInfo{};
+                *out = new TypeInfo{};
+                return Result::OK;
             }
             if( auto t = dynamic_cast<Ast::Type*>( te ) ) {
-                return _internKnownType( t );
+                *out = _internKnownType( t );
+                return Result::OK;
             } else if( auto r = dynamic_cast<Ast::Reference*>( te ) ) {
                 if( auto t = dynamic_cast<Ast::Type*>( r->m_target ) ) {
-                    return _internKnownType( t );
+                    *out = _internKnownType( t );
+                    return Result::OK;
                 } else if( auto s = dynamic_cast<Ast::StructDecl*>( r->m_target ) ) {
-                    return _internKnownType( s->m_type );
+                    *out = _internKnownType( s->m_type );
+                    return Result::OK;
                 } else {
                     assert( false );
                 }
             } else if( auto call = dynamic_cast<Ast::FunctionCall*>( te ) ) {
-                auto fnode = call->m_func;
-                if( auto r = dynamic_cast<Ast::Reference*>( fnode ) ) {
-                    fnode = r->m_target;
-                }
-                auto func = dynamic_cast<Ast::FunctionDecl*>( fnode );
-                assert( func );
-                Ast::Expr* ret;
-                ( func->m_intrinsic )( call->m_args, &ret );
-                auto type = dynamic_cast<Ast::Type*>( ret );
-                assert( type );
-                return _internKnownType( type );
+                RETURN_ERROR( Error::CompileTimeUnsupported, call->m_loc, "Function calls in type expressions are not supported" );
             } else if( auto named = dynamic_cast<Ast::NamedFunctionCall*>( te ) ) {
                 std::vector<Ast::Expr*> candidates = named->m_candidates;
                 if( candidates.size() != 1 ) {
@@ -786,20 +784,17 @@ namespace Slip::Sema {
                     env->nameSuffixPop();
                     auto ret = dynamic_cast<Ast::Type*>( expr );
                     assert( ret );
-                    return _internKnownType( ret );
+                    *out = _internKnownType( ret );
+                    return Result::OK;
                 } else if( auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] ) ) {
-                    Ast::Expr* ret;
-                    ( func->m_intrinsic )( named->m_args, &ret );
-                    auto type = dynamic_cast<Ast::Type*>( ret );
-                    assert( type );
-                    return _internKnownType( type );
+                    RETURN_ERROR( Error::CompileTimeUnsupported, named->m_loc, "Function calls in type expressions are not supported" );
                 } else {
                     assert( false );
-                    return nullptr;
+                    RETURN_ERROR( Error::TypeExpected, te->m_loc );
                 }
             }
             assert( false );
-            return nullptr;
+            RETURN_ERROR( Error::TypeExpected, te->m_loc );
         }
 
         void _buildFunctionType( TypeInfo* ti ) {

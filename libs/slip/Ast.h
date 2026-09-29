@@ -286,13 +286,14 @@ namespace Slip::Ast {
 
     struct FunctionDecl : NamedDecl {
         AST_DECL();
-        using IntrinsicProto = Result( array_view<Expr*> args, Ast::Expr** out );
-        static Result NotImplemented( array_view<Expr*> args, Ast::Expr** out );
+        // Arguments are evaluated constants; callbacks return a typed constant without invoking the frontend.
+        using IntrinsicProto = Result( const SourceLocation& loc, array_view<Expr*> args, Ast::Expr** out );
+        static Result NotImplemented( const SourceLocation& loc, array_view<Expr*> args, Ast::Expr** out );
 
         std::vector<Parameter*> m_params{};
         Ast::Expr* m_declReturnTypeExpr{};
         Expr* m_body{};
-        Func<IntrinsicProto> m_intrinsic{};
+        IntrinsicProto* m_intrinsic{};
         Environment* environment_{};
 
         template <typename With>

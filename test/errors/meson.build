@@ -12,6 +12,7 @@ slip_errs = [
     'meta_eof',
     'meta_syntax',
     'prefix_space',
+    'intrinsic_eval_errors',
 ]
 
 # These tests don't produce an executable.
