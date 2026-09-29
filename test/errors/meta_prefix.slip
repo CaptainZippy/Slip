@@ -5,14 +5,11 @@ $$(insert name)
 $#(add 1 2)
 ;===
 ; LexUnexpected
-#$(insert name)
-;===
-; LexUnexpected
 # $(insert name)
 ;===
 ; LexUnexpected
 # ; Comments do not make stacked prefixes valid.
 $(insert name)
 ;===
-; LexUnexpected
+; MacroExpansionError
 $(insert #$(name))

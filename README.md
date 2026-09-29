@@ -33,12 +33,6 @@ If there are several annotations, they are all added.
 
 From ";" to the end of the line
 
-## Compile-time operations
-
-`#(expression ...)` evaluates an ordinary expression during compilation,
-after syntax expansion.
-
-
 ## Macros and syntax operations
 
 Macros take raw syntax arguments and a caller-environment parameter:
@@ -109,6 +103,11 @@ the explicit per-iteration `copy`, not `cur`. Caller variables are unchanged,
 and the body cannot access the macro-private `cur` or `end`. To deliberately
 expose an alias to caller syntax, bind into `env` instead; the aliased runtime
 declaration must still be used within its runtime scope.
+
+## Compile-time operations
+
+`#(expression ...)` evaluates an ordinary expression during compilation,
+after syntax expansion.
 
 ## Developing
 

@@ -299,7 +299,7 @@ Slip::Result Ast::lex_atom( Io::TextInput& in, Ast::LexNode** atomOut ) {
 // now  : #
 // attr : '@' atom
 // atom : number list string ident meta
-// meta : '$' list (cannot immediately follow '#')
+// meta : '$' list
 // type : ':' attr* atom
 // '$', '@', and '#' must be adjacent to their operands.
 
@@ -323,8 +323,6 @@ static Slip::Result lex_expression( Io::TextInput& in, Ast::LexNode** atomOut ) 
     if( expect_token( Token::LexHash, in, tok ) ) {
         RETURN_IF_FAILED( check_prefix_spacing( in, tok ) );
         lexNowStart = int( tok.loc.m_start );
-        RETURN_ERROR_IF( expect_token( Token::LexDollar, in, tok ), Error::LexUnexpected, tok.loc,
-                         "Cannot stack '#' and '$' prefixes" );
     }
 
     Ast::LexNode* atom;

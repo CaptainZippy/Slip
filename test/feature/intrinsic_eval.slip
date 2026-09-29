@@ -4,9 +4,8 @@
 (func main ():int
     (var errors 0:int)
     (macro check_eval (expression) caller
-        ; A syntax-expanding call avoids stacking the # and $ prefixes.
-        (macro operand () unused $(expand expression caller))
-        (if (same_value? #(operand) (operand))
+        ; The same syntax is expanded once for the compile-time evaluator and once for runtime.
+        (if (same_value? #$(expand expression caller) $(expand expression caller))
             0:int
             (begin
                 (puts "Compile-time/runtime mismatch:")
