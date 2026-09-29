@@ -13,7 +13,7 @@ namespace Slip::Ast {
     REFLECT_BEGIN( LexValue )
     REFLECT_PARENT( LexNode )
     // REFLECT_FIELD(m_text)
-    REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexValue*>( arg )->text(); } )
+    REFLECT_TO_STRING( []( const void* arg, std::string& out ) { out.append( static_cast<const LexValue*>( arg )->text() ); } )
     REFLECT_END()
 
     REFLECT_BEGIN( LexDot )
@@ -27,7 +27,8 @@ namespace Slip::Ast {
     REFLECT_END()
 
     REFLECT_BEGIN( LexNowExpr )
-    REFLECT_PARENT( LexValue )
+    REFLECT_PARENT( LexNode )
+    REFLECT_FIELD2( m_expr, Flags::Child )
     REFLECT_END()
 
     REFLECT_BEGIN( LexMetaExpr )
@@ -45,7 +46,7 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( LexList )
     REFLECT_PARENT( LexNode )
-    REFLECT_TO_STRING( []( const void* arg ) { return static_cast<const LexList*>( arg )->m_loc.text(); } )
+    REFLECT_TO_STRING( []( const void* arg, std::string& out ) { out.append( static_cast<const LexList*>( arg )->m_loc.text() ); } )
     REFLECT_FIELD2( m_items, Flags::Child )
     REFLECT_END()
 

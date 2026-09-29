@@ -349,7 +349,8 @@ Ast::Type::Type( istring sym, Expr* declContext ) : NamedDecl( sym, declContext 
 
 static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
     if( auto f = top.type->toString ) {
-        string_view s = ( *f )( top.addr );
+        std::string s;
+        ( *f )( top.addr, s );
         out.write( s );
         return;
     }
@@ -419,8 +420,11 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
             break;
         }
         case Reflect::Kind::String: {
-            string_view s = top.type->toString( top.addr );
-            out.write( string_concat( "\"", s, "\"" ) );
+            assert( top.type->toString );
+            std::string s = "\"";
+            top.type->toString( top.addr, s );
+            s += '"';
+            out.write( s );
             break;
         }
         default: {

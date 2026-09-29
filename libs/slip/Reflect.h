@@ -46,7 +46,8 @@ namespace Slip::Reflect {
     struct Type {
         typedef void* ( *MakeFunc )();
         typedef const Type* ( *DynamicTypeFunc )( const void* );
-        typedef string_view ( *ToStringFunc )( const void* );
+        // Appends a textual representation of the object at addr to out.
+        typedef void ( *ToStringFunc )( const void* addr, std::string& out );
         Kind kind;           // { Kind::Void };
         const Type* parent;  //{ nullptr };
         const Type* sub;     //{ nullptr };
@@ -111,9 +112,10 @@ namespace Slip::Reflect {
     template <>
     struct TypeOf<std::string> {
         static inline const Type* value() {
-            static const Type t{ Kind::String, nullptr, nullptr, "char[]", sizeof( std::string ), nullptr, nullptr, []( const void* addr ) {
-                                    return string_view{ ( (std::string*)addr )->data(), ( (std::string*)addr )->size() };
-                                } };
+            static const Type t{ Kind::String,          nullptr, nullptr, "char[]",
+                                 sizeof( std::string ), nullptr, nullptr, []( const void* addr, std::string& out ) {
+                                     out.append( *static_cast<const std::string*>( addr ) );
+                                 } };
             return &t;
         }
     };
@@ -122,7 +124,9 @@ namespace Slip::Reflect {
     struct TypeOf<istring> {
         static inline const Type* value() {
             static const Type t{ Kind::String,      nullptr, nullptr, "char[]",
-                                 sizeof( istring ), nullptr, nullptr, []( const void* addr ) { return ((istring*)addr)->view(); } };
+                                 sizeof( istring ), nullptr, nullptr, []( const void* addr, std::string& out ) {
+                                     out.append( static_cast<const istring*>( addr )->view() );
+                                 } };
             return &t;
         }
     };

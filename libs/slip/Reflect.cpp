@@ -12,7 +12,9 @@ namespace Slip::Reflect {
                 out.write( "null" );
                 return;
             } else if( auto f = top.type->toString ) {
-                out.write( ( *f )( top.addr ) );
+                std::string s;
+                ( *f )( top.addr, s );
+                out.write( s );
                 return;
             }
             switch( top.type->kind ) {
@@ -36,7 +38,9 @@ namespace Slip::Reflect {
                     }
                     for( auto c : reversed( chain ) ) {
                         if( c->toString ) {
-                            out.write( c->toString( top.addr ) );
+                            std::string s;
+                            c->toString( top.addr, s );
+                            out.write( s );
                         } else {
                             for( auto f : c->fields ) {
                                 // if (f.name == "m_type") continue;
@@ -65,8 +69,11 @@ namespace Slip::Reflect {
                     break;
                 }
                 case Kind::String: {
-                    string_view s = top.type->toString( top.addr );
-                    out.write( string_concat( "\"", s, "\"" ) );
+                    assert( top.type->toString );
+                    std::string s = "\"";
+                    top.type->toString( top.addr, s );
+                    s += '"';
+                    out.write( s );
                     break;
                 }
                 default:

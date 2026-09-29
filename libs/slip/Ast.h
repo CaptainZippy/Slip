@@ -430,11 +430,6 @@ namespace Slip::Ast {
             with( *this );
         }
         std::string m_num;
-
-        static std::string toString( const void* p ) {
-            auto n = static_cast<const Number*>( p );
-            return n->m_num;
-        }
     };
 
     struct Parameter : NamedDecl {
@@ -501,11 +496,6 @@ namespace Slip::Ast {
             with( *this );
         }
         std::string m_str;
-
-        static std::string toString( const void* p ) {
-            auto n = static_cast<const String*>( p );
-            return n->m_str;
-        }
     };
 
     struct StructDecl : NamedDecl {
