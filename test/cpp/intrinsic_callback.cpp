@@ -57,7 +57,7 @@ int main() {
     outer->m_loc.m_start = 0;
     outer->m_loc.m_end = source.m_contents.size();
     Ast::Expr* result = nullptr;
-    CHECK( Eval::evaluate( nullptr, outer, &result ).isOk() );
+    CHECK( Eval::evaluate( outer, &result ).isOk() );
     auto n = dynamic_cast<Ast::Number*>( result );
     CHECK( calls == 2 && n && n->m_num == "-9" && n->m_type == &Ast::s_typeInt );
     CHECK( n->m_loc.m_file == &source && n->m_loc.text() == "(custom)" );
@@ -72,7 +72,7 @@ int main() {
             *out = args[0];
             return Result::OK;
         } );
-    CHECK( Eval::evaluate( nullptr, identity, &result ).isOk() );
+    CHECK( Eval::evaluate( identity, &result ).isOk() );
     auto string = dynamic_cast<Ast::String*>( result );
     CHECK( string && string->m_str == text->m_str && string->m_type == &Ast::s_typeString );
 
@@ -80,28 +80,28 @@ int main() {
         *out = number( "0" );
         RETURN_ERROR( Error::CompileTimeArithmeticError, loc, "Test callback failure" );
     } );
-    CHECK( Eval::evaluate( nullptr, fail, &result ).code == Error::CompileTimeArithmeticError );
+    CHECK( Eval::evaluate( fail, &result ).code == Error::CompileTimeArithmeticError );
     CHECK( !result );
 
     auto missing = call( &Ast::s_typeInt, {}, Ast::FunctionDecl::NotImplemented );
-    CHECK( Eval::evaluate( nullptr, missing, &result ).code == Error::CompileTimeUnsupported && !result );
+    CHECK( Eval::evaluate( missing, &result ).code == Error::CompileTimeUnsupported && !result );
     auto ordinary = call( &Ast::s_typeInt, {}, nullptr );
-    CHECK( Eval::evaluate( nullptr, ordinary, &result ).code == Error::CompileTimeUnsupported && !result );
+    CHECK( Eval::evaluate( ordinary, &result ).code == Error::CompileTimeUnsupported && !result );
 
     auto invalid =
         call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** ) -> Result { return Result::OK; } );
-    CHECK( Eval::evaluate( nullptr, invalid, &result ).code == Error::InternalIntrinsicResult && !result );
+    CHECK( Eval::evaluate( invalid, &result ).code == Error::InternalIntrinsicResult && !result );
     auto wrongType = call( &Ast::s_typeString, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** out ) -> Result {
         *out = number( "1" );
         return Result::OK;
     } );
-    CHECK( Eval::evaluate( nullptr, wrongType, &result ).code == Error::InternalIntrinsicResult && !result );
+    CHECK( Eval::evaluate( wrongType, &result ).code == Error::InternalIntrinsicResult && !result );
     auto nonConstant = call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** out ) -> Result {
         auto ref = new Ast::Reference( number( "1" ) );
         ref->m_type = &Ast::s_typeInt;
         *out = ref;
         return Result::OK;
     } );
-    CHECK( Eval::evaluate( nullptr, nonConstant, &result ).code == Error::InternalIntrinsicResult && !result );
+    CHECK( Eval::evaluate( nonConstant, &result ).code == Error::InternalIntrinsicResult && !result );
     return 0;
 }

@@ -9,7 +9,10 @@ using namespace Slip;
 
 namespace {
     struct Evaluator {
-        Result dispatch( Ast::Expr* n, Ast::Expr** out ) { return Ast::dispatch<Result>( n, *this, out ); }
+        Result dispatch( Ast::Expr* n, Ast::Expr** out ) {
+            RETURN_ERROR_IF( !n->m_type, Error::InternalUncheckedEvaluation, n->m_loc, "Evaluation requires a checked expression" );
+            return Ast::dispatch<Result>( n, *this, out );
+        }
 
         Result operator()( Ast::Expr* n, Ast::Expr** out ) {
             RETURN_ERROR( Error::CompileTimeUnsupported, n->m_loc, "Cannot evaluate '%s' at compile time", n->dynamicType()->name );
@@ -51,6 +54,11 @@ namespace {
 
         Result operator()( Ast::Reference* n, Ast::Expr** out ) { return dispatch( n->m_target, out ); }
 
+        Result operator()( Ast::NowExpr* n, Ast::Expr** out ) {
+            RETURN_ERROR_IF( !n->m_resolved, Error::InternalUnresolvedNowExpr, n->m_loc );
+            return dispatch( n->m_resolved, out );
+        }
+
         Result operator()( Ast::NamedFunctionCall* n, Ast::Expr** out ) {
             RETURN_ERROR_IF( !n->m_resolved, Error::UnresolvedCall, n->m_loc );
             return dispatch( n->m_resolved, out );
@@ -77,9 +85,8 @@ namespace {
     };
 }  // namespace
 
-Result Eval::evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out ) {
+Result Eval::evaluate( Ast::Expr* node, Ast::Expr** out ) {
     *out = nullptr;
-    RETURN_IF_FAILED( Sema::type_check( node ) );
     Evaluator evaluator;
     return evaluator.dispatch( node, out );
 }

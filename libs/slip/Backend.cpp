@@ -150,6 +150,13 @@ namespace {
             return Result::OK;
         }
 
+        Result operator()( Ast::NowExpr* n, std::string& value ) {
+            if( !n->m_resolved ) {
+                RETURN_ERROR( Error::InternalUnresolvedNowExpr, n->m_loc, "Compile-time expression was not resolved" );
+            }
+            return dispatch( n->m_resolved, value );
+        }
+
         Result operator()( Ast::Number* n, std::string& value ) {
             value = string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
             return Result::OK;

@@ -1,0 +1,27 @@
+; Compile-time results agree with runtime operations, including negative values.
+(macro difference (left right) env
+    (sub $(expand left env) $(expand right env)))
+
+(func main ():int
+    (var errors 0:int)
+    (if (eq? #(add 19 23) (add 19 23)) 0:int (set! errors (add errors 1)))
+    (if (eq? #(sub 2 7) (sub 2 7)) 0:int (set! errors (add errors 1)))
+    (if (eq? #(mul -7 3) (mul -7 3)) 0:int (set! errors (add errors 1)))
+    (if (eq? #(div -17 5) (div -17 5)) 0:int (set! errors (add errors 1)))
+    (if (eq? #(mod -17 5) (mod -17 5)) 0:int (set! errors (add errors 1)))
+    (if #(eq? 4 4) 0:int (set! errors (add errors 1)))
+    (if #(lt? -3 0) 0:int (set! errors (add errors 1)))
+    (if #(ge? 4 4) 0:int (set! errors (add errors 1)))
+    (if #(eq? 4 5) (set! errors (add errors 1)) 0:int)
+    (if #true 0:int (set! errors (add errors 1)))
+    (if #false (set! errors (add errors 1)) 0:int)
+    (if (eq? #(add #(sub 9 12) (mul 2 4)) 5) 0:int (set! errors (add errors 1)))
+    (if (eq? #(difference 2 7) -5) 0:int (set! errors (add errors 1)))
+    (if (eq? #+42:int 42) 0:int (set! errors (add errors 1)))
+    (if (eq? #2147483647:int 2147483647) 0:int (set! errors (add errors 1)))
+    (if (eq? #-2147483648:int -2147483648) 0:int (set! errors (add errors 1)))
+    (var table:(array_fixed int 2) #(sub 2 7) #42:int)
+    (if (eq? (at table 0) -5) 0:int (set! errors (add errors 1)))
+    (if (eq? (at table 1) 42) 0:int (set! errors (add errors 1)))
+    (puts #"Compile-time string")
+    errors)

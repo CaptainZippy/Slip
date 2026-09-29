@@ -345,6 +345,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
             case Parse::Flags::LValue:
             case Parse::Flags::RValue:
                 *out = new Ast::Reference( node );
+                ( *out )->m_loc = sym->m_loc;
                 break;
         }
         return Result::OK;
@@ -435,10 +436,10 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
         return Result::OK;
     } else if( auto now = dynamic_cast<Ast::LexNowExpr*>( atom ) ) {
         Ast::Expr* parsed;
-        RETURN_IF_FAILED( parse1( env, now->m_expr, Parse::Flags::None, &parsed ) );
-        Ast::Expr* replacement = nullptr;
-        RETURN_IF_FAILED( Eval::evaluate( env, parsed, &replacement ) );
-        *out = replacement;
+        RETURN_IF_FAILED( parse1( env, now->m_expr, Parse::Flags::RValue, &parsed ) );
+        auto expression = new Ast::NowExpr( parsed, now->m_loc );
+        RETURN_IF_FAILED( parse1( env, now->m_declTypeLex, Parse::Flags::None, &expression->m_declTypeExpr ) );
+        *out = expression;
         return Result::OK;
     } else if( auto meta = dynamic_cast<Ast::LexMetaExpr*>( atom ) ) {
         RETURN_IF_FAILED( evalMeta( env, meta, flags, out, metaDepth + 1 ) );

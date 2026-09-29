@@ -42,7 +42,8 @@ namespace Slip {
     }  // namespace Sema
 
     namespace Eval {
-        Result evaluate( Ast::Environment* env, Ast::Expr* node, Ast::Expr** out );
+        // Input must be fully type-checked. Evaluation never invokes the frontend.
+        Result evaluate( Ast::Expr* node, Ast::Expr** out );
     }
 
     namespace Backend {

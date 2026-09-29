@@ -1,0 +1,94 @@
+; OverloadResolutionFailed
+; The whole operand is checked before arithmetic starts.
+(func main ():int #(add (div 1 0) "bad"))
+;===
+; OverloadResolutionFailed
+(func main ():int #(add 1))
+;===
+; OverloadResolutionFailed
+(func main ():int #(add 1 2 3))
+;===
+; CompileTimeUnsupported
+(func main ():int #(puti 1))
+;===
+; CompileTimeUnsupported
+(func add (a:int b:int):int (sub a b))
+(func main ():int #(add 7 2))
+;===
+; CompileTimeUnsupported
+; Checking the compile-time call must not enter the recursive body.
+(func recursive (a:int):int #(recursive 1))
+(func main ():int 0)
+;===
+; CompileTimeRuntimeValue
+(func main (value:int):int #(add value 1))
+;===
+; CompileTimeRuntimeValue
+(func main ():int (var value 2) #(add value 1))
+;===
+; CompileTimeRuntimeValue
+(func main ():int (let value 2:int) #value)
+;===
+; CompileTimeRuntimeValue
+; Constant declarations are not evaluated until a later stage.
+(func main ():int (const value 2:int) #value)
+;===
+; TypeNotDeduced
+; The enclosing return type cannot infer a # operand's type.
+(func main ():int #42)
+;===
+; InternalTypeConstraintFailed
+(func main ():int #(add 1 2):bool)
+;===
+; CompileTimeInvalidInteger
+(func main ():int #2147483648:int)
+;===
+; CompileTimeInvalidInteger
+(func main ():int #-2147483649:int)
+;===
+; CompileTimeInvalidInteger
+(func main ():int #(add 1.5 2))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(add 2147483647 1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(sub -2147483648 1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mul 2147483647 2))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(div 1 0))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mod 1 0))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(div -2147483648 -1))
+;===
+; CompileTimeArithmeticError
+(func main ():int #(mod -2147483648 -1))
+;===
+; CompileTimeUnsupported
+(func main ():int #(if true 1 2))
+;===
+; TypeNotDeduced
+; An array's element type must not leak into the operand.
+(func main ():int (var table:(array_fixed int 1) #42) 0)
+;===
+; InternalTypeConstraintFailed
+(func main ():int (var table:(array_fixed int 1) #true) 0)
+;===
+; CompileTimeUnsupported
+(func main ():double #1.5:double)
+;===
+; CompileTimeUnsupported
+; Macro expansion can put a # expression into a type position.
+(macro computed_type () env #(add 1 2))
+(func main ():(computed_type) 0)
+;===
+; CompileTimeUnsupported
+(macro computed_type () env #(add 1 2))
+(struct Bad field:(computed_type))
+(func main ():int 0)

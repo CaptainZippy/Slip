@@ -41,7 +41,6 @@ namespace Slip::Ast {
 
         virtual Expr* resolve();
 
-        size_t m_userData;
         Ast::Type* m_type{ nullptr };
         Ast::Expr* m_declTypeExpr{ nullptr };
         SourceLocation m_loc;
@@ -415,6 +414,13 @@ namespace Slip::Ast {
     struct Nop : Expr {
         AST_DECL();
         Nop() {}
+    };
+
+    struct NowExpr : Expr {
+        AST_DECL();
+        NowExpr( Expr* expr, const SourceLocation& loc ) : Expr( loc ), m_expr( expr ) {}
+        Expr* m_expr;
+        Expr* m_resolved{ nullptr };
     };
 
     struct Number : Expr {

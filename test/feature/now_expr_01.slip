@@ -2,4 +2,4 @@
 (func main ():int
     (var foo #(add 1 2))
     (puti foo)
-    (sub foo 3))
+    (cond ((eq? foo 3) (sub foo 3)) (true 1)))

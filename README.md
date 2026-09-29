@@ -36,7 +36,8 @@ From ";" to the end of the line
 ## Compile-time operations
 
 `#(expression ...)` evaluates an ordinary expression during compilation,
-after syntax expansion. It is not the syntax-operation dispatcher.
+after syntax expansion.
+
 
 ## Macros and syntax operations
 

@@ -48,6 +48,7 @@ namespace Slip::Sema {
     };
 
     struct ConstraintBuilder {
+        bool m_compileTime{ false };
         // Contract : method assigns vi.info and visits any child expressions.
         Result operator()( Ast::Expr* n, VisitInfo& vi ) {
             RETURN_ERROR_IF( vi.info == nullptr, Error::InternalUnknownSemantic, n->m_loc, "Expression is of kind '%s'",
@@ -124,9 +125,30 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
+        Result operator()( Ast::NowExpr* n, VisitInfo& vi ) {
+            if( !n->m_resolved ) {
+                ConstraintBuilder checker( true );
+                TypeInfo* operand;
+                RETURN_IF_FAILED( checker.dispatch( n->m_expr, &operand ) );
+                if( n->m_declTypeExpr ) {
+                    TypeInfo* declared;
+                    RETURN_IF_FAILED( checker.constantType( n->m_declTypeExpr, &declared ) );
+                    checker._isConvertible( n, declared, n->m_expr, operand );
+                }
+                RETURN_IF_FAILED( checker.solve() );
+                RETURN_IF_FAILED( Eval::evaluate( n->m_expr, &n->m_resolved ) );
+                n->m_resolved->m_loc = n->m_loc;
+            }
+            RETURN_ERROR_IF( n->m_type && n->m_type != n->m_resolved->m_type, Error::InternalTypeConstraintFailed, n->m_loc );
+            vi.info = _internKnownType( n->m_resolved->m_type );
+            return Result::OK;
+        }
+
         Result operator()( Ast::Number* n, VisitInfo& vi ) {
             if( auto t = n->m_type ) {
                 vi.info = _internKnownType( t );
+            } else if( m_compileTime && n->m_declTypeExpr ) {
+                RETURN_IF_FAILED( constantType( n->m_declTypeExpr, &vi.info ) );
             } else {
                 RETURN_IF_FAILED( _evalTypeExpr( n->m_declTypeExpr, &vi.info ) );
             }
@@ -319,6 +341,8 @@ namespace Slip::Sema {
         }
 
         Result operator()( Ast::FunctionDecl* n, VisitInfo& vi ) {
+            RETURN_ERROR_IF( m_compileTime && ( !n->m_intrinsic || !n->m_type ), Error::CompileTimeUnsupported, n->m_loc,
+                             "Ordinary function calls are not supported at compile time yet" );
             if( n->m_type ) {  // intrinsic?
                 vi.info = _internKnownType( n->m_type );
             } else {
@@ -361,9 +385,11 @@ namespace Slip::Sema {
             if( auto et = varType->m_array ) {
                 auto tt = _internKnownType( et );
                 for( auto&& i : n->m_initializer ) {
-                    assert( i->m_type == nullptr );
-                    assert( i->m_declTypeExpr == nullptr );
-                    i->m_type = et;
+                    if( !dynamic_cast<Ast::NowExpr*>( i ) ) {
+                        assert( i->m_type == nullptr );
+                        assert( i->m_declTypeExpr == nullptr );
+                        i->m_type = et;
+                    }
                     TypeInfo* d;
                     RETURN_IF_FAILED( dispatch( i, &d ) );
                     _isConvertible( et, tt, i, d );
@@ -563,6 +589,7 @@ namespace Slip::Sema {
             bool todo{ true };
         };
         std::deque<VisitInfo> m_visited;
+        std::unordered_map<Ast::Expr*, size_t> m_visitIndices;
         std::unordered_map<Ast::Type*, TypeInfo*> m_knownTypes;
         std::vector<Ast::Type*> m_functionTypes;
         std::vector<Convertible> m_convertible{};
@@ -671,9 +698,29 @@ namespace Slip::Sema {
         }
 
         Result dispatch( Ast::Expr* top, TypeInfo** out ) {
-            auto& i = top->m_userData;
-            if( i >= m_visited.size() || m_visited[i].node != top ) {
-                top->m_userData = m_visited.size();
+            if( m_compileTime ) {
+                auto target = top->resolve();
+                RETURN_ERROR_IF( dynamic_cast<Ast::VariableDecl*>( target ) || dynamic_cast<Ast::Parameter*>( target ),
+                                 Error::CompileTimeRuntimeValue, top->m_loc, "Compile-time expressions cannot read runtime storage" );
+                switch( top->tag() ) {
+                    case Ast::Detail::TagOf<Ast::Number>::Tag:
+                    case Ast::Detail::TagOf<Ast::String>::Tag:
+                    case Ast::Detail::TagOf<Ast::Nop>::Tag:
+                    case Ast::Detail::TagOf<Ast::NowExpr>::Tag:
+                    case Ast::Detail::TagOf<Ast::Reference>::Tag:
+                    case Ast::Detail::TagOf<Ast::FunctionDecl>::Tag:
+                    case Ast::Detail::TagOf<Ast::FunctionCall>::Tag:
+                    case Ast::Detail::TagOf<Ast::NamedFunctionCall>::Tag:
+                        break;
+                    default:
+                        RETURN_ERROR( Error::CompileTimeUnsupported, top->m_loc, "Cannot evaluate '%s' at compile time",
+                                      top->dynamicType()->name );
+                }
+            }
+            // Nested checking contexts must not overwrite an outer context's visitation indices.
+            auto entry = m_visitIndices.emplace( top, m_visited.size() );
+            auto i = entry.first->second;
+            if( entry.second ) {
                 auto& vi = m_visited.emplace_back( top, (TypeInfo*)nullptr );
                 RETURN_IF_FAILED( Ast::dispatch<Result>( top, *this, vi ) );
                 assert( vi.node );
@@ -683,11 +730,19 @@ namespace Slip::Sema {
             return Result::OK;
         }
 
-        ConstraintBuilder() {}
+        ConstraintBuilder( bool compileTime = false ) : m_compileTime( compileTime ) {}
 
         ~ConstraintBuilder() {}
 
        protected:
+        Result constantType( Ast::Expr* expr, TypeInfo** out ) {
+            auto type = dynamic_cast<Ast::Type*>( expr->resolve() );
+            RETURN_ERROR_IF( !type, Error::CompileTimeUnsupported, expr->m_loc,
+                             "Compile-time operands require an already known type" );
+            *out = _internKnownType( type );
+            return Result::OK;
+        }
+
         void _resolveType( TypeInfo* ti, Ast::Type* ty ) {
             ti->type = ty;
             for( auto&& a : ti->triggerNotify ) {
@@ -738,6 +793,8 @@ namespace Slip::Sema {
                 *out = new TypeInfo{};
                 return Result::OK;
             }
+            RETURN_ERROR_IF( dynamic_cast<Ast::NowExpr*>( te ), Error::CompileTimeUnsupported, te->m_loc,
+                             "Compile-time expressions in types are not supported yet" );
             if( auto t = dynamic_cast<Ast::Type*>( te ) ) {
                 *out = _internKnownType( t );
                 return Result::OK;
@@ -786,7 +843,7 @@ namespace Slip::Sema {
                     assert( ret );
                     *out = _internKnownType( ret );
                     return Result::OK;
-                } else if( auto func = dynamic_cast<Ast::FunctionDecl*>( candidates[0] ) ) {
+                } else if( dynamic_cast<Ast::FunctionDecl*>( candidates[0] ) ) {
                     RETURN_ERROR( Error::CompileTimeUnsupported, named->m_loc, "Function calls in type expressions are not supported" );
                 } else {
                     assert( false );

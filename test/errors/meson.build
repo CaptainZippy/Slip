@@ -13,6 +13,7 @@ slip_errs = [
     'meta_syntax',
     'prefix_space',
     'intrinsic_eval_errors',
+    'now_expr',
 ]
 
 # These tests don't produce an executable.
