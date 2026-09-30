@@ -11,9 +11,9 @@ namespace Slip::Reflect {
             if( top.addr == nullptr ) {
                 out.write( "null" );
                 return;
-            } else if( auto f = top.type->toString ) {
+            } else if( top.type->kind != Kind::Record && top.type->toString ) {
                 std::string s;
-                ( *f )( top.addr, s );
+                top.type->toString( top.addr, s );
                 out.write( s );
                 return;
             }
@@ -55,11 +55,11 @@ namespace Slip::Reflect {
                 }
                 case Kind::Array: {
                     auto et = top.type->sub;
-                    char* s = ( (char**)top.addr )[0];
-                    char* e = ( (char**)top.addr )[1];
-                    unsigned count = unsigned( ( e - s ) / et->size );
+                    void* data;
+                    size_t count = top.type->arrayItems( top.addr, &data );
+                    char* s = static_cast<char*>( data );
                     out.begin( "[" );
-                    for( unsigned i = 0; i < count; ++i ) {
+                    for( size_t i = 0; i < count; ++i ) {
                         if( i != 0 )
                             out.nl();
                         Var e{ s + i * et->size, et };

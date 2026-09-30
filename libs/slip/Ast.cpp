@@ -348,35 +348,41 @@ Ast::Type Ast::s_typeString( "builtin_string"_istr, fixMeDeclContext );
 Ast::Type::Type( istring sym, Expr* declContext ) : NamedDecl( sym, declContext ) {}
 
 static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
-    if( auto f = top.type->toString ) {
-        std::string s;
-        ( *f )( top.addr, s );
-        out.write( s );
-        return;
+    if( top.type->kind != Reflect::Kind::Record ) {
+        if( auto f = top.type->toString ) {
+            std::string s;
+            ( *f )( top.addr, s );
+            out.write( s );
+            return;
+        }
     }
     switch( top.type->kind ) {
         case Reflect::Kind::Array: {
             auto et = top.type->sub;
-            char* s = ( (char**)top.addr )[0];
-            char* e = ( (char**)top.addr )[1];
-            unsigned count = unsigned( ( e - s ) / et->size );
-            for( unsigned i = 0; i < count; ++i ) {
+            void* data;
+            size_t count = top.type->arrayItems( top.addr, &data );
+            char* s = static_cast<char*>( data );
+            for( size_t i = 0; i < count; ++i ) {
                 Reflect::Var e{ s + i * et->size, et };
                 print( e, out, false );
             }
             break;
         }
         case Reflect::Kind::Record: {
-            if( top.type->fields.empty() && top.type->parent ) {
-                print( { top.addr, top.type->parent }, out, abbrev );
-                return;
-            }
+            // A record's toString replaces only the fields declared at that level of the parent chain.
             std::vector<const Reflect::Type*> chain;
             for( auto c = top.type; c; c = c->parent ) {
                 chain.push_back( c );
             }
             if( abbrev ) {
                 for( auto c : reversed( chain ) ) {
+                    if( c->toString ) {
+                        std::string s;
+                        c->toString( top.addr, s );
+                        out.sep();
+                        out.write( s );
+                        continue;
+                    }
                     for( auto f : c->fields ) {
                         if( ( f.flags & ( Ast::Flags::Abbrev | Ast::Flags::Child ) ) == Ast::Flags::Abbrev ) {
                             out.sep();
@@ -387,6 +393,12 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
             } else {
                 out.write( string_format( "\n%s " /*0x%p*/, top.type->name, top.addr ) );
                 for( auto c : reversed( chain ) ) {
+                    if( c->toString ) {
+                        std::string s = " ";
+                        c->toString( top.addr, s );
+                        out.write( s );
+                        continue;
+                    }
                     for( auto f : c->fields ) {
                         if( f.flags == Ast::Flags::Hidden ) {
                         } else if( ( f.flags & Ast::Flags::Child ) == 0 ) {
@@ -399,6 +411,9 @@ static void print( Reflect::Var top, Io::TextOutput& out, bool abbrev ) {
 
                 out.begin( {} );
                 for( auto c : reversed( chain ) ) {
+                    if( c->toString ) {
+                        continue;
+                    }
                     for( auto f : c->fields ) {
                         if( f.flags & Ast::Flags::Child ) {
                             print( top[f], out, false );

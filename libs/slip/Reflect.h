@@ -48,6 +48,8 @@ namespace Slip::Reflect {
         typedef const Type* ( *DynamicTypeFunc )( const void* );
         // Appends a textual representation of the object at addr to out.
         typedef void ( *ToStringFunc )( const void* addr, std::string& out );
+        // Returns the element count of the array at addr and stores its first element in data.
+        typedef size_t ( *ArrayItemsFunc )( void* addr, void** data );
         Kind kind;           // { Kind::Void };
         const Type* parent;  //{ nullptr };
         const Type* sub;     //{ nullptr };
@@ -57,6 +59,7 @@ namespace Slip::Reflect {
         DynamicTypeFunc dynamicType;  //{ nullptr };
         ToStringFunc toString;        //{ nullptr };
         std::vector<Field> fields;
+        ArrayItemsFunc arrayItems;  //{ nullptr };
 
         template <typename BASE>
         bool extends() const {
@@ -92,9 +95,12 @@ namespace Slip::Reflect {
     template <typename T>
     struct TypeOf<std::vector<T> > {
         static inline const Type* value() {
-            static const Type t{
-                Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof( std::vector<T> ), nullptr, {},
-            };
+            static const Type t{ Kind::Array, nullptr, TypeOf<T>::value(), "T[]", sizeof( std::vector<T> ), nullptr, nullptr, nullptr, {},
+                                 []( void* addr, void** data ) {
+                                     auto v = static_cast<std::vector<T>*>( addr );
+                                     *data = v->data();
+                                     return v->size();
+                                 } };
             return &t;
         }
     };
