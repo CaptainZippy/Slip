@@ -1,4 +1,5 @@
 #pragma once
+
 #include "slip/Io.h"
 #include "slip/Reflect.h"
 #include "slip/Slip.h"
@@ -425,11 +426,36 @@ namespace Slip::Ast {
 
     struct Number : Expr {
         AST_DECL();
+
+        // Source spelling stays in m_loc until sema resolves the type and initializes the value.
         template <typename With>
-        Number( istring n, With&& with ) : m_num( n ) {
+        explicit Number( With&& with ) {
             with( *this );
         }
-        std::string m_num;
+
+        bool hasValue() const { return m_hasValue; }
+        // Initialization is single-shot; m_type must not change once a value is present.
+        Result setValue( bool value );
+        Result setValue( int64_t value );
+        Result setValue( double value );
+        Result getValue( bool& value ) const;
+        Result getValue( int64_t& value ) const;
+        Result getValue( double& value ) const;
+        // Appends the evaluated value; unlike a debug dump, requires initialization.
+        Result format( std::string& out ) const;
+
+       private:
+        enum class Representation { None, Boolean, Integer, Real };
+        Representation representation() const;
+        Result checkRepresentation( Representation expected ) const;
+
+        // The resolved Slip type is the discriminator, not a separate stored tag.
+        union {
+            bool boolean;
+            int64_t integer;
+            double real;
+        } m_value;
+        bool m_hasValue{ false };
     };
 
     struct Parameter : NamedDecl {

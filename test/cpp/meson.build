@@ -2,6 +2,7 @@ cpp_tests = [
     'backend_result',
     'eval_boundary',
     'intrinsic_callback',
+    'number_value',
 ]
 
 foreach t : cpp_tests

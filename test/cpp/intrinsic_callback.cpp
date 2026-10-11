@@ -25,8 +25,11 @@ namespace {
         return new Ast::FunctionCall( new Ast::Reference( function ), std::move( args ), [&]( auto& n ) { n.m_type = result; } );
     }
 
-    Ast::Number* number( const char* text ) {
-        return new Ast::Number( istring::make( text ), []( auto& n ) { n.m_type = &Ast::s_typeInt; } );
+    Ast::Number* number( int64_t value ) {
+        auto n = new Ast::Number( []( auto& n ) { n.m_type = &Ast::s_typeInt; } );
+        auto result = n->setValue( value );
+        assert( result.isOk() );
+        return n;
     }
 }  // namespace
 
@@ -35,20 +38,23 @@ int main() {
     auto inner = call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) -> Result {
         RETURN_ERROR_IF( !args.empty(), Error::WrongNumberOfArguments, loc );
         ++calls;
-        *out = number( "7" );
+        *out = number( 7 );
         return Result::OK;
     } );
-    auto outer = call( &Ast::s_typeInt, { inner, number( "2" ), number( "3" ) },
+    auto outer = call( &Ast::s_typeInt, { inner, number( 2 ), number( 3 ) },
                        []( const Ast::SourceLocation& loc, array_view<Ast::Expr*> args, Ast::Expr** out ) -> Result {
                            RETURN_ERROR_IF( args.size() != 3, Error::WrongNumberOfArguments, loc );
-                           const char* expected[] = { "7", "2", "3" };
+                           const int64_t expected[] = { 7, 2, 3 };
                            for( size_t i = 0; i < args.size(); ++i ) {
                                auto n = dynamic_cast<Ast::Number*>( args[i] );
-                               RETURN_ERROR_IF( !n || n->m_type != &Ast::s_typeInt || n->m_num != expected[i],
+                               RETURN_ERROR_IF( !n || n->m_type != &Ast::s_typeInt,
                                                 Error::InternalTypeConstraintFailed, loc );
+                               int64_t value;
+                               RETURN_IF_FAILED( n->getValue( value ) );
+                               RETURN_ERROR_IF( value != expected[i], Error::InternalTypeConstraintFailed, loc );
                            }
                            ++calls;
-                           *out = number( "-9" );
+                           *out = number( -9 );
                            ( *out )->m_loc = loc;
                            return Result::OK;
                        } );
@@ -59,10 +65,12 @@ int main() {
     Ast::Expr* result = nullptr;
     CHECK( Eval::evaluate( outer, &result ).isOk() );
     auto n = dynamic_cast<Ast::Number*>( result );
-    CHECK( calls == 2 && n && n->m_num == "-9" && n->m_type == &Ast::s_typeInt );
+    CHECK( calls == 2 && n && n->m_type == &Ast::s_typeInt );
+    int64_t value;
+    CHECK( n->getValue( value ).isOk() && value == -9 );
     CHECK( n->m_loc.m_file == &source && n->m_loc.text() == "(custom)" );
 
-    Ast::Number typeUse{ "0"_istr, [&]( auto& n ) { n.m_declTypeExpr = outer; } };
+    Ast::Number typeUse{ [&]( auto& n ) { n.m_declTypeExpr = outer; } };
     CHECK( Sema::type_check( &typeUse ).code == Error::CompileTimeUnsupported );
     CHECK( calls == 2 );
 
@@ -77,7 +85,7 @@ int main() {
     CHECK( string && string->m_str == text->m_str && string->m_type == &Ast::s_typeString );
 
     auto fail = call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation& loc, array_view<Ast::Expr*>, Ast::Expr** out ) -> Result {
-        *out = number( "0" );
+        *out = number( 0 );
         RETURN_ERROR( Error::CompileTimeArithmeticError, loc, "Test callback failure" );
     } );
     CHECK( Eval::evaluate( fail, &result ).code == Error::CompileTimeArithmeticError );
@@ -92,12 +100,12 @@ int main() {
         call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** ) -> Result { return Result::OK; } );
     CHECK( Eval::evaluate( invalid, &result ).code == Error::InternalIntrinsicResult && !result );
     auto wrongType = call( &Ast::s_typeString, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** out ) -> Result {
-        *out = number( "1" );
+        *out = number( 1 );
         return Result::OK;
     } );
     CHECK( Eval::evaluate( wrongType, &result ).code == Error::InternalIntrinsicResult && !result );
     auto nonConstant = call( &Ast::s_typeInt, {}, []( const Ast::SourceLocation&, array_view<Ast::Expr*>, Ast::Expr** out ) -> Result {
-        auto ref = new Ast::Reference( number( "1" ) );
+        auto ref = new Ast::Reference( number( 1 ) );
         ref->m_type = &Ast::s_typeInt;
         *out = ref;
         return Result::OK;

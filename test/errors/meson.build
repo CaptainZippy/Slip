@@ -14,6 +14,7 @@ slip_errs = [
     'prefix_space',
     'intrinsic_eval_errors',
     'now_expr',
+    'number_literal',
 ]
 
 # These tests don't produce an executable.

@@ -1,5 +1,7 @@
 #include "slip/pch/Pch.h"
 
+#include <charconv>
+
 #include "Ast.h"
 #include "Errors.h"
 #include "Io.h"
@@ -679,6 +681,9 @@ namespace Slip::Sema {
                     assert( v.info->type );
                     v.node->m_type = v.info->type;
                 }
+                if( auto number = dynamic_cast<Ast::Number*>( v.node ); number && !number->hasValue() ) {
+                    RETURN_IF_FAILED( _evalLiteral( number ) );
+                }
             }
             return Result::OK;
         }  // namespace Slip::Sema
@@ -735,6 +740,32 @@ namespace Slip::Sema {
         ~ConstraintBuilder() {}
 
        protected:
+        // A literal's value depends on its type, so it can only be computed once the type is solved.
+        static Result _evalLiteral( Ast::Number* n ) {
+            auto text = n->m_loc.text();
+            auto first = text.data();
+            auto last = first + text.size();
+            if( first != last && *first == '+' ) {
+                ++first;
+            }
+            if( n->m_type == &Ast::s_typeInt ) {
+                int32_t value;
+                auto parsed = std::from_chars( first, last, value );
+                RETURN_ERROR_IF( parsed.ec != std::errc{} || parsed.ptr != last, Error::InvalidNumberLiteral, n->m_loc,
+                                 "Expected a signed 32-bit decimal integer" );
+                RETURN_IF_FAILED( n->setValue( int64_t{ value } ) );
+            } else if( n->m_type == &Ast::s_typeDouble || n->m_type == &Ast::s_typeFloat ) {
+                double value;
+                auto parsed = std::from_chars( first, last, value );
+                RETURN_ERROR_IF( parsed.ec != std::errc{} || parsed.ptr != last, Error::InvalidNumberLiteral, n->m_loc,
+                                 "Expected a floating point number" );
+                RETURN_IF_FAILED( n->setValue( value ) );
+            } else {
+                RETURN_ERROR( Error::InvalidNumberLiteral, n->m_loc, "A number literal cannot have type '%s'", n->m_type->name().c_str() );
+            }
+            return Result::OK;
+        }
+
         Result constantType( Ast::Expr* expr, TypeInfo** out ) {
             auto type = dynamic_cast<Ast::Type*>( expr->resolve() );
             RETURN_ERROR_IF( !type, Error::CompileTimeUnsupported, expr->m_loc,
@@ -829,7 +860,12 @@ namespace Slip::Sema {
                         if( auto na = dynamic_cast<Ast::NamedDecl*>( a ) ) {
                             suffix.append( na->name() );
                         } else if( auto nu = dynamic_cast<Ast::Number*>( a ) ) {
-                            suffix.append( nu->m_num );
+                            // Type arguments are checked before literals are evaluated.
+                            if( nu->hasValue() ) {
+                                RETURN_IF_FAILED( nu->format( suffix ) );
+                            } else {
+                                suffix.append( nu->m_loc.text() );
+                            }
                         } else {
                             assert( false );
                         }

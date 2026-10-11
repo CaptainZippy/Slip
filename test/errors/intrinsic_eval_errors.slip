@@ -14,13 +14,13 @@
 ; OverloadResolutionFailed
 (func main ():int #(add (div 1 0) "bad"))
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #(add 2147483648 0))
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #(add -2147483649 0))
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #(add 1.5 2))
 ;===
 ; CompileTimeArithmeticError

@@ -4,6 +4,95 @@
 #include "Errors.h"
 #include "Io.h"
 
+Slip::Ast::Number::Representation Slip::Ast::Number::representation() const {
+    if( m_type == &s_typeBool )
+        return Representation::Boolean;
+    if( m_type == &s_typeInt || m_type == &s_typeError )
+        return Representation::Integer;
+    if( m_type == &s_typeFloat || m_type == &s_typeDouble )
+        return Representation::Real;
+    return Representation::None;
+}
+
+Slip::Result Slip::Ast::Number::checkRepresentation( Representation expected ) const {
+    RETURN_ERROR_IF( representation() != expected, Error::InternalTypeConstraintFailed, m_loc,
+                     "Number type '%s' does not match the requested value representation",
+                     m_type ? m_type->name().c_str() : "<unresolved>" );
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::setValue( bool value ) {
+    RETURN_ERROR_IF( m_hasValue, Error::InternalTypeConstraintFailed, m_loc, "Number value is already initialized" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Boolean ) );
+    m_value.boolean = value;
+    m_hasValue = true;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::setValue( int64_t value ) {
+    RETURN_ERROR_IF( m_hasValue, Error::InternalTypeConstraintFailed, m_loc, "Number value is already initialized" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Integer ) );
+    m_value.integer = value;
+    m_hasValue = true;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::setValue( double value ) {
+    RETURN_ERROR_IF( m_hasValue, Error::InternalTypeConstraintFailed, m_loc, "Number value is already initialized" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Real ) );
+    m_value.real = value;
+    m_hasValue = true;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::getValue( bool& value ) const {
+    RETURN_ERROR_IF( !m_hasValue, Error::InternalUncheckedEvaluation, m_loc, "Number literal has not been evaluated" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Boolean ) );
+    value = m_value.boolean;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::getValue( int64_t& value ) const {
+    RETURN_ERROR_IF( !m_hasValue, Error::InternalUncheckedEvaluation, m_loc, "Number literal has not been evaluated" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Integer ) );
+    value = m_value.integer;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::getValue( double& value ) const {
+    RETURN_ERROR_IF( !m_hasValue, Error::InternalUncheckedEvaluation, m_loc, "Number literal has not been evaluated" );
+    RETURN_IF_FAILED( checkRepresentation( Representation::Real ) );
+    value = m_value.real;
+    return Result::OK;
+}
+
+Slip::Result Slip::Ast::Number::format( std::string& out ) const {
+    RETURN_ERROR_IF( !m_hasValue, Error::InternalUncheckedEvaluation, m_loc, "Number literal has not been evaluated" );
+    switch( representation() ) {
+        case Representation::Boolean:
+            out.append( m_value.boolean ? "true" : "false" );
+            break;
+        case Representation::Integer:
+            out.append( std::to_string( m_value.integer ) );
+            break;
+        case Representation::Real: {
+            // Shortest spelling that reads back as the same double.
+            char buf[32];
+            auto r = std::to_chars( buf, buf + sizeof( buf ), m_value.real );
+            RETURN_ERROR_IF( r.ec != std::errc{}, Error::InternalTypeConstraintFailed, m_loc, "Cannot format floating point number" );
+            std::string s( buf, r.ptr );
+            if( s.find_first_of( ".eEn" ) == std::string::npos ) {
+                s += ".0";  // keep it a floating point literal in generated code
+            }
+            out.append( s );
+            break;
+        }
+        default:
+            RETURN_ERROR( Error::InternalTypeConstraintFailed, m_loc, "Number does not have a numeric type" );
+    }
+    return Result::OK;
+}
+
 namespace Slip::Ast {
 #define AST_NODE( X ) \
     int X::tag() const { return Detail::TagOf<X>::Tag; }
@@ -69,7 +158,17 @@ namespace Slip::Ast {
 
     REFLECT_BEGIN( Number )
     REFLECT_PARENT( Expr )
-    REFLECT_FIELD2( m_num, Flags::Abbrev )
+    REFLECT_TO_STRING( []( const void* addr, std::string& out ) {
+        auto n = static_cast<const Number*>( addr );
+        if( n->hasValue() ) {
+            if( !n->format( out ).isOk() )
+                out.append( "<invalid number>" );
+        } else if( n->m_loc.m_file ) {
+            out.append( n->m_loc.text() );
+        } else {
+            out.append( "<unevaluated number>" );
+        }
+    } )
     REFLECT_END()
 
     REFLECT_BEGIN( String )

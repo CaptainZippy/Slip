@@ -415,7 +415,7 @@ static Result parse1( Ast::Environment* env, Ast::LexNode* atom, Parse::Flags fl
     } else if( auto num = dynamic_cast<Ast::LexNumber*>( atom ) ) {
         Ast::Expr* te;
         RETURN_IF_FAILED( parse1( env, num->m_declTypeLex, Parse::Flags::None, &te ) );
-        auto r = new Ast::Number( num->istr(), WITH( _.m_loc = num->m_loc, _.m_declTypeExpr = te ) );
+        auto r = new Ast::Number( WITH( _.m_loc = num->m_loc, _.m_declTypeExpr = te ) );
         *out = r;
         return Result::OK;
     } else if( auto str = dynamic_cast<Ast::LexString*>( atom ) ) {
@@ -1200,9 +1200,16 @@ Slip::Result Parse::module( string_view name, Ast::LexList& lex, Slip::unique_pt
         env->bind( "string"_sv, &Ast::s_typeString );
         env->bind( "bool"_sv, &Ast::s_typeBool );
 
-        env->bind( "true"_sv, new Ast::Number( "true"_istr, WITH( _.m_type = &Ast::s_typeBool ) ) );
-        env->bind( "false"_sv, new Ast::Number( "false"_istr, WITH( _.m_type = &Ast::s_typeBool ) ) );
-        env->bind( "failed"_sv, new Ast::Number( "failed"_istr, WITH( _.m_type = &Ast::s_typeError ) ) );
+        auto trueValue = new Ast::Number( WITH( _.m_type = &Ast::s_typeBool ) );
+        RETURN_IF_FAILED( trueValue->setValue( true ) );
+        env->bind( "true"_sv, trueValue );
+        auto falseValue = new Ast::Number( WITH( _.m_type = &Ast::s_typeBool ) );
+        RETURN_IF_FAILED( falseValue->setValue( false ) );
+        env->bind( "false"_sv, falseValue );
+        // Matches the backend's 'enum builtin__Error { failed=1 }'.
+        auto failedValue = new Ast::Number( WITH( _.m_type = &Ast::s_typeError ) );
+        RETURN_IF_FAILED( failedValue->setValue( int64_t{ 1 } ) );
+        env->bind( "failed"_sv, failedValue );
     }
 
     auto b_ii = _makeFuncType( "(int, int)->bool", &Ast::s_typeBool, &Ast::s_typeInt, &Ast::s_typeInt );

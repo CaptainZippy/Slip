@@ -40,13 +40,13 @@
 ; InternalTypeConstraintFailed
 (func main ():int #(add 1 2):bool)
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #2147483648:int)
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #-2147483649:int)
 ;===
-; CompileTimeInvalidInteger
+; InvalidNumberLiteral
 (func main ():int #(add 1.5 2))
 ;===
 ; CompileTimeArithmeticError

@@ -18,6 +18,7 @@
 * tail recursion
 * splice expression (splat list into args)
 * Ast::Number contains real number
+* Too much duplication of nodes (e.g. in eval). Should leverage immutability.
 
 # Syntax 
 

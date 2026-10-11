@@ -35,20 +35,23 @@ namespace {
         }
 
         Result operator()( Ast::Number* n, Ast::Expr** out ) {
-            std::string text;
-            if( n->m_type == &Ast::s_typeInt ) {
-                int64_t value;
-                RETURN_IF_FAILED( Intrinsic::integer( n, value ) );
-                text = std::to_string( value );
-            } else if( n->m_type == &Ast::s_typeBool && ( n->m_num == "true" || n->m_num == "false" ) ) {
-                text = n->m_num;
-            } else {
-                RETURN_ERROR( Error::CompileTimeUnsupported, n->m_loc, "Only integer and boolean numbers are supported" );
-            }
-            *out = new Ast::Number( istring::make( text ), [&]( auto& value ) {
+            RETURN_ERROR_IF( !n->hasValue(), Error::InternalUncheckedEvaluation, n->m_loc, "Number literal has not been evaluated" );
+            RETURN_ERROR_IF( n->m_type != &Ast::s_typeInt && n->m_type != &Ast::s_typeBool,
+                             Error::CompileTimeUnsupported, n->m_loc, "Only integer and boolean numbers are supported" );
+            auto copy = new Ast::Number( [&]( auto& value ) {
                 value.m_type = n->m_type;
                 value.m_loc = n->m_loc;
             } );
+            if( n->m_type == &Ast::s_typeInt ) {
+                int64_t value;
+                RETURN_IF_FAILED( n->getValue( value ) );
+                RETURN_IF_FAILED( copy->setValue( value ) );
+            } else {
+                bool value;
+                RETURN_IF_FAILED( n->getValue( value ) );
+                RETURN_IF_FAILED( copy->setValue( value ) );
+            }
+            *out = copy;
             return Result::OK;
         }
 

@@ -27,7 +27,9 @@ int main() {
     CHECK( !result && !now->m_expr->m_type );
     CHECK( Sema::type_check( module.get() ).isOk() );
     auto number = dynamic_cast<Ast::Number*>( now->m_resolved );
-    CHECK( number && number->m_num == "5" && number->m_type == &Ast::s_typeInt );
+    CHECK( number && number->m_type == &Ast::s_typeInt );
+    int64_t value;
+    CHECK( number->getValue( value ).isOk() && value == 5 );
     CHECK( now->m_type == number->m_type );
     CHECK( number->m_loc.m_file == &source && number->m_loc.text() == now->m_loc.text() );
     CHECK( number->m_loc.text() == "#(add #(sub 9 12) (mul 2 4))" );

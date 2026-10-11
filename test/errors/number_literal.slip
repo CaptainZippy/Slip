@@ -1,0 +1,9 @@
+; InvalidNumberLiteral
+; Literal values are checked once sema knows their type, not only at compile time.
+(func main ():int 2147483648)
+;===
+; InvalidNumberLiteral
+(func main ():int (add 1.5 2))
+;===
+; InvalidNumberLiteral
+(func main ():int (var x 99:string) 0)

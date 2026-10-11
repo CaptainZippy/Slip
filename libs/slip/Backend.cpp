@@ -158,7 +158,9 @@ namespace {
         }
 
         Result operator()( Ast::Number* n, std::string& value ) {
-            value = string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), n->m_num.c_str() );
+            std::string text;
+            RETURN_IF_FAILED( n->format( text ) );
+            value = string_format( "(%s)%s", sanitize( n->m_type->name() ).c_str(), text.c_str() );
             return Result::OK;
         }
         Result operator()( Ast::String* n, std::string& value ) {
